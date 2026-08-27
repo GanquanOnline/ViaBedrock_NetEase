@@ -116,6 +116,22 @@ class RidingTrackerTest {
     }
 
     @Test
+    void predictedBoatIgnoresJavaBuoyancyYWhenMoveVehicleIsPresent() {
+        // JE client boat buoyancy can raise MOVE_VEHICLE Y every tick. MOT 860 onInput writes
+        // that Y into the hull; feeding it back would make the boat climb forever (#1-2).
+        final Position3f motNetworkBoat = new Position3f(10F, 64.375F, -3F);
+        final Position3f buoyantJavaFoot = new Position3f(11F, 65.0F, -2F);
+        final Position3f auth = RidingTracker.predictedBoatAuthInputPosition(buoyantJavaFoot, motNetworkBoat, 0.375F);
+
+        assertEquals(11F, auth.x(), 1.0e-6F);
+        assertEquals(64.375F, auth.y(), 1.0e-6F);
+        assertEquals(-2F, auth.z(), 1.0e-6F);
+        assertEquals(motNetworkBoat.y(), auth.y(), 1.0e-6F);
+        assertTrue(Math.abs(auth.y() - (buoyantJavaFoot.y() + 0.375F)) > 0.5F,
+                "JE buoyancy Y must not become the next MOT hull height");
+    }
+
+    @Test
     void doesNotForwardInputFromNonControllingPassengers() {
         assertEquals(PASSENGER_ONLY, RidingTracker.localRidingMode(EntityTypes1_21_11.MINECART, false));
     }
