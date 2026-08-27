@@ -9,6 +9,11 @@
  */
 package net.raphimc.viabedrock.experimental.storage;
 
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.viaversion.api.minecraft.data.StructuredData;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
+import com.viaversion.viaversion.api.minecraft.item.StructuredItem;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.test.StubUserConnection;
@@ -18,7 +23,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CreativeContentCacheTest {
 
@@ -45,5 +52,40 @@ class CreativeContentCacheTest {
         final CreativeContentCache cache = new CreativeContentCache(this.user);
         cache.replace(List.of(new CreativeContentCache.Entry(3, new BedrockItem(35, (short) 0, (byte) 1))));
         assertNull(cache.findNetId(new BedrockItem(1, (short) 0, (byte) 1)));
+    }
+
+    @Test
+    void sameEffectiveComponentsIgnoresBedrockItemShadow() {
+        final StructuredItem mapped = new StructuredItem(35, 1, new StructuredDataContainer());
+        final CompoundTag shadowCustom = new CompoundTag();
+        final CompoundTag shadow = new CompoundTag();
+        shadow.putInt("version", 1);
+        shadow.putString("identifier", "minecraft:wool");
+        shadowCustom.put("viabedrock:bedrock_item", shadow);
+        putCustomData(mapped, shadowCustom);
+
+        final StructuredItem clicked = new StructuredItem(35, 1, new StructuredDataContainer());
+        assertTrue(CreativeContentCache.sameEffectiveComponents(mapped, clicked));
+        assertTrue(CreativeContentCache.sameEffectiveComponents(clicked, mapped));
+    }
+
+    @Test
+    void sameEffectiveComponentsStillComparesOtherCustomData() {
+        final StructuredItem left = new StructuredItem(35, 1, new StructuredDataContainer());
+        final CompoundTag leftCustom = new CompoundTag();
+        leftCustom.putString("viabedrock:bedrock_identifier", "minecraft:wool");
+        putCustomData(left, leftCustom);
+
+        final StructuredItem right = new StructuredItem(35, 1, new StructuredDataContainer());
+        final CompoundTag rightCustom = new CompoundTag();
+        rightCustom.putString("viabedrock:bedrock_identifier", "minecraft:stone");
+        putCustomData(right, rightCustom);
+
+        assertFalse(CreativeContentCache.sameEffectiveComponents(left, right));
+    }
+
+    private static void putCustomData(final StructuredItem item, final CompoundTag customData) {
+        // Avoid StructuredDataContainer.set(), which needs a protocol id lookup.
+        item.dataContainer().data().put(StructuredDataKey.CUSTOM_DATA, StructuredData.of(StructuredDataKey.CUSTOM_DATA, customData, 0));
     }
 }

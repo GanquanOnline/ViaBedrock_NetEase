@@ -78,6 +78,17 @@ Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitma
   - `decompiled/nukkit-mot/cn/nukkit/entity/Entity.java` (sniffer flags 110–112)
 - **Risk:** README boxes stay unchecked. Full `gradlew test` still includes optional JFR/GC soak tests gated by env vars. Extra-output auto-craft with `times != 1` is rejected by MOT.
 
+## 2026-08-27 — Fix creative click item disappearance (#1-1)
+
+- **Goal:** Clicking an item in the Java creative inventory made it vanish. JE creative tabs are vanilla, not MOT `CREATIVE_CONTENT`; clicks go through `SET_CREATIVE_MODE_SLOT` → `CreativeSlotSemantics.plan` → `CreativeContentCache.findNetIdForJavaItem()`.
+- **Root cause:** Mapped creative entries carry a private `viabedrock:bedrock_item` shadow, while JE clicks do not. `sameComponents()` compared whole `StructuredDataContainer`s, but that type has no `equals()`, so matches almost never succeeded. Identifier-less lookups returned `Plan.unsupported()`, and the handler force-resynced JE inventory/cursor from the Bedrock mirror, wiping the optimistic click.
+- **Change:**
+  - Prefer `ItemRewriter.bedrockItem(javaItem)` and exact/identity netId lookup before the JE identifier scan.
+  - Replace container `equals` with `sameEffectiveComponents`, which ignores only the private shadow and still compares other custom data / components.
+  - On `Plan.unsupported()` / encode unsupported, leave JE's optimistic creative prediction alone instead of clearing the cursor.
+- **Refs:** `CreativeContentCache`, `ClientAuthInventoryModule.registerCreativeModeSlotHandler`, `TODO.md` #1-1.
+- **Risk:** Items that still have no Bedrock creative netId remain unsupported and are no longer wiped; JE may keep a ghost cursor until a later authoritative update. Potion/tipped-arrow variant selection still depends on `bedrockItem()` restoring aux correctly (#1-4 / #1-15).
+
 ## Open risks (not patched here)
 
 - Static `runtime_item_states.json` is still the international dump. MOT `runtime_item_states_netease_860.json` differs on 552 vanilla ids, but MOT always sends live `ITEM_REGISTRY`, so classification (`id <= 255`) is the remaining static risk.

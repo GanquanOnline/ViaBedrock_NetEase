@@ -748,8 +748,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
             final CreativeSlotSemantics.Plan plan = CreativeSlotSemantics.plan(
                     slot, item, tracker, wrapper.user().get(ItemRewriter.class), wrapper.user().get(CreativeContentCache.class));
             if (plan.isUnsupported()) {
-                PacketFactory.sendJavaContainerSetContent(wrapper.user(), tracker.getInventoryContainer());
-                sendJavaCursor(wrapper.user(), tracker);
+                // Do not force-resync from the Bedrock mirror. JE creative clicks already moved
+                // the cursor/slot optimistically; wiping them makes the picked item disappear.
                 return;
             }
             if (plan.isEmpty()) {
@@ -757,8 +757,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             }
             final ItemStackRequestEncoder.EncodedRequest encoded = encodeCreativePlan(plan, tracker);
             if (encoded.unsupported() || encoded.isEmpty()) {
-                PacketFactory.sendJavaContainerSetContent(wrapper.user(), tracker.getInventoryContainer());
-                sendJavaCursor(wrapper.user(), tracker);
+                // Same as Plan.unsupported(): leave JE's optimistic creative prediction alone.
                 return;
             }
             final InventorySnapshot snapshot = InventorySnapshot.capture(tracker);
