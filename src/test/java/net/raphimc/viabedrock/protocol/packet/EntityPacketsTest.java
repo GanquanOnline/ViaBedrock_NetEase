@@ -287,6 +287,21 @@ class EntityPacketsTest {
         assertEquals(0F, entity(EntityTypes1_21_11.ITEM).eyeOffset(), 1.0E-6F);
     }
 
+    @Test
+    void javaEntityYStripsBoatNetworkBaseOffsetOnSpawn() {
+        final Entity boat = new Entity(null, 1L, 2L, "minecraft:boat", 3, UUID.randomUUID(), EntityTypes1_21_11.OAK_BOAT);
+        final Entity chestBoat = new Entity(null, 1L, 2L, "minecraft:chest_boat", 3, UUID.randomUUID(), EntityTypes1_21_11.OAK_CHEST_BOAT);
+        final Entity item = entity(EntityTypes1_21_11.ITEM);
+
+        // MOT ADD stores foot + getBaseOffset(0.375). Java ADD_ENTITY must get the foot so the
+        // first MOVE_VEHICLE does not feed an elevated hull into predicted-boat SAI.
+        assertEquals(64.0F, EntityPackets.javaEntityY(boat, 64.375F), 1.0E-6F);
+        assertEquals(64.0F, EntityPackets.javaEntityY(chestBoat, 64.375F), 1.0E-6F);
+        assertEquals(64.375F, EntityPackets.javaEntityY(item, 64.375F), 1.0E-6F);
+        assertTrue(Math.abs(EntityPackets.javaEntityY(boat, 64.375F) - 64.375F) > 0.3F,
+                "leaving the MOT network Y on ADD_ENTITY would leave the JE boat 0.375 too high");
+    }
+
     private static LivingEntity livingEntity(final EntityTypes1_21_11 javaType) {
         return livingEntity(javaType, 2L);
     }

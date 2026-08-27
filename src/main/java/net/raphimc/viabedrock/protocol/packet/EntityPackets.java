@@ -168,7 +168,11 @@ public class EntityPackets {
             wrapper.write(Types.UUID, entity.javaUuid()); // uuid
             wrapper.write(Types.VAR_INT, entity.javaTypeId()); // type id
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
-            wrapper.write(Types.DOUBLE, (double) position.y()); // y
+            // MOT ADD already includes getBaseOffset() for boats (0.375). MATCH MOVE_ENTITY:
+            // Java ADD_ENTITY wants the foot. Leaving the network Y here makes the JE hull sit
+            // 0.375 high; the first MOVE_VEHICLE then feeds that elevated foot into predicted
+            // boat SAI and lifts the boat again (#1-2 takeoff).
+            wrapper.write(Types.DOUBLE, (double) javaEntityY(entity, position.y())); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
             wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // velocity
             wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // pitch
@@ -259,7 +263,7 @@ public class EntityPackets {
                 } else { // force move local entity
                     wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
                     wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
-                    wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
+                    wrapper.write(Types.DOUBLE, (double) javaEntityY(entity, entity.position().y())); // y
                     wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
                     wrapper.write(Types.DOUBLE, 0D); // velocity x
                     wrapper.write(Types.DOUBLE, 0D); // velocity y
@@ -278,7 +282,7 @@ public class EntityPackets {
 
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
-            wrapper.write(Types.DOUBLE, (double) position.y() - entity.eyeOffset()); // y
+            wrapper.write(Types.DOUBLE, (double) javaEntityY(entity, position.y())); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
             wrapper.write(Types.DOUBLE, 0D); // velocity x
             wrapper.write(Types.DOUBLE, 0D); // velocity y
@@ -338,7 +342,7 @@ public class EntityPackets {
                 } else { // force move local entity
                     wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
                     wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
-                    wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
+                    wrapper.write(Types.DOUBLE, (double) javaEntityY(entity, entity.position().y())); // y
                     wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
                     wrapper.write(Types.DOUBLE, 0D); // velocity x
                     wrapper.write(Types.DOUBLE, 0D); // velocity y
@@ -374,7 +378,7 @@ public class EntityPackets {
 
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
             wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
-            wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
+            wrapper.write(Types.DOUBLE, (double) javaEntityY(entity, entity.position().y())); // y
             wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
             wrapper.write(Types.DOUBLE, 0D); // velocity x
             wrapper.write(Types.DOUBLE, 0D); // velocity y
@@ -835,6 +839,17 @@ public class EntityPackets {
             case SHAKE_WETNESS_STOP -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.CANCEL_SHAKE_WETNESS;
             default -> null;
         };
+    }
+
+    /**
+     * Convert a Bedrock network Y into the Java entity foot Y.
+     * MOT ADD/MOVE already include {@code getBaseOffset()} for boats (0.375);
+     * Java ADD_ENTITY / ENTITY_POSITION_SYNC want the foot. Leaving the network Y
+     * on spawn makes the JE hull sit high, and the first {@code MOVE_VEHICLE} then
+     * feeds that elevated foot into predicted-boat SAI (#1-2 takeoff).
+     */
+    static float javaEntityY(final Entity entity, final float bedrockNetworkY) {
+        return bedrockNetworkY - entity.eyeOffset();
     }
 
     static JavaAnimate resolveJavaAnimate(final AnimatePacketPayload_Action bedrockAction, final long entityRuntimeId,

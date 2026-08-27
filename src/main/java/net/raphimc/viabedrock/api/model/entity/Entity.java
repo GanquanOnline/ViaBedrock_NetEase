@@ -174,8 +174,10 @@ public class Entity {
     }
 
     public float eyeOffset() {
-        // MOT ADD/MOVE for boats already includes getBaseOffset() (0.375). GanAC then
-        // subtracts the same offset. Writing raw MOT Y would place the JE AABB 0.375 too high.
+        // MOT ADD/MOVE for boats already includes getBaseOffset() (0.375). Java ADD_ENTITY /
+        // ENTITY_POSITION_SYNC and GanAC then subtract the same offset. Writing raw MOT Y on
+        // spawn leaves the JE hull 0.375 high; the first MOVE_VEHICLE then lifts predicted-boat
+        // SAI again (#1-2 takeoff).
         if ("minecraft:boat".equals(this.type) || "minecraft:chest_boat".equals(this.type)) {
             return 0.375F;
         }

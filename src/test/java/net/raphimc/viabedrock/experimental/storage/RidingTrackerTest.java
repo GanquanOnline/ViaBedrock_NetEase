@@ -100,6 +100,22 @@ class RidingTrackerTest {
     }
 
     @Test
+    void predictedBoatFromSpawnedJavaFootMatchesMotNetworkY() {
+        // After ADD_ENTITY strips MOT getBaseOffset, JE MOVE_VEHICLE reports the foot.
+        // That foot + boat eyeOffset must equal the MOT network Y used without MOVE_VEHICLE.
+        final Position3f motNetworkBoat = new Position3f(10F, 64.375F, -3F);
+        final Position3f javaFoot = RidingTracker.predictedBoatJavaFoot(motNetworkBoat, 0.375F);
+        final Position3f fromMoveVehicle = RidingTracker.predictedBoatAuthInputPosition(javaFoot, 0.375F);
+        final Position3f fromTracker = RidingTracker.predictedBoatAuthInputFromVehicle(motNetworkBoat, 0.375F);
+
+        assertEquals(64.0F, javaFoot.y(), 1.0e-6F);
+        assertEquals(fromTracker.y(), fromMoveVehicle.y(), 1.0e-6F);
+        assertEquals(motNetworkBoat.y(), fromMoveVehicle.y(), 1.0e-6F);
+        assertTrue(Math.abs(fromMoveVehicle.y() - (motNetworkBoat.y() + 0.375F)) > 0.3F,
+                "feeding the MOT network Y as a Java foot would lift SAI by another 0.375");
+    }
+
+    @Test
     void doesNotForwardInputFromNonControllingPassengers() {
         assertEquals(PASSENGER_ONLY, RidingTracker.localRidingMode(EntityTypes1_21_11.MINECART, false));
     }
