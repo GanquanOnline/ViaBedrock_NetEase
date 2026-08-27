@@ -17,8 +17,11 @@
  */
 package net.raphimc.viabedrock.experimental.storage;
 
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.StoredObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
@@ -115,11 +118,53 @@ public class CreativeContentCache extends StoredObject {
         return fallback;
     }
 
-    private static boolean sameComponents(final Item left, final Item right) {
-        if (left.dataContainer() == null || right.dataContainer() == null) {
-            return left.dataContainer() == right.dataContainer();
+    /**
+     * Removes the viabedrock:bedrock_item shadow component from an item's CustomData.
+     * This is used when comparing items to ignore shadow differences that don't affect
+     * the item's core functionality.
+     *
+     * @param item the item to filter
+     * @return the item with the shadow component removed, or the original item if no changes were made
+     */
+    private static Item removeBedrockItemShadow(final Item item) {
+        // Handle null cases
+        if (item == null || item.dataContainer() == null) {
+            return item;
         }
-        return left.dataContainer().equals(right.dataContainer());
+
+        final StructuredDataContainer data = item.dataContainer();
+        final CompoundTag customData = data.get(StructuredDataKey.CUSTOM_DATA);
+
+        // If no CustomData or no shadow, return original item
+        if (customData == null || !customData.contains("viabedrock:bedrock_item")) {
+            return item;
+        }
+
+        // Create a copy of the item with the shadow removed
+        final Item itemCopy = item.copy();
+        final StructuredDataContainer dataCopy = itemCopy.dataContainer();
+        final CompoundTag customDataCopy = customData.copy();
+        customDataCopy.remove("viabedrock:bedrock_item");
+
+        // If CustomData is now empty, remove it entirely
+        if (customDataCopy.isEmpty()) {
+            dataCopy.remove(StructuredDataKey.CUSTOM_DATA);
+        } else {
+            dataCopy.set(StructuredDataKey.CUSTOM_DATA, customDataCopy);
+        }
+
+        return itemCopy;
+    }
+
+    private static boolean sameComponents(final Item left, final Item right) {
+        // Filter out shadow components before comparison
+        final Item leftFiltered = removeBedrockItemShadow(left);
+        final Item rightFiltered = removeBedrockItemShadow(right);
+        
+        if (leftFiltered.dataContainer() == null || rightFiltered.dataContainer() == null) {
+            return leftFiltered.dataContainer() == rightFiltered.dataContainer();
+        }
+        return leftFiltered.dataContainer().equals(rightFiltered.dataContainer());
     }
 
     public record Entry(int netId, BedrockItem item) {
