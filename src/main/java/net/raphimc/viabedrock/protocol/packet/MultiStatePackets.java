@@ -31,6 +31,7 @@ import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundCon
 import com.viaversion.viaversion.util.Key;
 import net.lenni0451.mcstructs_bedrock.text.utils.BedrockTranslator;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
 import net.raphimc.viabedrock.api.modinterface.ECClientLightInterface;
 import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.util.PacketFactory;
@@ -44,6 +45,7 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.Connection_D
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.MinecraftPacketIds;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PacketViolationSeverity;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PacketViolationType;
+import net.raphimc.viabedrock.protocol.data.enums.java.generated.GameMode;
 import net.raphimc.viabedrock.protocol.provider.NettyPipelineProvider;
 import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.storage.ClientChannelDiscoveryStorage;
@@ -51,6 +53,7 @@ import net.raphimc.viabedrock.protocol.storage.ClientSettingsStorage;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.storage.PacketSyncStorage;
 import net.raphimc.viabedrock.protocol.storage.PlayerListStorage;
+import net.raphimc.viabedrock.protocol.storage.SpectatorCameraTracker;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 import java.nio.charset.StandardCharsets;
@@ -205,6 +208,22 @@ public class MultiStatePackets {
                 // Also add the data channel early so setSkin() works before the client's PLAY-phase register
                 wrapper.user().get(ChannelStorage.class).addChannels(List.of(ViaBedrockUtilityInterface.CHANNEL));
                 ViaBedrockUtilityInterface.confirmPresence(wrapper.user());
+            }
+            if (channels.contains(ViaBedrockUtilityInterface.SPECTATOR_NOCLIP_CAPABILITY)) {
+                final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+                final ClientPlayerEntity clientPlayer = entityTracker != null ? entityTracker.getClientPlayer() : null;
+                if (clientPlayer != null) {
+                    final GameMode previous = clientPlayer.javaGameMode();
+                    clientPlayer.updateJavaGameMode();
+                    if (clientPlayer.javaGameMode() != previous
+                            && wrapper.user().getProtocolInfo().getClientState() == State.PLAY) {
+                        final SpectatorCameraTracker spectatorCamera = wrapper.user().get(SpectatorCameraTracker.class);
+                        final GameMode presented = spectatorCamera != null
+                                ? spectatorCamera.projectJavaGameMode(clientPlayer.javaGameMode())
+                                : clientPlayer.javaGameMode();
+                        ClientPlayerPackets.sendJavaGameMode(wrapper.user(), presented);
+                    }
+                }
             }
             ExperimentalFeatures.dispatchChannelRegistered(wrapper.user(), new java.util.HashSet<>(channels));
             if (wrapper.user().getProtocolInfo().getClientState() == State.CONFIGURATION

@@ -27,6 +27,7 @@ import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundCon
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
 import net.raphimc.viabedrock.protocol.model.SkinData;
+import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.storage.JavaPlayerStateStorage;
 import net.raphimc.viabedrock.protocol.types.primitive.ImageType;
 
@@ -45,6 +46,8 @@ public class ViaBedrockUtilityInterface {
     public static final String PLAYER_STATE_CHANNEL = "viabedrockutility:player_state";
     /** Client capability: unmapped Bedrock particle effects can use anchor-aware V2 requests. */
     public static final String PARTICLE_RUNTIME_V2_CAPABILITY = "viabedrockutility:particle_runtime_v2";
+    /** Client capability: local MOT spectator can stay Java ADVENTURE while VBU forces Entity.noClip. */
+    public static final String SPECTATOR_NOCLIP_CAPABILITY = "viabedrockutility:spectator_noclip";
     static final int MAX_PAYLOAD_SIZE = 1_048_576;
     static final int SKIN_DATA_HEADER_SIZE = Integer.BYTES + 2 * Long.BYTES + Integer.BYTES;
     static final int SKIN_ANIMATION_DATA_HEADER_SIZE = SKIN_DATA_HEADER_SIZE + Integer.BYTES;
@@ -215,11 +218,38 @@ public class ViaBedrockUtilityInterface {
         wrapper.write(Types.REMAINING_BYTES, bytes);
     }
 
-    private enum PayloadType {
+    enum PayloadType {
         CONFIRM, MODEL_REQUEST, ANIMATE,
         CAPE, SKIN_INFORMATION, SKIN_DATA,
         SKIN_ANIMATION_INFO, SKIN_ANIMATION_DATA,
-        SPAWN_PARTICLE, SPAWN_PARTICLE_V2
+        SPAWN_PARTICLE, SPAWN_PARTICLE_V2, SPECTATOR_NOCLIP
+    }
+
+    public static boolean hasSpectatorNoclip(final UserConnection user) {
+        if (user == null) {
+            return false;
+        }
+        final ChannelStorage channelStorage = user.get(ChannelStorage.class);
+        return channelStorage != null && channelStorage.hasChannel(SPECTATOR_NOCLIP_CAPABILITY);
+    }
+
+    public static void syncSpectatorNoclip(final UserConnection user, final boolean enabled) {
+        if (!hasSpectatorNoclip(user)) {
+            return;
+        }
+        final State clientState = user.getProtocolInfo() != null ? user.getProtocolInfo().getClientState() : null;
+        final PacketWrapper pluginMessage;
+        if (clientState == State.PLAY) {
+            pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        } else if (clientState == State.CONFIGURATION) {
+            pluginMessage = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
+        } else {
+            return;
+        }
+        pluginMessage.write(Types.STRING, CHANNEL);
+        pluginMessage.write(Types.INT, PayloadType.SPECTATOR_NOCLIP.ordinal());
+        pluginMessage.write(Types.BOOLEAN, enabled);
+        pluginMessage.send(BedrockProtocol.class);
     }
 
     public static void spawnParticle(final UserConnection user, final String identifier, final float x, final float y, final float z) {
