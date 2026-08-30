@@ -66,6 +66,7 @@ import net.raphimc.viabedrock.protocol.data.generated.java.Attributes;
 import net.raphimc.viabedrock.protocol.model.*;
 import net.raphimc.viabedrock.protocol.rewriter.BlockItemMappingLayout;
 import net.raphimc.viabedrock.protocol.rewriter.BlockStateRewriter;
+import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.*;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -866,7 +867,7 @@ public class JoinPackets {
     static StartGameSharedPrefix readStartGameSharedPrefix(final PacketWrapper wrapper) {
         final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
         final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-        final GameType playerGameType = GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined); // player game type
+        final GameType playerGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // player game type
         final Position3f playerPosition = wrapper.read(BedrockTypes.POSITION_3F); // player position
         final Position2f playerRotation = wrapper.read(BedrockTypes.POSITION_2F); // player rotation
         wrapper.read(BedrockTypes.LONG_LE); // seed
@@ -874,7 +875,7 @@ public class JoinPackets {
         wrapper.read(BedrockTypes.STRING); // custom biome name
         final Dimension dimension = Dimension.values()[wrapper.read(BedrockTypes.VAR_INT)]; // dimension
         final GeneratorType generatorType = GeneratorType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GeneratorType.Undefined); // generator id
-        final GameType levelGameType = GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined); // level game type
+        final GameType levelGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // level game type
         final boolean hardcore = wrapper.read(Types.BOOLEAN); // hardcore
         final Difficulty difficulty = Difficulty.getByValue(wrapper.read(BedrockTypes.VAR_INT), Difficulty.Unknown); // difficulty
         wrapper.read(BedrockTypes.BLOCK_POSITION); // default spawn position

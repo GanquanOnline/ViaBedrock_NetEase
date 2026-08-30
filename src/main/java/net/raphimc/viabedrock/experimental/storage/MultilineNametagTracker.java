@@ -32,6 +32,7 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPack
 import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
 import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.api.model.entity.PlayerEntity;
+import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.experimental.util.ProtocolUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
@@ -805,7 +806,7 @@ public class MultilineNametagTracker extends StoredObject {
     private PlayerNametagRenderState resolvePlayerRenderState(final PlayerEntity entity) {
         final EntityTracker entityTracker = this.user().get(EntityTracker.class);
         final ClientPlayerEntity clientPlayer = entityTracker != null ? entityTracker.getClientPlayer() : null;
-        final boolean viewerSpectator = clientPlayer != null && clientPlayer.javaGameMode() == GameMode.SPECTATOR;
+        final boolean viewerSpectator = clientPlayer != null && GameTypeRewriter.isMotSpectator(clientPlayer.gameType());
         final double distanceSquared = squaredDistance(clientPlayer, entity);
         return resolvePlayerRenderState(
                 entity.hasEntityFlag(ActorFlags.SNEAKING),

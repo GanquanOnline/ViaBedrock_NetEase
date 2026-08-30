@@ -17,14 +17,17 @@
  */
 package net.raphimc.viabedrock.api.model.entity;
 
+import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import com.viaversion.viaversion.util.Pair;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.util.EnumUtil;
 import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
@@ -46,6 +49,7 @@ import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 import net.raphimc.viabedrock.protocol.storage.CommandsStorage;
 import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
+import net.raphimc.viabedrock.protocol.packet.ClientPlayerPackets;
 import net.raphimc.viabedrock.protocol.packet.EntityPacketLayout;
 import net.raphimc.viabedrock.protocol.storage.PlayerListStorage;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -436,6 +440,14 @@ public class ClientPlayerEntity extends PlayerEntity {
             PacketFactory.sendJavaEntityEvent(this.user, this, EntityEvent.PERMISSION_LEVEL_ALL);
         }
 
+        // MOT may disguise spectator as creative (useClientSpectator=false) while still
+        // sending a Spectator ability layer / NoClip. Keep Java on ADVENTURE so the
+        // inventory stays movable; VBU forces Entity.noClip separately.
+        final boolean promotedSpectator = abilities.hasSpectatorNoclip() && this.gameType != GameType.Spectator;
+        if (promotedSpectator) {
+            this.setGameType(GameType.Spectator);
+        }
+
         byte flags = 0;
         if (abilities.getBooleanValue(AbilitiesIndex.Invulnerable)) flags |= AbilitiesFlag.INVULNERABLE.getBit();
         if (abilities.getBooleanValue(AbilitiesIndex.Flying)) flags |= AbilitiesFlag.FLYING.getBit();
@@ -444,6 +456,13 @@ public class ClientPlayerEntity extends PlayerEntity {
         javaAbilities.write(Types.BYTE, flags); // flags
         javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.FlySpeed)); // fly speed
         javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.WalkSpeed)); // walk speed
+        if (promotedSpectator) {
+            final ProtocolInfo protocolInfo = this.user.getProtocolInfo();
+            if (this.initiallySpawned || (protocolInfo != null && protocolInfo.getServerState() == State.PLAY)) {
+                ClientPlayerPackets.sendJavaGameMode(this.user, this.javaGameMode);
+            }
+        }
+        ViaBedrockUtilityInterface.syncSpectatorNoclip(this.user, this.gameType == GameType.Spectator);
     }
 
     public boolean isInitiallySpawned() {
@@ -591,31 +610,44 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public void updateJavaGameMode() {
-        this.javaGameMode = GameTypeRewriter.getEffectiveGameMode(this.gameType, this.gameSession.getLevelGameType());
+        this.javaGameMode = GameTypeRewriter.getEffectiveGameMode(
+                this.gameType,
+                this.gameSession.getLevelGameType(),
+                ViaBedrockUtilityInterface.hasSpectatorNoclip(this.user)
+        );
 
         final PlayerAbilities.AbilitiesLayer abilitiesLayer = this.abilities.getOrCreateCacheLayer();
-        switch (this.javaGameMode) {
-            case CREATIVE -> {
-                abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.MayFly, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.NoClip, false);
-            }
-            case SPECTATOR -> {
-                abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.Flying, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.MayFly, true);
-                abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, false);
-                abilitiesLayer.setAbility(AbilitiesIndex.NoClip, true);
-            }
-            default -> {
-                abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, false);
-                abilitiesLayer.setAbility(AbilitiesIndex.Flying, false);
-                abilitiesLayer.setAbility(AbilitiesIndex.MayFly, false);
-                abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, false);
-                abilitiesLayer.setAbility(AbilitiesIndex.NoClip, false);
+        if (this.gameType == GameType.Spectator) {
+            abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, true);
+            abilitiesLayer.setAbility(AbilitiesIndex.Flying, true);
+            abilitiesLayer.setAbility(AbilitiesIndex.MayFly, true);
+            abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, false);
+            abilitiesLayer.setAbility(AbilitiesIndex.NoClip, true);
+        } else {
+            switch (this.javaGameMode) {
+                case CREATIVE -> {
+                    abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.MayFly, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.NoClip, false);
+                }
+                case SPECTATOR -> {
+                    abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.Flying, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.MayFly, true);
+                    abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, false);
+                    abilitiesLayer.setAbility(AbilitiesIndex.NoClip, true);
+                }
+                default -> {
+                    abilitiesLayer.setAbility(AbilitiesIndex.Invulnerable, false);
+                    abilitiesLayer.setAbility(AbilitiesIndex.Flying, false);
+                    abilitiesLayer.setAbility(AbilitiesIndex.MayFly, false);
+                    abilitiesLayer.setAbility(AbilitiesIndex.Instabuild, false);
+                    abilitiesLayer.setAbility(AbilitiesIndex.NoClip, false);
+                }
             }
         }
+        ViaBedrockUtilityInterface.syncSpectatorNoclip(this.user, this.gameType == GameType.Spectator);
     }
 
     public boolean checkCancelSwingPacket() {
