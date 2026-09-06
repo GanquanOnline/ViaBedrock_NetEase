@@ -59,6 +59,7 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerTyp
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.ContainerInput;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
+import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.AnvilSessionStorage;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
@@ -359,6 +360,12 @@ public class ClientAuthInventoryModule implements FeatureModule {
         final InventoryTracker tracker = user.get(InventoryTracker.class);
         if (tracker == null) {
             return false;
+        }
+        final EntityTracker entityTracker = user.get(EntityTracker.class);
+        final ClientPlayerEntity clientPlayer = entityTracker != null ? entityTracker.getClientPlayer() : null;
+        if (clientPlayer != null && GameTypeRewriter.isMotSpectator(clientPlayer.gameType())) {
+            PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());
+            return true;
         }
         if (tracker.getPendingCloseContainer() != null) {
             PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());

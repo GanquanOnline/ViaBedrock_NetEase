@@ -29,6 +29,7 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPack
 import com.viaversion.viaversion.util.Pair;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.chunk.BedrockChunk;
+import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.model.BlockState;
 import net.raphimc.viabedrock.api.model.container.player.InventoryContainer;
 import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
@@ -409,7 +410,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined)); // game type
+                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
                 handler(CLIENT_PLAYER_GAME_MODE_UPDATE);
@@ -420,7 +421,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined)); // game type
+                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
                     wrapper.user().get(EntityTracker.class).getClientPlayer().updateJavaGameMode();
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
@@ -432,7 +433,7 @@ public class ClientPlayerPackets {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             final PlayerListStorage playerList = wrapper.user().get(PlayerListStorage.class);
 
-            final GameType gameType = GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined); // game type
+            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // game type
             final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
             wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
 
@@ -446,7 +447,11 @@ public class ClientPlayerPackets {
             wrapper.write(Types.VAR_INT, 1); // length
             wrapper.write(Types.UUID, playerListEntry.key()); // uuid
             final boolean clientPlayerUpdate = playerListEntry.key().equals(clientPlayer.javaUuid());
-            GameMode javaGameMode = GameTypeRewriter.getEffectiveGameMode(gameType, gameSession.getLevelGameType());
+            GameMode javaGameMode = GameTypeRewriter.getEffectiveGameMode(
+                    gameType,
+                    gameSession.getLevelGameType(),
+                    clientPlayerUpdate && ViaBedrockUtilityInterface.hasSpectatorNoclip(wrapper.user())
+            );
             playerList.updateJavaGameMode(playerListEntry.key(), javaGameMode);
             if (clientPlayerUpdate) {
                 clientPlayer.setGameType(gameType);
