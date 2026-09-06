@@ -37,6 +37,52 @@ class BossBarStorageTest {
     }
 
     @Test
+    void createsStableDistinctJavaUuidsForEntitylessBossBars() {
+        final BossBarStorage storage = storage();
+
+        final UUID first = storage.resolveOrCreateJavaUuid(41L, null);
+        assertEquals(first, storage.resolveOrCreateJavaUuid(41L, null));
+        assertNotEquals(first, storage.resolveOrCreateJavaUuid(42L, null));
+    }
+
+    @Test
+    void prefersEntityUuidAndDropsMappingWithBossBar() {
+        final BossBarStorage storage = storage();
+        final UUID entityUuid = UUID.fromString("00000000-0000-0000-0000-000000000043");
+
+        assertEquals(entityUuid, storage.resolveOrCreateJavaUuid(43L, entityUuid));
+        storage.add(entityUuid, new StringTag("entity"), 1F, 0);
+        storage.markClientVisible(entityUuid);
+        assertTrue(storage.remove(entityUuid));
+        assertNull(storage.getJavaUuid(43L));
+    }
+
+    @Test
+    void entitylessMappingIsRemovedAndNotReusedAfterRemoval() {
+        final BossBarStorage storage = storage();
+        final UUID first = storage.resolveOrCreateJavaUuid(44L, null);
+        storage.add(first, new StringTag("first"), 1F, 0);
+        storage.markClientVisible(first);
+
+        assertTrue(storage.remove(first));
+        assertNull(storage.getJavaUuid(44L));
+        assertEquals(BossBarStorage.UpdateAction.DROP, storage.reconcileUpdate(first));
+        assertNotEquals(first, storage.resolveOrCreateJavaUuid(44L, null));
+    }
+
+    @Test
+    void configurationClearRetainsEntitylessMapping() {
+        final BossBarStorage storage = storage();
+        final UUID uuid = storage.resolveOrCreateJavaUuid(45L, null);
+        storage.add(uuid, new StringTag("persistent"), 1F, 0);
+        storage.markClientVisible(uuid);
+
+        storage.onJavaOverlayCleared();
+        assertEquals(uuid, storage.getJavaUuid(45L));
+        assertEquals(BossBarStorage.UpdateAction.ADD, storage.reconcileUpdate(uuid));
+    }
+
+    @Test
     void removeThenUpdateHasNoBedrockStateToRestore() {
         final BossBarStorage storage = storage();
         storage.add(BAR, new StringTag("active"), 1F, 0);

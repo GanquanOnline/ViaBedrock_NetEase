@@ -23,6 +23,7 @@ import java.util.UUID;
 public final class BossBarStorage extends StoredObject {
 
     private final Map<UUID, BossBar> activeBars = new HashMap<>();
+    private final Map<Long, UUID> javaUuidsByBedrockId = new HashMap<>();
     private final Set<UUID> clientBars = new HashSet<>();
     private final Set<UUID> pendingClientBars = new HashSet<>();
 
@@ -37,6 +38,15 @@ public final class BossBarStorage extends StoredObject {
         final BossBar bar = new BossBar(name, progress, color);
         this.activeBars.put(uuid, bar);
         return bar;
+    }
+
+    public UUID resolveOrCreateJavaUuid(final long bedrockId, final UUID entityUuid) {
+        // Bedrock normally identifies a boss by actor ID; synthetic server bars may intentionally have no actor.
+        return this.javaUuidsByBedrockId.computeIfAbsent(bedrockId, ignored -> entityUuid != null ? entityUuid : UUID.randomUUID());
+    }
+
+    public UUID getJavaUuid(final long bedrockId) {
+        return this.javaUuidsByBedrockId.get(bedrockId);
     }
 
     public BossBar get(final UUID uuid) {
@@ -69,6 +79,7 @@ public final class BossBarStorage extends StoredObject {
 
     public boolean remove(final UUID uuid) {
         this.activeBars.remove(uuid);
+        this.javaUuidsByBedrockId.values().removeIf(uuid::equals);
         this.pendingClientBars.remove(uuid);
         return this.clientBars.remove(uuid);
     }
@@ -81,6 +92,7 @@ public final class BossBarStorage extends StoredObject {
 
     public void clearConnection() {
         this.activeBars.clear();
+        this.javaUuidsByBedrockId.clear();
         this.clientBars.clear();
         this.pendingClientBars.clear();
     }

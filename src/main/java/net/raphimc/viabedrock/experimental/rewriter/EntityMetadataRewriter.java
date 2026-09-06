@@ -48,6 +48,7 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.EquipmentSlot;
+import net.raphimc.viabedrock.experimental.storage.GlowProjectionTracker;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.InteractionHand;
 import net.raphimc.viabedrock.protocol.model.EntityProperties;
 import net.raphimc.viabedrock.protocol.model.EntityPropertyValue;
@@ -71,7 +72,7 @@ public class EntityMetadataRewriter {
         switch (id) {
             case RESERVED_0, RESERVED_092 -> { // Entity flags mask
                 Set<ActorFlags> bedrockFlags = entity.entityFlags();
-                byte javaBitMask = sharedFlags(entity, false);
+                byte javaBitMask = sharedFlags(user, entity, isForceInvisible(entity));
                 final EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
                 if (entity instanceof LivingEntity && scaleData != null && readNumber(scaleData).floatValue() == 0F) {
                     javaBitMask |= (1 << 5);
@@ -767,7 +768,7 @@ public class EntityMetadataRewriter {
             case RESERVED_038 -> { // SCALE (Bedrock entity data ID 38)
                 float scale = readNumber(entityData).floatValue();
                 if (entity instanceof LivingEntity) {
-                    javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, sharedFlags(entity, scale == 0f)));
+                    javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, sharedFlags(user, entity, scale == 0f)));
                 }
                 if (entity.javaType().is(EntityTypes1_21_11.ARMOR_STAND)) {
                     if (scale == 0f) {
@@ -1475,7 +1476,7 @@ public class EntityMetadataRewriter {
         javaEntityData.add(new EntityData(index, VersionedTypes.V26_1.entityDataTypes().villagerDataType, new VillagerData(type, profession, level)));
     }
 
-    private static byte sharedFlags(final Entity entity, final boolean forceInvisible) {
+    private static byte sharedFlags(final UserConnection user, final Entity entity, final boolean forceInvisible) {
         byte sharedFlags = 0;
         if (entity.hasEntityFlag(ActorFlags.ONFIRE)) sharedFlags |= (1 << 0);
         if (entity.hasEntityFlag(ActorFlags.SNEAKING)) sharedFlags |= (1 << 1);
@@ -1483,6 +1484,8 @@ public class EntityMetadataRewriter {
         if (entity.hasEntityFlag(ActorFlags.SPRINTING)) sharedFlags |= (1 << 3);
         if (entity.hasEntityFlag(ActorFlags.SWIMMING)) sharedFlags |= (1 << 4);
         if (forceInvisible || entity.hasEntityFlag(ActorFlags.INVISIBLE)) sharedFlags |= (1 << 5);
+        final GlowProjectionTracker glow = user.get(GlowProjectionTracker.class);
+        if (glow != null && glow.isGlowing(entity.uniqueId())) sharedFlags |= (1 << 6);
         if (entity.hasEntityFlag(ActorFlags.GLIDING)) sharedFlags |= (byte) (1 << 7);
         return sharedFlags;
     }
@@ -1678,6 +1681,26 @@ public class EntityMetadataRewriter {
         equipment.write(Types.BYTE, (byte) EquipmentSlot.SADDLE.ordinal());
         equipment.write(VersionedTypes.V26_1.item, flower);
         equipment.send(BedrockProtocol.class);
+    }
+
+    public static void sendSharedFlags(final UserConnection user, final Entity entity) {
+        final List<EntityData> data = List.of(new EntityData(
+                entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS),
+                VersionedTypes.V26_1.entityDataTypes().byteType,
+                sharedFlags(user, entity, isForceInvisible(entity))
+        ));
+        final PacketWrapper packet = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, user);
+        packet.write(Types.VAR_INT, entity.javaId());
+        packet.write(VersionedTypes.V26_1.entityDataList, data);
+        packet.send(BedrockProtocol.class);
+    }
+
+    private static boolean isForceInvisible(final Entity entity) {
+        if (!(entity instanceof LivingEntity)) {
+            return false;
+        }
+        final EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
+        return scaleData != null && readNumber(scaleData).floatValue() == 0F;
     }
 
     private static Number readNumber(EntityData data) {

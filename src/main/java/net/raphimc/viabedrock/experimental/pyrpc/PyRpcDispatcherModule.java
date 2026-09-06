@@ -21,14 +21,15 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.experimental.FeatureModule;
+import net.raphimc.viabedrock.experimental.storage.GlowProjectionTracker;
+import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
-
-
 
 /**
  * Shared JE PY_RPC transport. Bedrock PY_RPC bytes are forwarded unchanged
@@ -293,8 +294,19 @@ public class PyRpcDispatcherModule implements FeatureModule {
                 }
             }
 
+            final GlowProjectionTracker glow = wrapper.user().get(GlowProjectionTracker.class);
+            if (glow != null) {
+                GlowModEventCodec.decode(data).ifPresent(glow::apply);
+            }
+
+            final String routedChannel = ExperimentalFeatures.dispatchResolveClientboundPyRpcChannel(data);
+            final String targetChannel = routedChannel != null ? routedChannel : DATA_CHANNEL;
             final ChannelStorage channels = wrapper.user().get(ChannelStorage.class);
-            if (!channels.hasChannel(CONFIRM_CHANNEL)) {
+            if (DATA_CHANNEL.equals(targetChannel)) {
+                if (!channels.hasChannel(CONFIRM_CHANNEL)) {
+                    return;
+                }
+            } else if (!channels.hasChannel(targetChannel)) {
                 return;
             }
 
@@ -302,8 +314,10 @@ public class PyRpcDispatcherModule implements FeatureModule {
             // 0=CONFIRM, 1=PY_RPC_DATA, 2=ENTITY_MAPPING. Without the prefix the client's
             // STREAM_CODEC decoder throws and the payload is silently dropped.
             final PacketWrapper msg = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, wrapper.user());
-            msg.write(Types.STRING, DATA_CHANNEL);
-            msg.write(Types.INT, 1); // PayloadType.PY_RPC_DATA
+            msg.write(Types.STRING, targetChannel);
+            if (DATA_CHANNEL.equals(targetChannel)) {
+                msg.write(Types.INT, 1); // PayloadType.PY_RPC_DATA
+            }
             msg.write(Types.REMAINING_BYTES, data);
             msg.scheduleSend(BedrockProtocol.class);
         });
@@ -347,6 +361,27 @@ public class PyRpcDispatcherModule implements FeatureModule {
             ViaBedrock.getPlatform().getLogger().severe("[PY_RPC] Failed to forward JE C2S payload: " + e.getMessage());
         }
         return true;
+    }
+
+    @Override
+    public void onStorageRegistration(final com.viaversion.viaversion.api.connection.UserConnection user) {
+        user.put(new GlowProjectionTracker(user));
+    }
+
+    @Override
+    public void onEntityAdded(final com.viaversion.viaversion.api.connection.UserConnection user, final Entity entity) {
+        final GlowProjectionTracker glow = user.get(GlowProjectionTracker.class);
+        if (glow != null) {
+            glow.onEntityAdded(entity);
+        }
+    }
+
+    @Override
+    public void onEntityRemoved(final com.viaversion.viaversion.api.connection.UserConnection user, final Entity entity) {
+        final GlowProjectionTracker glow = user.get(GlowProjectionTracker.class);
+        if (glow != null) {
+            glow.onEntityRemoved(entity);
+        }
     }
 
 }

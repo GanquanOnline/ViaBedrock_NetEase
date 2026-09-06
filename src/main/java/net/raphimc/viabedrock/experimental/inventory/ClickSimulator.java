@@ -103,6 +103,9 @@ public class ClickSimulator {
             if (is3x3 || is2x2) {
                 return switch (action) {
                     case PICKUP -> CraftingSimulator.simulateCraftPickup(is3x3, tracker, stackLimits);
+                    // The synthetic Java result slot is not recomputed during the client's local quick-move
+                    // loop, so changedSlots describes one craft only. Build the accumulated transaction from
+                    // the authoritative Bedrock grid instead of treating that one-craft prediction as final.
                     case QUICK_MOVE -> CraftingSimulator.simulateCraftQuickMove(is3x3, tracker, stackLimits);
                     default -> null;
                 };
