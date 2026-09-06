@@ -26,6 +26,7 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPack
 import com.viaversion.viaversion.util.Pair;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.util.EnumUtil;
+import net.raphimc.viabedrock.api.util.StringUtil;
 import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.storage.ClientSettingsStorage;
@@ -162,6 +163,15 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void setBedrockUuid(final UUID bedrockUuid) {
         this.bedrockUuid = bedrockUuid;
+    }
+
+    @Override
+    protected String javaTeamMemberName() {
+        return localJavaTeamMemberName(this.user.getProtocolInfo().getUsername(), this.javaUuid);
+    }
+
+    static String localJavaTeamMemberName(final String username, final UUID javaUuid) {
+        return username == null || username.isEmpty() ? StringUtil.encodeUUID(javaUuid) : username;
     }
 
     public void sendPlayerPositionPacketToClient(final Set<Relative> relatives) {

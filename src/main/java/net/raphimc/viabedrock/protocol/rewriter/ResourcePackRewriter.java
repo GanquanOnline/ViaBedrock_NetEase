@@ -139,7 +139,9 @@ public class ResourcePackRewriter {
     public static String rewriterFingerprint() {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update("ViaBedrock-Rewriters-v1\0".getBytes(StandardCharsets.US_ASCII));
+            // v3 keeps the manifest and embedded archive set identical when one logical pack UUID
+            // occurs in multiple version layers.
+            digest.update("ViaBedrock-Rewriters-v3\0".getBytes(StandardCharsets.US_ASCII));
             for (Rewriter rewriter : REWRITERS) {
                 updateFingerprint(digest, rewriter.getClass().getName());
                 updateFingerprint(digest, rewriter.artifactFingerprint());

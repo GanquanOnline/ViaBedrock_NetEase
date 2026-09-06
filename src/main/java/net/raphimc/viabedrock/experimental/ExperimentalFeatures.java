@@ -226,6 +226,20 @@ public class ExperimentalFeatures {
         }
     }
 
+    public static String dispatchResolveClientboundPyRpcChannel(final byte[] data) {
+        for (final FeatureModule module : MODULES) {
+            try {
+                final String channel = module.resolveClientboundPyRpcChannel(data);
+                if (channel != null) {
+                    return channel;
+                }
+            } catch (final Throwable e) {
+                ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error in module resolveClientboundPyRpcChannel", e);
+            }
+        }
+        return null;
+    }
+
     public static boolean isPlayerListEntryListed(final UserConnection user, final UUID uuid, final long entityUniqueId, final String name) {
         for (final FeatureModule module : MODULES) {
             try {

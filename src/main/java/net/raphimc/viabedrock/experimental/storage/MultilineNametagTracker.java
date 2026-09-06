@@ -27,7 +27,6 @@ import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
-import com.viaversion.viaversion.libs.mcstructs.text.TextFormatting;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
 import net.raphimc.viabedrock.api.model.entity.Entity;
@@ -38,10 +37,7 @@ import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorFlags;
-import net.raphimc.viabedrock.protocol.data.enums.java.PlayerTeamMethod;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.GameMode;
-import net.raphimc.viabedrock.protocol.data.enums.java.generated.TeamCollisionRule;
-import net.raphimc.viabedrock.protocol.data.enums.java.generated.TeamVisibility;
 import net.raphimc.viabedrock.protocol.data.generated.java.Attributes;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
@@ -754,17 +750,7 @@ public class MultilineNametagTracker extends StoredObject {
      */
     private void sendPlayerTeamPrefix(final PlayerEntity entity, final String bottomLine) {
         final boolean hasVisibleName = !TextUtil.stripFormatting(bottomLine).isEmpty();
-        final PacketWrapper setPlayerTeam = PacketWrapper.create(ClientboundPackets26_1.SET_PLAYER_TEAM, this.user());
-        setPlayerTeam.write(Types.STRING, "vb_" + entity.javaId()); // team name
-        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.CHANGE.ordinal()); // mode
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("vb_" + entity.javaId())); // display name
-        setPlayerTeam.write(Types.BYTE, (byte) 3); // flags
-        setPlayerTeam.write(Types.VAR_INT, (hasVisibleName ? TeamVisibility.ALWAYS : TeamVisibility.NEVER).ordinal()); // name tag visibility
-        setPlayerTeam.write(Types.VAR_INT, TeamCollisionRule.NEVER.ordinal()); // collision rule
-        setPlayerTeam.write(Types.VAR_INT, TextFormatting.RESET.getOrdinal()); // color
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt(hasVisibleName ? bottomLine : "")); // prefix
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // suffix
-        setPlayerTeam.send(BedrockProtocol.class);
+        entity.updateTeamPresentation(hasVisibleName ? bottomLine : "", hasVisibleName);
     }
 
     // ---- Shared methods ----

@@ -46,6 +46,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ResourcePackPacketsLifecycleTest {
 
     @Test
+    void translatedJavaPackUsesStableReplacementIdentity() {
+        assertEquals(UUID.fromString("f777c5a3-8ae6-4a58-a3ea-1bca4f0aa847"),
+                ResourcePackPackets.JAVA_TRANSLATED_PACK_ID);
+    }
+
+    @Test
     void eventLoopRejectionRunsLeaseCleanup() {
         final AtomicInteger taskCalls = new AtomicInteger();
         final AtomicInteger cleanupCalls = new AtomicInteger();

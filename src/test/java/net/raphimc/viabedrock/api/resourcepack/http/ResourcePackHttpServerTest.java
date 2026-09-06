@@ -27,6 +27,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.ReferenceCountUtil;
+import com.viaversion.viaversion.libs.gson.JsonParser;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
 import net.raphimc.viabedrock.api.resourcepack.content.Content;
 import net.raphimc.viabedrock.api.resourcepack.content.DirectoryContent;
@@ -87,6 +88,58 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourcePackHttpServerTest {
+
+    @Test
+    void embeddedManifestPreservesAuthoritativeBottomToTopOrder(
+            @TempDir final Path tempDir) throws Exception {
+        final UUID bottomId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        final UUID topId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        final ResourcePack bottom = testPack(tempDir.resolve("bottom"), bottomId, "bottom");
+        final ResourcePack top = testPack(tempDir.resolve("top"), topId, "top");
+        final ResourcePackStorage storage = ResourcePackStorage.createUnshared(List.of(top, bottom));
+
+        final var manifest = JsonParser.parseString(new String(
+                ResourcePackHttpServer.buildBedrockPackStackManifest(storage),
+                StandardCharsets.UTF_8)).getAsJsonObject();
+
+        assertEquals("bottom_to_top", manifest.get("order").getAsString());
+        assertEquals("bedrock/" + bottomId + ".mcpack", manifest.getAsJsonArray("packs")
+                .get(0).getAsJsonObject().get("path").getAsString());
+        assertEquals("bedrock/" + topId + ".mcpack", manifest.getAsJsonArray("packs")
+                .get(1).getAsJsonObject().get("path").getAsString());
+    }
+
+    @Test
+    void embeddedManifestKeepsOnlyTheTopmostVersionOfRepeatedPackIdentity(
+            @TempDir final Path tempDir) throws Exception {
+        final UUID repeatedId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        final UUID middleId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        final ResourcePack bottom = testPack(
+                tempDir.resolve("bottom"), repeatedId, "bottom", "1,0,0");
+        final ResourcePack middle = testPack(
+                tempDir.resolve("middle"), middleId, "middle", "1,0,0");
+        final ResourcePack top = testPack(
+                tempDir.resolve("top"), repeatedId, "top", "2,0,0");
+        final ResourcePackStorage storage = ResourcePackStorage.createUnshared(
+                List.of(top, middle, bottom));
+
+        final List<ResourcePack> embedded =
+                ResourcePackHttpServer.embeddedPackStackBottomToTop(storage);
+        final var manifest = JsonParser.parseString(new String(
+                ResourcePackHttpServer.buildBedrockPackStackManifest(storage),
+                StandardCharsets.UTF_8)).getAsJsonObject();
+
+        assertEquals(List.of(middle, top), embedded);
+        assertEquals(2, manifest.getAsJsonArray("packs").size());
+        assertEquals("bedrock/" + middleId + ".mcpack", manifest.getAsJsonArray("packs")
+                .get(0).getAsJsonObject().get("path").getAsString());
+        assertEquals("bedrock/" + repeatedId + ".mcpack", manifest.getAsJsonArray("packs")
+                .get(1).getAsJsonObject().get("path").getAsString());
+        assertEquals("2.0.0", manifest.getAsJsonArray("packs")
+                .get(1).getAsJsonObject().get("version").getAsString());
+        assertEquals("top", manifest.getAsJsonArray("packs")
+                .get(1).getAsJsonObject().get("name").getAsString());
+    }
 
     private static final String HASH = "0123456789abcdef0123456789abcdef01234567";
 
@@ -508,8 +561,17 @@ class ResourcePackHttpServerTest {
             final String embeddedPath = "bedrock/" + packId + ".mcpack";
             final Set<String> expectedPaths = new java.util.HashSet<>(legacy.getFilesDeep("", ""));
             expectedPaths.add(embeddedPath);
+            expectedPaths.add(ResourcePackHttpServer.BEDROCK_PACK_STACK_PATH);
             assertEquals(expectedPaths, convertedEntries.keySet());
             assertTrue(convertedEntries.containsKey(embeddedPath));
+            final var stackManifest = JsonParser.parseString(new String(
+                    convertedEntries.get(ResourcePackHttpServer.BEDROCK_PACK_STACK_PATH),
+                    StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals(1, stackManifest.get("format_version").getAsInt());
+            assertEquals("bottom_to_top", stackManifest.get("order").getAsString());
+            assertEquals(1, stackManifest.getAsJsonArray("packs").size());
+            assertEquals(embeddedPath, stackManifest.getAsJsonArray("packs").get(0)
+                    .getAsJsonObject().get("path").getAsString());
             final Map<String, byte[]> embeddedEntries = zipEntries(convertedEntries.get(embeddedPath));
             assertArrayEquals(Files.readAllBytes(tempDir.resolve("source-pack/manifest.json")),
                     embeddedEntries.get("manifest.json"));
@@ -818,6 +880,19 @@ class ResourcePackHttpServerTest {
         final var cleanup = JavaPackCache.class.getDeclaredMethod("cleanupNow");
         cleanup.setAccessible(true);
         cleanup.invoke(cache);
+    }
+
+    private static ResourcePack testPack(Path directory, UUID id, String name) throws Exception {
+        return testPack(directory, id, name, "1,0,0");
+    }
+
+    private static ResourcePack testPack(
+            Path directory, UUID id, String name, String version) throws Exception {
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("manifest.json"), """
+                {"format_version":2,"header":{"uuid":"%s","version":[%s],"name":"%s"}}
+                """.formatted(id, version, name), StandardCharsets.UTF_8);
+        return new ResourcePack(new DirectoryContent(directory.toAbsolutePath()));
     }
 
     private static ResourcePackHttpServer.ArtifactFileOpener trackingOpener(
