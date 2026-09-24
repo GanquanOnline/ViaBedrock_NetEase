@@ -2,6 +2,13 @@
 
 Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitmaster` for PyRpc / ModUI. Do not treat international Bedrock wiki or Geyser palettes as MOT 860.
 
+## 2026-08-30 — Local MOT spectator stays Java ADVENTURE; VBU forces noclip
+
+- **Goal:** #1-16 still needs MOT spectator noclip, but mapping the local player to Java `SPECTATOR` locks the backpack HUD. Remote spectators must stay Java `SPECTATOR` so vanilla clients keep hiding them.
+- **Change:** `fromWire` still maps MOT 3/4/6 to Spectator. Local `getEffectiveGameMode(..., true)` presents `ADVENTURE` only when VBU registered `viabedrockutility:spectator_noclip`. ViaBedrock then sends `SPECTATOR_NOCLIP` (payload ordinal 10). Without the capability, local spectator stays Java `SPECTATOR`. Spectator hotbar Q still resyncs instead of SAI Drop. Nametag visibility keys off MOT spectator, not the disguised Java mode.
+- **Refs:** MOT `Player.getClientFriendlyGamemode`, `AdventureSettings` spectator layer / `NoClip`, VBU `PlayerEntityMixin` tick-local `isSpectator()` redirect, GitHub issue #1-16 / PR #21.
+- **Risk:** Clients without this VBU build keep vanilla spectator HUD. PayloadType ordinals must stay appended; `SPAWN_PARTICLE_V2` remains 9.
+
 ## 2026-08-29 — Numeric Bedrock ench tags still map; unknown ids keep Java glint
 
 - **Goal:** MOT / NetEase often write ench[].id / lvl as int (or mixed short+int) instead of short. The experimental rewriter previously required ShortTag, so known enchantments never reached Java and unknown/custom ids lost both tooltip and glint.

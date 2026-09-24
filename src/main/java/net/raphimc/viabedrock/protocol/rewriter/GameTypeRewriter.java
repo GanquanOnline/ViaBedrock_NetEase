@@ -19,10 +19,41 @@ package net.raphimc.viabedrock.protocol.rewriter;
 
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.GameType;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.GameMode;
+import net.raphimc.viabedrock.protocol.model.PlayerAbilities;
 
 public class GameTypeRewriter {
 
+    /**
+     * MOT {@code Player.SPECTATOR} is 3 and its {@code GameType} enum is ordinal-based
+     * ({@code SURVIVAL_VIEWER=3}, {@code CREATIVE_VIEWER=4}, {@code SPECTATOR=6}).
+     * Official Bedrock spectator is 6. Wire 3/4 must not fall through as {@code Undefined}.
+     */
+    public static GameType fromWire(final int value) {
+        return switch (value) {
+            case 3, 4 -> GameType.Spectator;
+            default -> GameType.getByValue(value, GameType.Undefined);
+        };
+    }
+
+    public static boolean isMotSpectator(final GameType gameType) {
+        return gameType == GameType.Spectator;
+    }
+
+    public static boolean isMotSpectator(final GameType gameType, final PlayerAbilities abilities) {
+        return isMotSpectator(gameType) || (abilities != null && abilities.hasSpectatorNoclip());
+    }
+
     public static GameMode getEffectiveGameMode(final GameType playerGameType, final GameType levelGameType) {
+        return getEffectiveGameMode(playerGameType, levelGameType, false);
+    }
+
+    /**
+     * Remote players always stay {@link GameMode#SPECTATOR} so vanilla clients hide them.
+     * The local player may present {@link GameMode#ADVENTURE} when VBU can force
+     * {@code Entity.noClip}, because Java SPECTATOR locks the MOT backpack.
+     */
+    public static GameMode getEffectiveGameMode(final GameType playerGameType, final GameType levelGameType,
+                                                final boolean localSpectatorNoclip) {
         GameType effectiveGameType = playerGameType;
         if (effectiveGameType == GameType.Undefined || effectiveGameType == GameType.Default) {
             effectiveGameType = levelGameType;
@@ -34,7 +65,7 @@ public class GameTypeRewriter {
             case Survival -> GameMode.SURVIVAL;
             case Creative -> GameMode.CREATIVE;
             case Adventure -> GameMode.ADVENTURE;
-            case Spectator -> GameMode.SPECTATOR;
+            case Spectator -> localSpectatorNoclip ? GameMode.ADVENTURE : GameMode.SPECTATOR;
             default -> throw new IllegalStateException("Unhandled GameType: " + effectiveGameType);
         });
     }
