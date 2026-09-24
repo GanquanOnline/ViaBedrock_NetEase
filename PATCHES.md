@@ -2,6 +2,13 @@
 
 Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitmaster` for PyRpc / ModUI. Do not treat international Bedrock wiki or Geyser palettes as MOT 860.
 
+## 2026-03-21 — Java Waterdog seamless transfer after MOT TransferPacket leftovers
+
+- **Goal:** Latest MOT writes `reloadWorld` and optional gatherings on `TransferPacket`. Latest Waterdog Java same-dimension transfers inject `CHANGE_DIMENSION` and wait for `DIMENSION_CHANGE_SUCCESS`. Java players then saw transfer unavailable while Bedrock still transferred.
+- **Change:** Map Bedrock TRANSFER without cancelling on leftover `reloadWorld`/gatherings bytes. After `CHANGE_DIMENSION`, ACK Waterdog immediately and end the loading screen so the handshake does not depend on the injected PlayerAction order.
+- **Refs:** `cn/nukkit/network/protocol/TransferPacket.java`; Waterdog `SwitchDownstreamHandler` Java same-dimension path; `PlayerRewriteUtils.injectDimensionChange`.
+- **Risk:** Immediate ACK completes Waterdog phase 2 before Java finishes chunk reload. That matches the previous watchdog fallback and is required for same-dimension proxy transfers.
+
 ## 2026-08-24 — Consume leftover CAMERA_INSTRUCTION after fade
 
 - **Goal:** MOT 860 `CameraInstructionPacket.decode()` still reads target (712), FOV (827) and spline/attach (859) after fade. ViaBedrock stopped at fade, so leftover bytes could abort the join batch.

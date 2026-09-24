@@ -51,6 +51,7 @@ import net.raphimc.viabedrock.experimental.block.CustomBlockDisplayTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockPlacementAckTracker;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerActionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ServerboundLoadingScreenPacketType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.SpawnPositionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.SubChunkPacket_HeightMapDataType;
@@ -209,6 +210,7 @@ public class WorldPackets {
             } else {
                 loadingScreenId = null;
             }
+            PacketLeftoverLayout.discardUnreadInput(wrapper);
 
             final ChunkTracker oldChunkTracker = wrapper.user().get(ChunkTracker.class);
             final String resolvedKey = ExperimentalFeatures.dispatchResolveDimensionKey(dimension, oldChunkTracker);
@@ -251,6 +253,13 @@ public class WorldPackets {
             wrapper.cancel();
             chunkTracker.resetJavaChunkLoading();
             clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
+            // Waterdog 1.19.50+ injects CHANGE_DIMENSION then a server-originated
+            // DIMENSION_CHANGE_SUCCESS. Java same-dimension transfers skip the fake
+            // dimension trick and wait for this client ACK. Send it immediately so
+            // leftover bytes or packet order cannot stall the handshake.
+            clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
+            PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, loadingScreenId);
+            clientPlayer.setDimensionChangeInfo(null);
             clientPlayer.sendAttribute("minecraft:health"); // Java client always resets health on respawn, but Bedrock client keeps health when switching dimensions
             wrapper.user().get(PlayerArmorHudTracker.class).forceSync();
             clientPlayer.sendEffects(); // Java client always resets effects on respawn. Resend them
