@@ -51,6 +51,7 @@ import net.raphimc.viabedrock.experimental.block.CustomBlockDisplayTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockPlacementAckTracker;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerActionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ServerboundLoadingScreenPacketType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.SpawnPositionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.SubChunkPacket_HeightMapDataType;
@@ -249,6 +250,10 @@ public class WorldPackets {
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
+            // Java clients have no Bedrock loading screen. ACK immediately so MOT/Waterdog
+            // can inject PLAYER_ACTION. Keep dimensionChangeInfo until that echo arrives so
+            // preMove stays locked and the echo handler does not send a second ACK.
+            clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
             chunkTracker.resetJavaChunkLoading();
             clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
             clientPlayer.sendAttribute("minecraft:health"); // Java client always resets health on respawn, but Bedrock client keeps health when switching dimensions

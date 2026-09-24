@@ -365,7 +365,8 @@ public class ClientPlayerPackets {
             if (action == PlayerActionType.ChangeDimensionAck) {
                 final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
                 if (clientPlayer.dimensionChangeInfo() != null) {
-                    clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
+                    // ACK was already sent from CHANGE_DIMENSION. Finish the loading screen
+                    // and drop the preMove lock once MOT/Waterdog echo the action.
                     PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, clientPlayer.dimensionChangeInfo().loadingScreenId());
                     clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
                     clientPlayer.setDimensionChangeInfo(null);

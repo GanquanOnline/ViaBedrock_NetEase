@@ -200,10 +200,9 @@ public class LoginPackets {
             final Instant now = Instant.now();
             final KeyPair sessionKeyPair = CryptUtil.generateEcdsa384KeyPair();
             final String encodedPublicKey = Base64.getEncoder().encodeToString(sessionKeyPair.getPublic().getEncoded());
-            // 使用 UUID 后8位（低32位）作为 XUID，与中国版统一
-            final String xuid = javaUuid != null
-                    ? String.format("%08x", (int) javaUuid.getLeastSignificantBits())
-                    : String.format("%08x", (int) FNV1.fnv1_64(javaUsername.getBytes(StandardCharsets.UTF_8)));
+            // Xbox/Waterdog/MOT expect a decimal XUID ([1-9]\d{0,19}). Keep the same 32-bit
+            // identity source as the previous hex format, but emit it as an unsigned decimal.
+            final String xuid = decimalXuid(javaUuid, javaUsername);
             final UUID identity = javaUuid != null
                     ? javaUuid
                     : UUID.nameUUIDFromBytes(("pocket-auth-1-xuid:" + xuid).getBytes(StandardCharsets.UTF_8));
@@ -255,11 +254,7 @@ public class LoginPackets {
                 authData.setDisplayName(extraData.get("displayName").getAsString());
                 authData.setXuid(extraData.get("XUID").getAsString());
             } else {
-                // 使用 UUID 后8位（低32位）作为 XUID，与中国版统一
-                final String xuid = javaUuid != null
-                        ? String.format("%08x", (int) javaUuid.getLeastSignificantBits())
-                        : String.format("%08x", (int) FNV1.fnv1_64(javaUsername.getBytes(StandardCharsets.UTF_8)));
-                authData.setXuid(xuid);
+                authData.setXuid(decimalXuid(javaUuid, javaUsername));
             }
         }
         if (authData.getDeviceId() == null) {
@@ -288,6 +283,14 @@ public class LoginPackets {
             return configured;
         }
         return handshakeStorage.protocolVersion();
+    }
+
+    static String decimalXuid(final UUID javaUuid, final String javaUsername) {
+        final int bits = javaUuid != null
+                ? (int) javaUuid.getLeastSignificantBits()
+                : (int) FNV1.fnv1_64(javaUsername.getBytes(StandardCharsets.UTF_8));
+        final String decimal = Long.toUnsignedString(Integer.toUnsignedLong(bits));
+        return decimal.equals("0") ? "1" : decimal;
     }
 
     static java.util.Map<String, Object> createNetEaseExtraData(final String javaUsername, final UUID javaUuid, final String xuid) {
