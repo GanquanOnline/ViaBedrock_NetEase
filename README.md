@@ -63,6 +63,8 @@ Local changes on top of EaseCation/ViaBedrock:
 
 Build this module with `./gradlew publishToMavenLocal` (Java 21) after publishing the matching ViaVersion fork to mavenLocal. Then build ViaProxy_NetEase.
 
+CI: pushes and PRs run `.github/workflows/build-viaproxy.yml`. That job publishes this checkout to mavenLocal, clones `ViaProxy_NetEase` from the same GitHub org, rebuilds ViaProxy with this ViaBedrock packed in, uploads the jars, and on `main` refreshes the `viaproxy-latest` GitHub Release. If `ViaProxy_NetEase` is private, set repository secret `ORG_READ_TOKEN` (`contents:read`).
+
 ## License
 
 GPL-3.0-or-later, same as upstream ViaBedrock. See [LICENSE](LICENSE).

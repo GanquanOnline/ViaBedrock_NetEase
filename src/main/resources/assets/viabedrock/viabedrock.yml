@@ -84,7 +84,7 @@ netease:
 # Shared secret for ViaProxy authentication bridge.
 # When set, generates HMAC-signed identity tokens in the skin JWT.
 # Must match the secret configured in the Nemisys ViaProxyAuth plugin.
-# Empty = disabled (default self-signed behavior)
+# Empty still writes a Java-client marker so Waterdog skips fake-dimension transfers.
 viaproxy-auth-secret: ""
 # Enables server-side entity animation using Display Entities when ViaBedrockUtility mod is not present.
 # When disabled, custom entities will only show as invisible interaction boxes (upstream behavior).

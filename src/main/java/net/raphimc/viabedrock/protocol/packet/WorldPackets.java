@@ -254,9 +254,9 @@ public class WorldPackets {
             chunkTracker.resetJavaChunkLoading();
             clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
             // Waterdog 1.19.50+ injects CHANGE_DIMENSION then a server-originated
-            // DIMENSION_CHANGE_SUCCESS. Java same-dimension transfers skip the fake
-            // dimension trick and wait for this client ACK. Send it immediately so
-            // leftover bytes or packet order cannot stall the handshake.
+            // DIMENSION_CHANGE_SUCCESS. Java clients skip the fake-dimension trick
+            // and wait for this ACK. Send it immediately so leftover bytes or packet
+            // order cannot stall the handshake.
             clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
             PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, loadingScreenId);
             clientPlayer.setDimensionChangeInfo(null);

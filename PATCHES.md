@@ -2,6 +2,13 @@
 
 Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitmaster` for PyRpc / ModUI. Do not treat international Bedrock wiki or Geyser palettes as MOT 860.
 
+## 2026-03-21 — Mark Java clients without ViaProxy auth secret
+
+- **Goal:** Waterdog only skips fake-dimension transfers when clientData has a non-empty `ViaProxyAuthToken`. The default ViaBedrock config leaves `viaproxy-auth-secret` empty, so Java players were treated as Bedrock. Vertex then waited for `TransferComplete`, hit the 5s request timeout, and showed Redis unavailable.
+- **Change:** Always write `ViaProxyAuthToken` in the skin JWT. Signed tokens are used when a secret is configured; otherwise emit the `ViaProxy` sentinel. Echo server-originated `DIMENSION_CHANGE_SUCCESS` even after `CHANGE_DIMENSION` already ACKed.
+- **Refs:** Waterdog `HandshakeEntry` `isJavaClient`; `SwitchDownstreamHandler` Java same-dimension path; Vertex `GroupController.onTransferComplete`.
+- **Risk:** Servers that required a signed ViaProxy token for login still need `viaproxy-auth-secret` set. The sentinel only marks the client as Java.
+
 ## 2026-03-21 — Java Waterdog seamless transfer after MOT TransferPacket leftovers
 
 - **Goal:** Latest MOT writes `reloadWorld` and optional gatherings on `TransferPacket`. Latest Waterdog Java same-dimension transfers inject `CHANGE_DIMENSION` and wait for `DIMENSION_CHANGE_SUCCESS`. Java players then saw transfer unavailable while Bedrock still transferred.

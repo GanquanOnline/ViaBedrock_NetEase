@@ -306,8 +306,11 @@ public class ClientPlayerPackets {
 
             if (action == PlayerActionType.ChangeDimensionAck) {
                 final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
+                // Waterdog injects a server-originated DIMENSION_CHANGE_SUCCESS after
+                // CHANGE_DIMENSION. Echo the ACK even if WorldPackets already cleared
+                // dimensionChangeInfo, so Java same-dimension PHASE_2 can still complete.
+                clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
                 if (clientPlayer.dimensionChangeInfo() != null) {
-                    clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
                     PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, clientPlayer.dimensionChangeInfo().loadingScreenId());
                     clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
                     clientPlayer.setDimensionChangeInfo(null);

@@ -20,3 +20,7 @@ bin/
 # Local diagnostic leftovers (do not publish)
 _tmp_*.py
 start_game_dump.bin
+
+# CI checkout / staged jars
+/viaproxy/
+/dist/
