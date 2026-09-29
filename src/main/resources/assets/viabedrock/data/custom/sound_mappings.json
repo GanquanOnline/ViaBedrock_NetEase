@@ -322,7 +322,7 @@
   "close.wooden_door": "minecraft:block.wooden_door.close",
   "close.wooden_trapdoor": "minecraft:block.wooden_trapdoor.close",
   "close_door.copper": "minecraft:block.copper_door.close",
-  "component.jump_to_block": "minecraft:entity.player.attack.sweep",
+  "component.jump_to_block": "minecraft:entity.goat.long_jump",
   "conduit.activate": "minecraft:block.conduit.activate",
   "conduit.ambient": "minecraft:block.conduit.ambient",
   "conduit.attack": "minecraft:block.conduit.attack.target",
