@@ -18,13 +18,17 @@
 package net.raphimc.viabedrock.api.modinterface;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_11;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.protocol.packet.PacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundConfigurationPackets1_21_9;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.api.model.entity.CustomEntity;
+import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
 import net.raphimc.viabedrock.protocol.model.SkinData;
 import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
@@ -44,6 +48,13 @@ public class ViaBedrockUtilityInterface {
 
     public static final String CHANNEL = "viabedrockutility:data";
     public static final String PLAYER_STATE_CHANNEL = "viabedrockutility:player_state";
+    public static final String PLAYER_VISUAL_STATE_V1_CAPABILITY = "viabedrockutility:player_visual_state_v1";
+    public static final String PLAYER_ANIMATION_V1_CAPABILITY = "viabedrockutility:player_animation_v1";
+    public static final String INPUT_LOCKS_V1_CAPABILITY = "viabedrockutility:input_locks_v1";
+    public static final String INPUT_LOCKS_V2_CAPABILITY = "viabedrockutility:input_locks_v2";
+    public static final String CUSTOM_ENTITY_MOTION_V1_CAPABILITY = "viabedrockutility:custom_entity_motion_v1";
+    public static final String WITHER_SKULL_MOTION_V1_CAPABILITY = "viabedrockutility:wither_skull_motion_v1";
+    public static final String CUSTOM_SPECTATOR_PROPERTY = "easecation:custom_spectator";
     /** Client capability: unmapped Bedrock particle effects can use anchor-aware V2 requests. */
     public static final String PARTICLE_RUNTIME_V2_CAPABILITY = "viabedrockutility:particle_runtime_v2";
     /** Client capability: local MOT spectator can stay Java ADVENTURE while VBU forces Entity.noClip. */
@@ -55,10 +66,18 @@ public class ViaBedrockUtilityInterface {
     static final int SKIN_ANIMATION_DATA_CHUNK_SIZE = MAX_PAYLOAD_SIZE - SKIN_ANIMATION_DATA_HEADER_SIZE;
 
     public static void confirmPresence(final UserConnection user) {
-        final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
+        final PacketWrapper pluginMessage = PacketWrapper.create(customPayloadType(user), user);
         pluginMessage.write(Types.STRING, CHANNEL); // Channel
         pluginMessage.write(Types.INT, PayloadType.CONFIRM.ordinal()); // Type
         pluginMessage.send(BedrockProtocol.class);
+    }
+
+    private static PacketType customPayloadType(final UserConnection user) {
+        // FINISH_CONFIGURATION advances the outbound stream before its acknowledgement arrives.
+        // clientState can still be CONFIGURATION after the client has switched to PLAY.
+        return user.getProtocolInfo().getServerState() == State.CONFIGURATION
+                ? ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD
+                : ClientboundPackets26_1.CUSTOM_PAYLOAD;
     }
 
     public static void handlePlayerState(final UserConnection user, final byte[] payload) {
@@ -222,7 +241,8 @@ public class ViaBedrockUtilityInterface {
         CONFIRM, MODEL_REQUEST, ANIMATE,
         CAPE, SKIN_INFORMATION, SKIN_DATA,
         SKIN_ANIMATION_INFO, SKIN_ANIMATION_DATA,
-        SPAWN_PARTICLE, SPAWN_PARTICLE_V2, SPECTATOR_NOCLIP
+        SPAWN_PARTICLE, SPAWN_PARTICLE_V2, SPECTATOR_NOCLIP,
+        PLAYER_VISUAL_STATE, PLAYER_ANIMATE, INPUT_LOCKS, CUSTOM_ENTITY_MOTION, INPUT_LOCKS_V2
     }
 
     public static boolean hasSpectatorNoclip(final UserConnection user) {
@@ -250,6 +270,106 @@ public class ViaBedrockUtilityInterface {
         pluginMessage.write(Types.INT, PayloadType.SPECTATOR_NOCLIP.ordinal());
         pluginMessage.write(Types.BOOLEAN, enabled);
         pluginMessage.send(BedrockProtocol.class);
+    }
+
+    /** 确认新代理能区分普通移动与瞬移，旧代理不会误启用客户端插值。 */
+    public static void confirmCustomEntityMotion(final UserConnection user) {
+        if (!supportsCustomEntityMotion(user)) {
+            return;
+        }
+        final PacketWrapper confirmation = PacketWrapper.create(customPayloadType(user), user);
+        confirmation.write(Types.STRING, CHANNEL);
+        confirmation.write(Types.INT, PayloadType.CUSTOM_ENTITY_MOTION.ordinal());
+        confirmation.write(Types.UNSIGNED_BYTE, (short) 0);
+        confirmation.send(BedrockProtocol.class);
+    }
+
+    public static void confirmWitherSkullMotion(final UserConnection user) {
+        if (!supportsWitherSkullMotion(user)) {
+            return;
+        }
+        final PacketWrapper confirmation = PacketWrapper.create(customPayloadType(user), user);
+        confirmation.write(Types.STRING, CHANNEL);
+        confirmation.write(Types.INT, PayloadType.CUSTOM_ENTITY_MOTION.ordinal());
+        confirmation.write(Types.UNSIGNED_BYTE, (short) 2);
+        confirmation.send(BedrockProtocol.class);
+    }
+
+    /** 保留已协商实体的瞬移语义，普通移动仍通过原生位置包插值。 */
+    public static boolean writeCustomEntityTeleport(final PacketWrapper wrapper, final Entity entity,
+                                                    final boolean teleported) {
+        if (!teleported) {
+            return false;
+        }
+        final int action;
+        if (entity instanceof CustomEntity && supportsCustomEntityMotion(wrapper.user())) {
+            action = 1;
+        } else if (entity.javaType() == EntityTypes1_21_11.WITHER_SKULL && entity.usesVanillaJavaType()
+                && supportsWitherSkullMotion(wrapper.user())) {
+            action = 3;
+        } else {
+            return false;
+        }
+        wrapper.clearPacket();
+        wrapper.setPacketType(ClientboundPackets26_1.CUSTOM_PAYLOAD);
+        wrapper.write(Types.STRING, CHANNEL);
+        wrapper.write(Types.INT, PayloadType.CUSTOM_ENTITY_MOTION.ordinal());
+        wrapper.write(Types.UNSIGNED_BYTE, (short) action);
+        wrapper.write(Types.UUID, entity.javaUuid());
+        wrapper.write(Types.DOUBLE, (double) entity.position().x());
+        wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset());
+        wrapper.write(Types.DOUBLE, (double) entity.position().z());
+        wrapper.write(Types.FLOAT, entity.rotation().y());
+        wrapper.write(Types.FLOAT, entity.rotation().x());
+        wrapper.write(Types.BOOLEAN, entity.isOnGround());
+        return true;
+    }
+
+    private static boolean supportsCustomEntityMotion(final UserConnection user) {
+        final ChannelStorage channels = user.get(ChannelStorage.class);
+        return channels != null && channels.hasChannel(CONFIRM_CHANNEL)
+                && channels.hasChannel(CUSTOM_ENTITY_MOTION_V1_CAPABILITY);
+    }
+
+    private static boolean supportsWitherSkullMotion(final UserConnection user) {
+        final ChannelStorage channels = user.get(ChannelStorage.class);
+        return channels != null && channels.hasChannel(CONFIRM_CHANNEL)
+                && channels.hasChannel(WITHER_SKULL_MOTION_V1_CAPABILITY);
+    }
+
+    public static boolean sendInputLocks(final UserConnection user, final int flags, final boolean immobile) {
+        final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        if (!writeInputLocks(pluginMessage, flags, immobile)) return false;
+        pluginMessage.send(BedrockProtocol.class);
+        return true;
+    }
+
+    /** 新客户端原子接收权限与定身，v1只降级为禁用输入，不能改写历史位的语义。 */
+    static boolean writeInputLocks(final PacketWrapper pluginMessage, final int flags, final boolean immobile) {
+        final UserConnection user = pluginMessage.user();
+        final ChannelStorage channels = user.get(ChannelStorage.class);
+        if (channels == null) return false;
+        final boolean v2 = channels.hasChannel(INPUT_LOCKS_V2_CAPABILITY);
+        if (!v2 && !channels.hasChannel(INPUT_LOCKS_V1_CAPABILITY)) return false;
+        pluginMessage.write(Types.STRING, CHANNEL);
+        pluginMessage.write(Types.INT, v2 ? PayloadType.INPUT_LOCKS_V2.ordinal() : PayloadType.INPUT_LOCKS.ordinal());
+        pluginMessage.write(Types.INT, (flags & 6) | (!v2 && immobile ? 4 : 0));
+        if (v2) pluginMessage.write(Types.BOOLEAN, immobile);
+        return true;
+    }
+
+    public static void sendPlayerVisualState(final UserConnection user, final UUID uuid, final boolean customSpectator) {
+        final ChannelStorage channels = user.get(ChannelStorage.class);
+        if (channels == null || !channels.hasChannel(PLAYER_VISUAL_STATE_V1_CAPABILITY)) {
+            return;
+        }
+
+        final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        pluginMessage.write(Types.STRING, CHANNEL);
+        pluginMessage.write(Types.INT, PayloadType.PLAYER_VISUAL_STATE.ordinal());
+        pluginMessage.write(Types.UUID, uuid);
+        pluginMessage.write(Types.UNSIGNED_BYTE, (short) (customSpectator ? 1 : 0));
+        pluginMessage.scheduleSend(BedrockProtocol.class);
     }
 
     public static void spawnParticle(final UserConnection user, final String identifier, final float x, final float y, final float z) {
@@ -312,10 +432,55 @@ public class ViaBedrockUtilityInterface {
 
     public static void sendAnimateEntity(final UserConnection user, final UUID uuid, final String animationName) {
         final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        writeAnimateEntity(pluginMessage, uuid, animationName);
+        pluginMessage.scheduleSend(BedrockProtocol.class);
+    }
+
+    public static void sendPlayerAnimation(final UserConnection user, final UUID uuid, final String animationName,
+                                           final String nextState, final String stopExpression, final int stopExpressionVersion,
+                                           final String controller, final float blendOutTime) {
+        final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        writePlayerAnimation(pluginMessage, uuid, animationName, nextState, stopExpression, stopExpressionVersion, controller, blendOutTime);
+        pluginMessage.scheduleSend(BedrockProtocol.class);
+    }
+
+    static void writePlayerAnimation(final PacketWrapper pluginMessage, final UUID uuid, final String animationName,
+                                     final String nextState, final String stopExpression, final int stopExpressionVersion,
+                                     final String controller, final float blendOutTime) {
+        final ChannelStorage channels = pluginMessage.user().get(ChannelStorage.class);
+        if (channels == null || !channels.hasChannel(PLAYER_ANIMATION_V1_CAPABILITY)) {
+            writeAnimateEntity(pluginMessage, uuid, animationName);
+            return;
+        }
+        if (!Float.isFinite(blendOutTime) || blendOutTime < 0F) {
+            throw new IllegalArgumentException("Player animation blend out time must be finite and non-negative");
+        }
+        long payloadSize = Integer.BYTES + 2 * Long.BYTES + 4 * Integer.BYTES + Integer.BYTES + Float.BYTES;
+        for (final String value : new String[]{animationName, nextState, stopExpression, controller}) {
+            if (value == null) {
+                throw new IllegalArgumentException("Player animation strings cannot be null");
+            }
+            payloadSize += value.getBytes(StandardCharsets.UTF_8).length;
+        }
+        if (payloadSize > MAX_PAYLOAD_SIZE) {
+            throw new IllegalArgumentException("Player animation payload exceeds " + MAX_PAYLOAD_SIZE + " bytes");
+        }
+
+        pluginMessage.write(Types.STRING, CHANNEL);
+        pluginMessage.write(Types.INT, PayloadType.PLAYER_ANIMATE.ordinal());
+        pluginMessage.write(Types.UUID, uuid);
+        writeString(pluginMessage, animationName);
+        writeString(pluginMessage, nextState);
+        writeString(pluginMessage, stopExpression);
+        pluginMessage.write(Types.INT, stopExpressionVersion);
+        writeString(pluginMessage, controller);
+        pluginMessage.write(Types.FLOAT, blendOutTime);
+    }
+
+    static void writeAnimateEntity(final PacketWrapper pluginMessage, final UUID uuid, final String animationName) {
         pluginMessage.write(Types.STRING, CHANNEL); // Channel
         pluginMessage.write(Types.INT, PayloadType.ANIMATE.ordinal()); // Type
         pluginMessage.write(Types.UUID, uuid);
         writeString(pluginMessage, animationName);
-        pluginMessage.scheduleSend(BedrockProtocol.class);
     }
 }

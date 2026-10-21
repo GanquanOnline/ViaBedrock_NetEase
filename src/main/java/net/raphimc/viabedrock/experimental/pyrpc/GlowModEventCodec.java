@@ -19,7 +19,6 @@ package net.raphimc.viabedrock.experimental.pyrpc;
 
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
-import org.msgpack.value.ArrayValue;
 import org.msgpack.value.MapValue;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueType;
@@ -27,9 +26,11 @@ import org.msgpack.value.ValueType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * ModEventS2C 中 Glow schema 的窄解码器。
@@ -41,29 +42,25 @@ public final class GlowModEventCodec {
     public static final String UPDATE_EVENT = "RequestEntityGlowUpdate";
     public static final String SYNC_EVENT = "RequestEntityGlowSync";
     public static final int SCHEMA = 1;
-    private static final int MAX_PAYLOAD_BYTES = 256 * 1024;
-    private static final int MAX_ENTRIES = 256;
-    private static final int MAX_ENTITY_ID_LENGTH = 32;
 
     private GlowModEventCodec() {
     }
 
     public sealed interface Message permits Update, Sync {
-        long revision();
     }
 
-    public record Update(String entityId, boolean enabled, int red, int green, int blue, long revision)
+    public record Update(String entityId, boolean enabled, int red, int green, int blue)
             implements Message {
     }
 
-    public record Sync(long revision, List<Update> entries) implements Message {
+    public record Sync(List<Update> entries) implements Message {
         public Sync {
             entries = List.copyOf(entries);
         }
     }
 
     public static Optional<Message> decode(final byte[] payload) {
-        if (payload == null || payload.length == 0 || payload.length > MAX_PAYLOAD_BYTES) {
+        if (payload == null || payload.length == 0) {
             return Optional.empty();
         }
         try (MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(payload)) {
@@ -86,7 +83,11 @@ public final class GlowModEventCodec {
             }
             String eventName = stringValue(args.get(2));
             if (UPDATE_EVENT.equals(eventName)) {
-                return parseUpdate(args.get(3), null);
+                Value data = args.get(3);
+                if (!data.isMapValue() || integerValue(data.asMapValue(), "schema", -1) != SCHEMA) {
+                    return Optional.empty();
+                }
+                return parseUpdate(data);
             }
             if (SYNC_EVENT.equals(eventName)) {
                 return parseSync(args.get(3));
@@ -106,37 +107,29 @@ public final class GlowModEventCodec {
                 || !booleanValue(map, "replace", false)) {
             return Optional.empty();
         }
-        long revision = longValue(map, "revision", -1L);
         Value entriesValue = mapValue(map, "entries");
-        if (revision < 0 || entriesValue == null || !entriesValue.isArrayValue()) {
+        if (entriesValue == null || !entriesValue.isArrayValue()) {
             return Optional.empty();
         }
         List<Value> entries = entriesValue.asArrayValue().list();
-        if (entries.size() > MAX_ENTRIES) {
-            return Optional.empty();
-        }
         List<Update> updates = new ArrayList<>(entries.size());
-        List<String> ids = new ArrayList<>(entries.size());
+        Set<String> ids = new HashSet<>();
         for (Value entry : entries) {
-            Optional<Message> parsed = parseUpdate(entry, revision);
+            Optional<Message> parsed = parseUpdate(entry);
             if (parsed.isEmpty() || !(parsed.get() instanceof Update update)
-                    || ids.contains(update.entityId())) {
+                    || !ids.add(update.entityId())) {
                 return Optional.empty();
             }
-            ids.add(update.entityId());
             updates.add(update);
         }
-        return Optional.of(new Sync(revision, updates));
+        return Optional.of(new Sync(updates));
     }
 
-    private static Optional<Message> parseUpdate(final Value value, final Long inheritedRevision) {
+    private static Optional<Message> parseUpdate(final Value value) {
         if (!value.isMapValue()) {
             return Optional.empty();
         }
         MapValue map = value.asMapValue();
-        if (integerValue(map, "schema", -1) != SCHEMA) {
-            return Optional.empty();
-        }
         String entityId = stringValue(mapValue(map, "entity_id"));
         if (!isEntityId(entityId)) {
             return Optional.empty();
@@ -146,12 +139,6 @@ public final class GlowModEventCodec {
             return Optional.empty();
         }
         boolean enabled = enabledValue.asBooleanValue().getBoolean();
-        long revision = inheritedRevision != null
-                ? inheritedRevision
-                : longValue(map, "revision", -1L);
-        if (revision < 0) {
-            return Optional.empty();
-        }
         int red = 255;
         int green = 255;
         int blue = 255;
@@ -163,11 +150,11 @@ public final class GlowModEventCodec {
                 return Optional.empty();
             }
         }
-        return Optional.of(new Update(entityId, enabled, red, green, blue, revision));
+        return Optional.of(new Update(entityId, enabled, red, green, blue));
     }
 
     private static boolean isEntityId(final String value) {
-        if (value == null || value.isEmpty() || value.length() > MAX_ENTITY_ID_LENGTH) {
+        if (value == null || value.isEmpty()) {
             return false;
         }
         int start = value.charAt(0) == '-' ? 1 : 0;
@@ -212,14 +199,6 @@ public final class GlowModEventCodec {
         }
         long number = value.asIntegerValue().toLong();
         return number < Integer.MIN_VALUE || number > Integer.MAX_VALUE ? fallback : (int) number;
-    }
-
-    private static long longValue(final MapValue map, final String key, final long fallback) {
-        Value value = mapValue(map, key);
-        if (value == null || !value.isIntegerValue()) {
-            return fallback;
-        }
-        return value.asIntegerValue().toLong();
     }
 
     private static boolean booleanValue(final MapValue map, final String key, final boolean fallback) {

@@ -20,12 +20,17 @@ package net.raphimc.viabedrock.experimental.riding;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.Vector3d;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_11;
+import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
+import net.raphimc.viabedrock.api.util.MathUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.model.Position3f;
 
+import java.util.List;
 import java.util.UUID;
 
 public final class RidingAnchorHelper {
@@ -47,6 +52,18 @@ public final class RidingAnchorHelper {
         addEntity.write(Types.BYTE, (byte) 0); // head yaw
         addEntity.write(Types.VAR_INT, 0); // data
         addEntity.send(BedrockProtocol.class);
+
+        // 挂点使用原版三 tick 位置插值，乘客随挂点平滑移动。
+        final int interpolationIndex = BedrockProtocol.MAPPINGS.getJavaEntityDataFields()
+                .get(EntityTypes1_21_11.TEXT_DISPLAY).indexOf(EntityDataFields.POS_ROT_INTERPOLATION_DURATION);
+        if (interpolationIndex == -1) {
+            throw new IllegalStateException("Unknown TEXT_DISPLAY entity data field: " + EntityDataFields.POS_ROT_INTERPOLATION_DURATION);
+        }
+        final PacketWrapper entityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, user);
+        entityData.write(Types.VAR_INT, javaId);
+        entityData.write(VersionedTypes.V26_1.entityDataList, List.of(
+                new EntityData(interpolationIndex, VersionedTypes.V26_1.entityDataTypes.varIntType, 3)));
+        entityData.send(BedrockProtocol.class);
     }
 
     public static void move(final UserConnection user, final int javaId, final Position3f position, final Position3f rotation, final boolean onGround) {
@@ -77,6 +94,15 @@ public final class RidingAnchorHelper {
         move.write(Types.FLOAT, yaw); // yaw
         move.write(Types.FLOAT, pitch); // pitch
         move.send(BedrockProtocol.class);
+    }
+
+    public static void rotatePassenger(final UserConnection user, final int javaId, final Position3f rotation, final boolean onGround) {
+        final PacketWrapper rotate = PacketWrapper.create(ClientboundPackets26_1.MOVE_ENTITY_ROT, user);
+        rotate.write(Types.VAR_INT, javaId);
+        rotate.write(Types.BYTE, MathUtil.float2Byte(rotation.y()));
+        rotate.write(Types.BYTE, MathUtil.float2Byte(rotation.x()));
+        rotate.write(Types.BOOLEAN, onGround);
+        rotate.send(BedrockProtocol.class);
     }
 
     public static void remove(final UserConnection user, final int javaId) {

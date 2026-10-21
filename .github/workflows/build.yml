@@ -13,6 +13,28 @@ jobs:
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
           persist-credentials: false
+      # 与已验收工作区的 gitlink 一致，使用公开源码中的定制 API。
+      - name: "Checkout BedrockMotion"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/BedrockMotion
+          ref: 1309712fd242eef9a508b1599a624ed503741514
+          path: .ci-dependencies/BedrockMotion
+          persist-credentials: false
+      - name: "Checkout CubeConverter"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/CubeConverter
+          ref: 80826eb92ccd5e75c1013e287c7308ac7e5d2471
+          path: .ci-dependencies/CubeConverter
+          persist-credentials: false
+      - name: "Checkout ViaVersion"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/ViaVersion
+          ref: eafcdf9c971f78e1b0a6408223a3a9b6db0c9d4a
+          path: .ci-dependencies/ViaVersion
+          persist-credentials: false
       - name: "Set up Gradle"
         uses: "gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e" # v6.1.0
         with:
@@ -24,7 +46,7 @@ jobs:
           java-version: 25
           check-latest: true
       - name: "Build with Gradle"
-        run: "./gradlew build --stacktrace"
+        run: "./gradlew --project-dir .github/ci :ViaBedrock:build --stacktrace"
       - name: "Upload artifacts to GitHub"
         uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" # v7.0.1
         with:

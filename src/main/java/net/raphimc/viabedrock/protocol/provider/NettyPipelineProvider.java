@@ -27,6 +27,11 @@ import javax.crypto.SecretKey;
 
 public abstract class NettyPipelineProvider implements Provider {
 
+    /** 只由真实前端协议确定能否原样回送完整 int Ping ID。 */
+    public boolean supportsFullJavaPingIds(final UserConnection user) {
+        return false;
+    }
+
     /**
      * Returns whether a Java clientbound packet for the given state can be injected into the
      * platform pipeline without crossing a protocol-state transition.

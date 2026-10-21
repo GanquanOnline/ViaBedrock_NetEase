@@ -72,6 +72,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -239,6 +240,11 @@ public class ClientPlayerPackets {
     }
 
     public static void register(final BedrockProtocol protocol) {
+        protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_CLIENT_INPUT_LOCKS, null, wrapper -> {
+            wrapper.cancel();
+            final int flags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
+            wrapper.user().get(EntityTracker.class).getClientPlayer().setInputLocks(flags);
+        });
         protocol.registerClientbound(ClientboundBedrockPackets.RESPAWN, ClientboundPackets26_1.RESPAWN, wrapper -> {
             final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
             final byte rawState = wrapper.read(Types.BYTE); // state
@@ -259,6 +265,7 @@ public class ClientPlayerPackets {
             switch (state) {
                 case ReadyToSpawn -> {
                     final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
+                    clientPlayer.resetJavaMovementPosition();
                     clientPlayer.setPosition(position);
 
                     if (clientPlayer.isInitiallySpawned()) {
@@ -397,7 +404,7 @@ public class ClientPlayerPackets {
                         return;
                     }
 
-                    clientPlayer.setPosition(position);
+                    clientPlayer.setPositionFromServer(position);
                     clientPlayer.setOnGround(onGround);
                     clientPlayer.writePlayerPositionPacketToClient(wrapper, Relative.union(Relative.ROTATION, Relative.VELOCITY), true);
                 }
@@ -741,25 +748,30 @@ public class ClientPlayerPackets {
                 ExperimentalFeatures.restorePromotedOffhand(wrapper.user(), clientPlayer);
             }
         });
+        // movement 序号只为旧版 NyaAC 边界兼容保留；新边界直接以 CLIENT_TICK_END 定位 PAI。
         protocol.registerServerbound(ServerboundPackets26_1.MOVE_PLAYER_STATUS_ONLY, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             clientPlayer.updatePlayerPosition(wrapper.read(Types.UNSIGNED_BYTE));
+            wrapper.user().get(PacketSyncStorage.class).recordJavaMovementFrame();
         });
         protocol.registerServerbound(ServerboundPackets26_1.MOVE_PLAYER_POS, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             clientPlayer.updatePlayerPosition(wrapper.read(Types.DOUBLE), wrapper.read(Types.DOUBLE), wrapper.read(Types.DOUBLE), wrapper.read(Types.UNSIGNED_BYTE));
+            wrapper.user().get(PacketSyncStorage.class).recordJavaMovementFrame();
         });
         protocol.registerServerbound(ServerboundPackets26_1.MOVE_PLAYER_POS_ROT, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             clientPlayer.updatePlayerPosition(wrapper.read(Types.DOUBLE), wrapper.read(Types.DOUBLE), wrapper.read(Types.DOUBLE), MathUtil.wrapDegrees(wrapper.read(Types.FLOAT)), wrapper.read(Types.FLOAT), wrapper.read(Types.UNSIGNED_BYTE));
+            wrapper.user().get(PacketSyncStorage.class).recordJavaMovementFrame();
         });
         protocol.registerServerbound(ServerboundPackets26_1.MOVE_PLAYER_ROT, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             clientPlayer.updatePlayerPosition(MathUtil.wrapDegrees(wrapper.read(Types.FLOAT)), wrapper.read(Types.FLOAT), wrapper.read(Types.UNSIGNED_BYTE));
+            wrapper.user().get(PacketSyncStorage.class).recordJavaMovementFrame();
         });
         protocol.registerServerbound(ServerboundPackets26_1.ACCEPT_TELEPORTATION, null, wrapper -> {
             wrapper.cancel();
@@ -895,6 +907,9 @@ public class ClientPlayerPackets {
                 velocity = new Position3f(dx * 0.91F, dy * 0.98F, dz * 0.91F);
             }
 
+            if (clientPlayer.isMovementInputLocked()) {
+                removeImmobileMovementInput(clientPlayer.authInputData());
+            }
             final PlayerAuthInputContext authInputContext = new PlayerAuthInputContext(clientPlayer.position(), velocity);
             ExperimentalFeatures.dispatchPlayerAuthInput(wrapper.user(), clientPlayer, authInputContext);
             if (immobile) {
@@ -963,6 +978,21 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.POSITION_2F, analogMoveVector); // analog move vector
             wrapper.write(BedrockTypes.POSITION_3F, MathUtil.calculateCameraOrientation(clientPlayer.rotation().y(), clientPlayer.rotation().x())); // camera orientation
             wrapper.write(BedrockTypes.POSITION_2F, rawMoveVector); // raw move vector
+
+            // 当前 AuthInput 的所有字段已构建完成，且已越过未出生/死亡的取消分支。
+            // 在这里立即推进 tick-end 序号并释放就绪 ACK，不等待额外 movement 或其他包。
+            // sendToServer 先发出 ACK，随后当前 wrapper 正常发出 PAI；线上顺序为 ACK → PAI。
+            // 同一边界只消费一次，多个就绪 ACK 按入队顺序共同定位紧随其后的这一份 AuthInput。
+            final PacketSyncStorage packetSyncStorage = wrapper.user().get(PacketSyncStorage.class);
+            packetSyncStorage.recordJavaClientTickEndFrame();
+            final List<PacketSyncStorage.NetworkStackLatencyResponse> clientTickEndBoundaries =
+                    packetSyncStorage.consumeClientTickEndBoundaryResponses();
+            for (PacketSyncStorage.NetworkStackLatencyResponse response : clientTickEndBoundaries) {
+                final PacketWrapper latency = PacketWrapper.create(
+                        ServerboundBedrockPackets.NETWORK_STACK_LATENCY, wrapper.user());
+                MultiStatePackets.writeNetworkStackLatencyResponse(latency, response);
+                latency.sendToServer(BedrockProtocol.class);
+            }
 
             clientPlayer.authInputData().clear();
             clientPlayer.authInputBlockActions().clear();

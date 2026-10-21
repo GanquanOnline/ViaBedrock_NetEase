@@ -1579,6 +1579,10 @@ public class ExperimentalFeatures {
                 }
 
                 if (!clientPlayer.isUsingItem()) {
+                    if (clientPlayer.itemUseSnapshot() != null) {
+                        cancelUsingItem(wrapper.user(), inventoryTransactionRewriter, clientPlayer);
+                        return;
+                    }
                     // The injected Java consumable produces a release packet, but Bedrock swords have no
                     // corresponding continuous-use state to release.
                     if (ExperimentalItemRewriter.isSwordBlockingAnimationItem(wrapper.user().get(ItemRewriter.class), inventoryTracker.getInventoryContainer().getSelectedHotbarItem())) {
@@ -1657,7 +1661,7 @@ public class ExperimentalFeatures {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
-            if (!clientPlayer.isUsingItem()) {
+            if (clientPlayer.itemUseSnapshot() == null) {
                 return;
             }
 
@@ -1670,8 +1674,13 @@ public class ExperimentalFeatures {
                     inventoryTracker,
                     clientPlayer.isOffhandPromoted() ? InteractionHand.MAIN_HAND : clientPlayer.usingItemHand());
             final BedrockItem selectedItem = handContext.item();
-            if (!matchesUseItem(handContext, clientPlayer)) {
+            if (inventoryTracker.isAnyScreenOpen() || !matchesUseItem(handContext, clientPlayer)
+                    || (!ViaBedrock.getConfig().shouldEmulateNetEaseClient() && !isContinuousUseItem(itemRewriter, selectedItem))) {
                 cancelUsingItem(wrapper.user(), wrapper.user().get(InventoryTransactionRewriter.class), clientPlayer);
+                return;
+            }
+
+            if (!clientPlayer.isUsingItem()) {
                 return;
             }
 
@@ -1870,6 +1879,13 @@ public class ExperimentalFeatures {
                     PacketFactory.sendJavaBlockChangedAck(wrapper.user(), sequence);
                 }
                 return;
+            }
+            if (isContinuousUseItem(itemRewriter, selectedItem)) {
+                // EaseCation #600: a failed placeable-food click does not send another USE_ITEM.
+                // Wait for the server to confirm the use instead of starting it locally.
+                clientPlayer.prepareBlockItemUse(handContext.hand(), handContext.containerId(), handContext.containerSlot(), handContext.transactionHotbarSlot(), selectedItem);
+            } else {
+                clientPlayer.setUsingItem(false);
             }
 
             final ItemUseHandContext motHandContext = motContextForOffhandUse(wrapper.user(), clientPlayer, handContext, itemRewriter);

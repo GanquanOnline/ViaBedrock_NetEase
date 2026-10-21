@@ -59,8 +59,9 @@ class ResourcePackStorageAsyncTest {
 
             releaseWorker.countDown();
             blocker.get(5L, TimeUnit.SECONDS);
-            final ResourcePackStorage storage = preparation.get(10L, TimeUnit.SECONDS);
+            // 先等待观察任务，避免 preparation.get() 帮助执行其尚未结束的 thenAccept 回调。
             observed.get(5L, TimeUnit.SECONDS);
+            final ResourcePackStorage storage = preparation.get(10L, TimeUnit.SECONDS);
             try {
                 assertNotSame(caller, completionThread.get());
                 assertTrue(completionThread.get().getName().startsWith("ViaBedrock Pack CPU #"));

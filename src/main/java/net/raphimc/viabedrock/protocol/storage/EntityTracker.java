@@ -42,6 +42,7 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.model.BlockState;
 import net.raphimc.viabedrock.api.model.entity.*;
 import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
+import net.raphimc.viabedrock.experimental.storage.RidingTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
@@ -293,6 +294,10 @@ public class EntityTracker extends StoredObject {
     }
 
     public void prepareForRespawn() {
+        final RidingTracker riding = this.user().get(RidingTracker.class);
+        if (riding != null) {
+            riding.reset();
+        }
         for (Entity entity : this.entities.values()) {
             entity.remove();
         }

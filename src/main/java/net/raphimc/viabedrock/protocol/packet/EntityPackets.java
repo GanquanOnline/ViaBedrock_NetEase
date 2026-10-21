@@ -250,7 +250,7 @@ public class EntityPackets {
                     wrapper.cancel();
                     return;
                 }
-                entity.setPosition(position);
+                entityTracker.getClientPlayer().setPositionFromServer(position);
                 ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
                 if (teleported) {
@@ -276,6 +276,10 @@ public class EntityPackets {
             entity.setOnGround(onGround);
             ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
+            if (ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
+                PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
+                return;
+            }
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y() - entity.eyeOffset()); // y
@@ -328,7 +332,7 @@ public class EntityPackets {
                 if (hasZ) {
                     z = wrapper.read(BedrockTypes.FLOAT_LE);
                 }
-                entity.setPosition(new Position3f(x, y, z));
+                entityTracker.getClientPlayer().setPositionFromServer(new Position3f(x, y, z));
                 ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
                 wrapper.clearPacket();
@@ -372,6 +376,9 @@ public class EntityPackets {
             entity.setOnGround(onGround);
             ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
+            if (ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
+                return;
+            }
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
             wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
             wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
@@ -503,7 +510,13 @@ public class EntityPackets {
                     }
                 }
                 case DEATH -> {
-                    wrapper.cancel();
+                    if (entity instanceof CustomEntity) {
+                        // 自定义实体使用 Interaction 载体，需独立转发死亡状态供客户端渲染。
+                        wrapper.write(Types.INT, entity.javaId()); // entity id
+                        wrapper.write(Types.BYTE, net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.DEATH.getValue()); // event
+                    } else {
+                        wrapper.cancel();
+                    }
                     if (entity instanceof LivingEntity livingEntity) {
                         livingEntity.setHealth(0F);
                         livingEntity.sendAttribute("minecraft:health");
@@ -604,6 +617,9 @@ public class EntityPackets {
             entity.setEntityDataFrame(entityDataFrame);
             final List<EntityData> javaEntityData = new ArrayList<>();
             entity.updateEntityData(entityData, javaEntityData);
+            if (entity instanceof PlayerEntity playerEntity) {
+                playerEntity.updateEntityProperties(entityProperties);
+            }
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
             wrapper.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
         });
@@ -663,14 +679,14 @@ public class EntityPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.ANIMATE_ENTITY, null, wrapper -> {
             // Java has no MoLang animation system; a server-triggered named animation only makes sense for entities
             // rendered by the ViaBedrockUtility mod: custom entities, and humanoids on the player render path (real
-            // players and player-type NPCs such as leaderboard NPCs). Read the packet, then forward
-            // "entity uuid + animation name" to the mod so it can play the animation.
+            // players and player-type NPCs such as leaderboard NPCs). Capable player renderers receive the
+            // complete runtime-controller request; custom entities and older clients keep the legacy payload.
             final String animation = wrapper.read(BedrockTypes.STRING); // animation
-            wrapper.read(BedrockTypes.STRING); // next state
-            wrapper.read(BedrockTypes.STRING); // stop expression
-            wrapper.read(Types.INT); // stop expression version (big-endian int)
-            wrapper.read(BedrockTypes.STRING); // controller
-            wrapper.read(BedrockTypes.FLOAT_LE); // blend out time
+            final String nextState = wrapper.read(BedrockTypes.STRING); // next state
+            final String stopExpression = wrapper.read(BedrockTypes.STRING); // stop expression
+            final int stopExpressionVersion = wrapper.read(Types.INT); // stop expression version (big-endian int)
+            final String controller = wrapper.read(BedrockTypes.STRING); // controller
+            final float blendOutTime = wrapper.read(BedrockTypes.FLOAT_LE); // blend out time
             final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // runtime entity id count
             final long[] runtimeIds = new long[count];
             for (int i = 0; i < count; i++) {
@@ -685,7 +701,10 @@ public class EntityPackets {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             for (final long runtimeId : runtimeIds) {
                 final Entity entity = entityTracker.getEntityByRid(runtimeId);
-                if (entity instanceof CustomEntity || entity instanceof PlayerEntity) {
+                if (entity instanceof PlayerEntity) {
+                    ViaBedrockUtilityInterface.sendPlayerAnimation(wrapper.user(), entity.javaUuid(), animation,
+                            nextState, stopExpression, stopExpressionVersion, controller, blendOutTime);
+                } else if (entity instanceof CustomEntity) {
                     ViaBedrockUtilityInterface.sendAnimateEntity(wrapper.user(), entity.javaUuid(), animation);
                 }
             }

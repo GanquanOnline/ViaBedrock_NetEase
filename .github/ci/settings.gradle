@@ -1,0 +1,16 @@
+rootProject.name = 'ViaBedrockCI'
+
+includeBuild('../..')
+includeBuild('../../.ci-dependencies/BedrockMotion') {
+    dependencySubstitution {
+        substitute module('com.github.EaseCation:BedrockMotion') using project(':')
+    }
+}
+includeBuild('../../.ci-dependencies/CubeConverter') {
+    dependencySubstitution {
+        substitute module('com.github.EaseCation:CubeConverter') using project(':')
+        substitute module('org.oryxel.cube:cubeconverter') using project(':')
+        substitute module('com.github.oryxel1:CubeConverter') using project(':')
+    }
+}
+includeBuild('../../.ci-dependencies/ViaVersion')

@@ -24,6 +24,7 @@ import org.msgpack.core.MessagePack;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,7 +44,7 @@ class GlowModEventCodecTest {
             packer.writePayload("ECNukkitClientMod".getBytes(StandardCharsets.UTF_8));
             packer.packString("ECNukkitServerSystem");
             packer.packString("RequestEntityGlowUpdate");
-            packer.packMapHeader(7);
+            packer.packMapHeader(6);
             packer.packString("schema");
             packer.packInt(1);
             packer.packString("entity_id");
@@ -56,8 +57,6 @@ class GlowModEventCodecTest {
             packer.packInt(80);
             packer.packString("blue");
             packer.packInt(160);
-            packer.packString("revision");
-            packer.packLong(4L);
             packer.packNil();
             payload = packer.toByteArray();
         }
@@ -67,13 +66,23 @@ class GlowModEventCodecTest {
         assertEquals("-123", update.entityId());
         assertEquals(255, update.red());
         assertEquals(160, update.blue());
-        assertEquals(4L, update.revision());
     }
 
     @Test
     void rejectsDuplicateSyncEntriesAndTrailingBytes() throws IOException {
         assertFalse(GlowModEventCodec.decode(new byte[]{0x01, 0x02}).isPresent());
         assertTrue(GlowModEventCodec.decode(packSync(List.of("1", "1"))).isEmpty());
+    }
+
+    @Test
+    void decodesLargeSnapshotWithoutRevisionOrPerEntrySchema() throws IOException {
+        List<String> ids = IntStream.range(0, 6000).mapToObj(Integer::toString).toList();
+        byte[] payload = packSync(ids);
+        assertTrue(payload.length > 256 * 1024);
+        GlowModEventCodec.Sync snapshot = assertInstanceOf(
+                GlowModEventCodec.Sync.class, GlowModEventCodec.decode(payload).orElseThrow());
+        assertEquals(6000, snapshot.entries().size());
+        assertEquals("5999", snapshot.entries().getLast().entityId());
     }
 
     private static byte[] packSync(List<String> entityIds) throws IOException {
@@ -84,19 +93,15 @@ class GlowModEventCodecTest {
             packer.packString("ECNukkitClientMod");
             packer.packString("ECNukkitServerSystem");
             packer.packString("RequestEntityGlowSync");
-            packer.packMapHeader(4);
+            packer.packMapHeader(3);
             packer.packString("schema");
             packer.packInt(1);
             packer.packString("replace");
             packer.packBoolean(true);
-            packer.packString("revision");
-            packer.packLong(1L);
             packer.packString("entries");
             packer.packArrayHeader(entityIds.size());
             for (String entityId : entityIds) {
-                packer.packMapHeader(6);
-                packer.packString("schema");
-                packer.packInt(1);
+                packer.packMapHeader(5);
                 packer.packString("entity_id");
                 packer.packString(entityId);
                 packer.packString("enabled");

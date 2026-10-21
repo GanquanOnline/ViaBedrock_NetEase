@@ -59,6 +59,7 @@ import net.raphimc.viabedrock.protocol.data.generated.java.RegistryKeys;
 import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.rewriter.BlockEntityRewriter;
 import net.raphimc.viabedrock.protocol.rewriter.BlockStateRewriter;
+import net.raphimc.viabedrock.protocol.rewriter.neighbor.NeighborAwareBlockRewriter;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 import java.util.*;
@@ -1344,6 +1345,24 @@ public class ChunkTracker extends StoredObject {
         return true;
     }
 
+    /**
+     * Marks already sent neighbor chunks dirty when this chunk's border contains a block whose fix could depend on a
+     * chunk that had not arrived yet, so that neighbor is re-translated (and re-fixed) with the now complete
+     * neighborhood. A neighbor that has not been sent yet will see this chunk directly and needs no resend.
+     */
+    private void refixSentNeighborChunks(final Chunk chunk, final int chunkX, final int chunkZ) {
+        final NeighborAwareBlockRewriter rewriter = BedrockProtocol.MAPPINGS.getNeighborRewriter();
+        for (int side = 0; side < 4; side++) {
+            final int neighborX = chunkX + (side == 0 ? -1 : side == 1 ? 1 : 0);
+            final int neighborZ = chunkZ + (side == 2 ? -1 : side == 3 ? 1 : 0);
+            final long neighborKey = ChunkPosition.chunkKey(neighborX, neighborZ);
+            if (!this.javaSentChunks.contains(neighborKey)) continue;
+            if (rewriter.hasCrossChunkSensitiveBlockOnBorder(chunk, side)) {
+                this.dirtyChunks.add(neighborKey);
+            }
+        }
+    }
+
     private Chunk remapChunk(final BedrockChunk chunk) {
         final BlockStateRewriter blockStateRewriter = this.user().get(BlockStateRewriter.class);
         final CustomMappingAccess customAccess = this.user().get(CustomMappingSyncStorage.class).access();
@@ -1495,6 +1514,11 @@ public class ChunkTracker extends StoredObject {
 
         // Fix neighbor-aware blocks (stair shapes, fence/pane connections, door/bed halves) based on neighboring blocks
         BedrockProtocol.MAPPINGS.getNeighborRewriter().fixChunk(this, remappedChunk, chunk.getX(), chunk.getZ(), this.minY);
+        // A fix computed now is wrong when it depended on a neighbor chunk that had not arrived yet (e.g. a nether
+        // portal plane straddling the border). Re-run the fix on already sent neighbors now that this chunk exists.
+        if (!this.javaSentChunks.contains(ChunkPosition.chunkKey(chunk.getX(), chunk.getZ()))) {
+            this.refixSentNeighborChunks(remappedChunk, chunk.getX(), chunk.getZ());
+        }
 
         final IntSet motionBlockingBlockStates = BedrockProtocol.MAPPINGS.getJavaHeightMapBlockStates().get("motion_blocking");
         final int[] worldSurface = new int[16 * 16];
