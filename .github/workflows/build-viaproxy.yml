@@ -1,0 +1,135 @@
+name: "Build ViaProxy"
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      viaproxy_ref:
+        description: "ViaProxy_NetEase branch, tag, or SHA"
+        required: false
+        default: "main"
+      publish_release:
+        description: "Publish or update the viaproxy-latest GitHub Release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: "read"
+
+concurrency:
+  group: "build-viaproxy-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  build-viaproxy:
+    runs-on: "ubuntu-24.04"
+    permissions:
+      contents: "write"
+    steps:
+      - name: "Checkout ViaBedrock_NetEase"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          persist-credentials: false
+      - name: "Checkout ViaProxy_NetEase"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: "${{ github.repository_owner }}/ViaProxy_NetEase"
+          ref: "${{ github.event_name == 'workflow_dispatch' && inputs.viaproxy_ref || 'main' }}"
+          path: "viaproxy"
+          persist-credentials: false
+          token: "${{ secrets.ORG_READ_TOKEN || github.token }}"
+      - name: "Set up Gradle"
+        uses: "gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e" # v6.1.0
+        with:
+          cache-disabled: true
+      - name: "Set up Java 25"
+        uses: "actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654" # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: 25
+          check-latest: true
+      - name: "Publish this ViaBedrock to mavenLocal"
+        id: "versions"
+        run: |
+          set -euo pipefail
+          base="$(awk -F= '/^maven_version=/{print $2}' gradle.properties | tr -d '\r')"
+          base="${base%-SNAPSHOT}"
+          version="${base}-ci.${GITHUB_SHA::7}"
+          echo "viabedrock_version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Publishing net.raphimc:ViaBedrock:${version} to mavenLocal"
+          ./gradlew publishToMavenLocal -Pmaven_version="${version}" -x test --stacktrace
+      - name: "Point ViaProxy at the CI ViaBedrock"
+        id: "viaproxy-version"
+        working-directory: "viaproxy"
+        env:
+          VIABEDROCK_VERSION: "${{ steps.versions.outputs.viabedrock_version }}"
+          VIAPROXY_VERSION_SUFFIX: "${{ github.sha }}"
+        run: |
+          set -euo pipefail
+          if ! grep -q 'net.raphimc:ViaBedrock:' build.gradle; then
+            echo "ViaProxy build.gradle no longer depends on net.raphimc:ViaBedrock" >&2
+            exit 1
+          fi
+          perl -i -pe 's/net\.raphimc:ViaBedrock:[^"]+/net.raphimc:ViaBedrock:$ENV{VIABEDROCK_VERSION}/' build.gradle
+          grep -n 'net.raphimc:ViaBedrock:' build.gradle
+          vp_base="$(awk -F= '/^maven_version=/{print $2}' gradle.properties | tr -d '\r')"
+          vp_base="${vp_base%-SNAPSHOT}"
+          echo "viaproxy_version=${vp_base}-viabedrock.${VIAPROXY_VERSION_SUFFIX::7}" >> "${GITHUB_OUTPUT}"
+      - name: "Build ViaProxy with this ViaBedrock packed in"
+        working-directory: "viaproxy"
+        run: "./gradlew jar downgradeJar -Pmaven_version=${{ steps.viaproxy-version.outputs.viaproxy_version }} --stacktrace"
+      - name: "Stage release jars"
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          shopt -s nullglob
+          copied=0
+          for f in build/libs/ViaBedrock-*.jar; do
+            case "$f" in
+              *-sources.jar|*-javadoc.jar) continue ;;
+            esac
+            cp -v "$f" dist/
+            copied=$((copied + 1))
+          done
+          for f in viaproxy/build/libs/ViaProxy-*.jar; do
+            cp -v "$f" dist/
+            copied=$((copied + 1))
+          done
+          if [ "$copied" -eq 0 ]; then
+            echo "Missing ViaBedrock or ViaProxy jars" >&2
+            ls -la build/libs viaproxy/build/libs >&2 || true
+            exit 1
+          fi
+          ls -lah dist
+      - name: "Upload artifacts to GitHub"
+        uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" # v7.0.1
+        with:
+          name: "ViaProxy"
+          path: "dist/"
+          if-no-files-found: "error"
+      - name: "Publish viaproxy-latest GitHub Release"
+        if: "${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}"
+        env:
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          set -euo pipefail
+          {
+            echo "ViaProxy_NetEase built with this repository's ViaBedrock packed in."
+            echo
+            echo "- ViaBedrock: ${GITHUB_SHA}"
+            echo "- ViaBedrock coordinate: net.raphimc:ViaBedrock:${{ steps.versions.outputs.viabedrock_version }}"
+            echo "- ViaProxy_NetEase ref: ${{ github.event_name == 'workflow_dispatch' && inputs.viaproxy_ref || 'main' }}"
+            echo "- ViaProxy version: ${{ steps.viaproxy-version.outputs.viaproxy_version }}"
+            echo "- Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "Private sibling checkouts can set repository secret ORG_READ_TOKEN (contents:read)."
+          } > notes.md
+          if gh release view viaproxy-latest >/dev/null 2>&1; then
+            gh release upload viaproxy-latest dist/* --clobber
+            gh release edit viaproxy-latest --prerelease --title "ViaProxy (ViaBedrock ${GITHUB_SHA::7})" --notes-file notes.md
+          else
+            gh release create viaproxy-latest dist/* --prerelease --title "ViaProxy (ViaBedrock ${GITHUB_SHA::7})" --notes-file notes.md
+          fi

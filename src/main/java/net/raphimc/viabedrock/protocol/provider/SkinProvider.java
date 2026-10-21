@@ -284,10 +284,13 @@ public class SkinProvider implements Provider {
         }
 
         { // ViaProxy auth token
+            // Waterdog HandshakeEntry treats a non-empty ViaProxyAuthToken as a Java
+            // client and skips fake-dimension transfers. The HMAC secret is optional;
+            // without it we still emit a sentinel so same-dimension proxy transfers work.
             final String authSecret = ViaBedrock.getConfig().getViaProxyAuthSecret();
             if (authSecret != null && !authSecret.isEmpty()) {
                 final long timestamp = System.currentTimeMillis() / 1000;
-                claims.put("ViaProxyAuthToken", ViaProxyAuthToken.create(
+                putJavaClientAuthToken(claims, authSecret, ViaProxyAuthToken.create(
                         authSecret,
                         user.getProtocolInfo().getUuid(),
                         user.getProtocolInfo().getUsername(),
@@ -300,10 +303,23 @@ public class SkinProvider implements Provider {
                         Via.getManager().getProviders().get(JavaClientEncryptionKeyProvider.class)
                                 .getJavaClientEncryptionKey(user)
                 );
+            } else {
+                putJavaClientAuthToken(claims, authSecret, null);
             }
         }
 
         return claims;
+    }
+
+    static final String JAVA_CLIENT_MARKER = "ViaProxy";
+
+    static void putJavaClientAuthToken(final Map<String, Object> claims, final String authSecret,
+                                       final String signedToken) {
+        if (authSecret != null && !authSecret.isEmpty() && signedToken != null && !signedToken.isEmpty()) {
+            claims.put("ViaProxyAuthToken", signedToken);
+            return;
+        }
+        claims.put("ViaProxyAuthToken", JAVA_CLIENT_MARKER);
     }
 
     static void applyDeviceClaims(final Map<String, Object> claims, final JavaClientDevice device) {

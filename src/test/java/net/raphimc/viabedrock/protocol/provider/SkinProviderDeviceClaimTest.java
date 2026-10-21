@@ -40,4 +40,18 @@ class SkinProviderDeviceClaimTest {
         assertEquals(BuildPlatform.UWP.getValue(), claims.get("DeviceOS"));
     }
 
+    @Test
+    void writesJavaClientMarkerWithoutAuthSecret() {
+        final Map<String, Object> claims = new HashMap<>();
+        SkinProvider.putJavaClientAuthToken(claims, "", null);
+        assertEquals(SkinProvider.JAVA_CLIENT_MARKER, claims.get("ViaProxyAuthToken"));
+    }
+
+    @Test
+    void writesSignedTokenWhenSecretPresent() {
+        final Map<String, Object> claims = new HashMap<>();
+        SkinProvider.putJavaClientAuthToken(claims, "secret", "signed-token");
+        assertEquals("signed-token", claims.get("ViaProxyAuthToken"));
+    }
+
 }
