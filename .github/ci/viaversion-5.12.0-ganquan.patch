@@ -1,0 +1,237 @@
+diff --git a/api/src/main/java/com/viaversion/viaversion/api/protocol/packet/PacketSendInterceptor.java b/api/src/main/java/com/viaversion/viaversion/api/protocol/packet/PacketSendInterceptor.java
+new file mode 100644
+index 000000000..6dc439799
+--- /dev/null
++++ b/api/src/main/java/com/viaversion/viaversion/api/protocol/packet/PacketSendInterceptor.java
+@@ -0,0 +1,32 @@
++/*
++ * Compatibility shim for EaseCation ViaBedrock.
++ * Official ViaVersion does not ship this hook; ViaBedrock JoinGate stores one
++ * on the UserConnection and expects PacketWrapper.send() to consult it.
++ */
++package com.viaversion.viaversion.api.protocol.packet;
++
++import com.viaversion.viaversion.api.connection.StoredObject;
++import com.viaversion.viaversion.api.connection.UserConnection;
++import com.viaversion.viaversion.exception.InformativeException;
++
++public final class PacketSendInterceptor extends StoredObject {
++
++    @FunctionalInterface
++    public interface Handler {
++        /**
++         * @return true if the packet was consumed and must not be sent
++         */
++        boolean intercept(PacketWrapper wrapper) throws InformativeException;
++    }
++
++    private final Handler handler;
++
++    public PacketSendInterceptor(final UserConnection user, final Handler handler) {
++        super(user);
++        this.handler = handler;
++    }
++
++    public boolean intercept(final PacketWrapper wrapper) throws InformativeException {
++        return this.handler != null && this.handler.intercept(wrapper);
++    }
++}
+diff --git a/api/src/main/java/com/viaversion/viaversion/api/protocol/storage/CustomRegistryStorage.java b/api/src/main/java/com/viaversion/viaversion/api/protocol/storage/CustomRegistryStorage.java
+new file mode 100644
+index 000000000..fabbef9a5
+--- /dev/null
++++ b/api/src/main/java/com/viaversion/viaversion/api/protocol/storage/CustomRegistryStorage.java
+@@ -0,0 +1,52 @@
++/*
++ * Compatibility shim for EaseCation ViaBedrock custom mapping overlays.
++ * The official ViaVersion pipeline does not consume these entries; ViaBedrock
++ * still stores them so login and mapping install do not crash.
++ */
++package com.viaversion.viaversion.api.protocol.storage;
++
++import com.viaversion.viaversion.api.connection.StorableObject;
++
++import java.util.HashMap;
++import java.util.Map;
++
++public final class CustomRegistryStorage implements StorableObject {
++
++    public static final int BLOCK_STATE = 0;
++    public static final int BLOCK_ENTITY_TYPE = 1;
++    public static final int ITEM = 2;
++
++    private final Map<OverlayKey, OverlayEntry> overlays = new HashMap<>();
++    private final Map<RangeKey, int[]> sourceRanges = new HashMap<>();
++
++    public void putSourceRange(final Class<?> protocolClass, final int type, final int minSourceId, final int maxSourceId) {
++        this.sourceRanges.put(new RangeKey(protocolClass, type), new int[]{minSourceId, maxSourceId});
++    }
++
++    public void put(final Class<?> protocolClass, final int type, final int sourceId, final int targetId, final String name) {
++        this.overlays.put(new OverlayKey(protocolClass, type, sourceId), new OverlayEntry(targetId, name));
++    }
++
++    public Integer remap(final Class<?> protocolClass, final int type, final int sourceId) {
++        final OverlayEntry entry = this.overlays.get(new OverlayKey(protocolClass, type, sourceId));
++        return entry != null ? entry.targetId() : null;
++    }
++
++    public int[] sourceRange(final Class<?> protocolClass, final int type) {
++        return this.sourceRanges.get(new RangeKey(protocolClass, type));
++    }
++
++    public void clear() {
++        this.overlays.clear();
++        this.sourceRanges.clear();
++    }
++
++    private record OverlayKey(Class<?> protocolClass, int type, int sourceId) {
++    }
++
++    private record RangeKey(Class<?> protocolClass, int type) {
++    }
++
++    private record OverlayEntry(int targetId, String name) {
++    }
++}
+diff --git a/common/src/main/java/com/viaversion/viaversion/api/protocol/AbstractProtocol.java b/common/src/main/java/com/viaversion/viaversion/api/protocol/AbstractProtocol.java
+index 6e3c5ff49..31fa8b49c 100644
+--- a/common/src/main/java/com/viaversion/viaversion/api/protocol/AbstractProtocol.java
++++ b/common/src/main/java/com/viaversion/viaversion/api/protocol/AbstractProtocol.java
+@@ -42,12 +42,14 @@ import com.viaversion.viaversion.data.entity.EntityTrackerBase;
+ import com.viaversion.viaversion.data.item.ItemHasherBase;
+ import com.viaversion.viaversion.exception.CancelException;
+ import com.viaversion.viaversion.exception.InformativeException;
++import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
+ import com.viaversion.viaversion.protocol.shared_registration.SharedRegistrations;
+ import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
+ import com.viaversion.viaversion.util.ProtocolLogger;
+ import com.viaversion.viaversion.util.ProtocolUtil;
+ import java.util.HashMap;
+ import java.util.Map;
++import java.util.concurrent.atomic.AtomicInteger;
+ import java.util.function.BiConsumer;
+ import java.util.function.Predicate;
+ import java.util.logging.Level;
+@@ -73,11 +75,11 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
+     protected final PacketMappings clientboundMappings;
+     protected final PacketMappings serverboundMappings;
+     private final Map<Class<?>, Object> storedObjects = new HashMap<>();
++    private final int index = ProtocolManagerImpl.PROTOCOL_INDEX.getAndIncrement();
+     private boolean initialized;
+     private ProtocolLogger logger;
+     private ProtocolVersion serverVersion;
+     private ProtocolVersion clientVersion;
+-    private int index = -1;
+ 
+     @Deprecated
+     protected AbstractProtocol() {
+@@ -326,16 +328,6 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
+         return index;
+     }
+ 
+-    /**
+-     * Sets the protocol index for array-based lookups of per-connection data.
+-     * Called by the protocol manager during registration.
+-     *
+-     * @param index the protocol index
+-     */
+-    public void setIndex(final int index) {
+-        this.index = index;
+-    }
+-
+     // ---------------------------------------------------------------------------------
+ 
+     @Override
+diff --git a/common/src/main/java/com/viaversion/viaversion/protocol/ProtocolManagerImpl.java b/common/src/main/java/com/viaversion/viaversion/protocol/ProtocolManagerImpl.java
+index 7c6f21a5f..246f81047 100644
+--- a/common/src/main/java/com/viaversion/viaversion/protocol/ProtocolManagerImpl.java
++++ b/common/src/main/java/com/viaversion/viaversion/protocol/ProtocolManagerImpl.java
+@@ -121,6 +121,7 @@ import java.util.logging.Level;
+ import org.checkerframework.checker.nullness.qual.Nullable;
+ 
+ public class ProtocolManagerImpl implements ProtocolManager {
++    public static final AtomicInteger PROTOCOL_INDEX = new AtomicInteger();
+     private static final InitialBaseProtocol BASE_PROTOCOL = new InitialBaseProtocol();
+ 
+     // Input Version -> Output Version & Protocol (Allows fast lookup)
+@@ -130,7 +131,6 @@ public class ProtocolManagerImpl implements ProtocolManager {
+     private final Set<ProtocolVersion> supportedVersions = new HashSet<>();
+     private final List<Pair<Range<ProtocolVersion>, Protocol>> serverboundBaseProtocols = Lists.newCopyOnWriteArrayList();
+     private final List<Pair<Range<ProtocolVersion>, Protocol>> clientboundBaseProtocols = Lists.newCopyOnWriteArrayList();
+-    private final AtomicInteger protocolIndex = new AtomicInteger();
+ 
+     private final ReadWriteLock mappingLoaderLock = new ReentrantReadWriteLock();
+     private Map<Class<? extends Protocol>, CompletableFuture<Void>> mappingLoaderFutures = new Reference2ObjectOpenHashMap<>();
+@@ -155,7 +155,6 @@ public class ProtocolManagerImpl implements ProtocolManager {
+ 
+     public void registerProtocols() {
+         // Base Protocol
+-        BASE_PROTOCOL.setIndex(protocolIndex.getAndIncrement());
+         BASE_PROTOCOL.initialize();
+         BASE_PROTOCOL.register(Via.getManager().getProviders());
+         registerBaseProtocol(Direction.CLIENTBOUND, new ClientboundBaseProtocol1_7(), Range.closedOpen(ProtocolVersion.v1_7_2, ProtocolVersion.v1_16));
+@@ -234,7 +233,6 @@ public class ProtocolManagerImpl implements ProtocolManager {
+     public void registerProtocol(Protocol protocol, List<ProtocolVersion> supportedClientVersion, ProtocolVersion serverVersion) {
+         // Set the server version and index on AbstractProtocol instances before initialization
+         if (protocol instanceof AbstractProtocol<?, ?, ?, ?> abstractProtocol) {
+-            abstractProtocol.setIndex(protocolIndex.getAndIncrement());
+             abstractProtocol.setServerVersion(serverVersion);
+             abstractProtocol.setClientVersion(supportedClientVersion.stream().max(ProtocolVersion::compareTo).orElseThrow());
+         }
+@@ -286,10 +284,6 @@ public class ProtocolManagerImpl implements ProtocolManager {
+         Preconditions.checkArgument(lower == null || lower.getVersionType() != VersionType.SPECIAL, "Base protocol versions cannot contain a special version");
+         Preconditions.checkArgument(upper == null || upper.getVersionType() != VersionType.SPECIAL, "Base protocol versions cannot contain a special version");
+ 
+-        if (baseProtocol instanceof AbstractProtocol<?, ?, ?, ?> abstractProtocol) {
+-            abstractProtocol.setIndex(protocolIndex.getAndIncrement());
+-        }
+-
+         baseProtocol.initialize();
+ 
+         if (direction == Direction.SERVERBOUND) {
+@@ -595,7 +589,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
+ 
+     @Override
+     public int registeredProtocolCount() {
+-        return protocolIndex.get();
++        return PROTOCOL_INDEX.get();
+     }
+ 
+     public void shutdownLoaderExecutor() {
+diff --git a/common/src/main/java/com/viaversion/viaversion/protocol/packet/PacketWrapperImpl.java b/common/src/main/java/com/viaversion/viaversion/protocol/packet/PacketWrapperImpl.java
+index 06c215bf5..7ff52f5c4 100644
+--- a/common/src/main/java/com/viaversion/viaversion/protocol/packet/PacketWrapperImpl.java
++++ b/common/src/main/java/com/viaversion/viaversion/protocol/packet/PacketWrapperImpl.java
+@@ -25,6 +25,7 @@ import com.viaversion.viaversion.api.protocol.Protocol;
+ import com.viaversion.viaversion.api.protocol.packet.Direction;
+ import com.viaversion.viaversion.api.protocol.packet.PacketType;
+ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
++import com.viaversion.viaversion.api.protocol.packet.PacketSendInterceptor;
+ import com.viaversion.viaversion.api.protocol.packet.State;
+ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
+ import com.viaversion.viaversion.api.type.Type;
+@@ -314,6 +315,10 @@ public class PacketWrapperImpl implements PacketWrapper {
+ 
+     private void sendNow(final Class<? extends Protocol> protocol, final boolean skipCurrentPipeline) throws InformativeException {
+         try {
++            final PacketSendInterceptor interceptor = user().get(PacketSendInterceptor.class);
++            if (interceptor != null && interceptor.intercept(this)) {
++                return;
++            }
+             final ByteBuf output = constructPacket(protocol, skipCurrentPipeline, Direction.CLIENTBOUND);
+             user().sendRawPacket(output);
+         } catch (InformativeException e) {
+diff --git a/common/src/main/java/com/viaversion/viaversion/rewriter/StructuredItemRewriter.java b/common/src/main/java/com/viaversion/viaversion/rewriter/StructuredItemRewriter.java
+index d70633de0..44bacd440 100644
+--- a/common/src/main/java/com/viaversion/viaversion/rewriter/StructuredItemRewriter.java
++++ b/common/src/main/java/com/viaversion/viaversion/rewriter/StructuredItemRewriter.java
+@@ -198,7 +198,7 @@ public class StructuredItemRewriter<C extends ClientboundPacketType, S extends S
+     protected boolean isFirstServerbound(final UserConnection connection) {
+         // Only actually cache the original item once in the final clientbound/first serverbound protocol
+         for (final Protocol<?, ?, ?, ?> protocol : connection.getProtocolInfo().getPipeline().pipes()) {
+-            if (connection.getItemHasher(protocol) instanceof ItemHasherBase) {
++            if (!protocol.isBaseProtocol() && connection.getItemHasher(protocol) instanceof ItemHasherBase) {
+                 return protocol.getClass() == this.protocol.getClass();
+             }
+         }

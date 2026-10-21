@@ -67,6 +67,9 @@ jobs:
       - name: "Publish shaded ViaVersion 5.9.2"
         working-directory: .ci-dependencies/ViaVersion
         run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
+      - name: "Apply Ganquan ViaVersion shims"
+        working-directory: .ci-dependencies/ViaVersion-5.12
+        run: "git apply --whitespace=nowarn \"$GITHUB_WORKSPACE/.github/ci/viaversion-5.12.0-ganquan.patch\""
       - name: "Publish shaded ViaVersion 5.12.0"
         working-directory: .ci-dependencies/ViaVersion-5.12
         run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
