@@ -36,9 +36,14 @@ import java.util.logging.Level;
  */
 public class UITextureResourceRewriter implements ResourcePackRewriter.Rewriter {
 
-    private static final String[] TEXTURE_PREFIXES = {"textures/ui/", "textures/gui/"};
+    private static final String[] TEXTURE_PREFIXES = {"textures/ui/", "textures/gui/", "sfx/frame/"};
     private static final String[] COPY_EXTENSIONS = {".png", ".json"};
     private static final String[] IMAGE_EXTENSIONS = {".jpg", ".jpeg"};
+
+    @Override
+    public String artifactFingerprint() {
+        return "2";
+    }
 
     @Override
     public void apply(final ResourcePackStorage resourcePackStorage, final Content javaContent) {

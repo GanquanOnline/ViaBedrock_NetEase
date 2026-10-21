@@ -24,6 +24,7 @@ import com.viaversion.viaversion.libs.gson.JsonParser;
 import com.viaversion.viaversion.util.Key;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
 import net.raphimc.viabedrock.api.resourcepack.content.Content;
+import net.raphimc.viabedrock.api.resourcepack.definition.ItemDefinitions;
 import net.raphimc.viabedrock.api.resourcepack.definition.AttachableDefinitions;
 import net.raphimc.viabedrock.api.util.StringUtil;
 import net.raphimc.viabedrock.protocol.rewriter.ResourcePackRewriter;
@@ -103,6 +104,28 @@ public class CustomAttachableResourceRewriter extends ItemModelResourceRewriter 
                 javaModelDefinitions.put(modelKey, itemModel);
             }
             this.putItemDefinition(javaContent, attachableEntry.getKey(), javaModelDefinitions, resourcePackStorage.isSupportsFreeRotation());
+            final ItemDefinitions.ItemDefinition item = resourcePackStorage.getItems().get(attachableEntry.getKey());
+            if (!javaModelDefinitions.isEmpty() && item != null && item.iconComponent() != null) {
+                final Key itemKey = getItemModel(attachableEntry.getKey()).key();
+                final String itemPath = "assets/" + itemKey.namespace() + "/items/" + itemKey.path() + ".json";
+                final JsonObject itemDefinition = javaContent.getJson(itemPath);
+                final JsonObject icon = new JsonObject();
+                icon.addProperty("type", "minecraft:model");
+                icon.addProperty("model", CustomItemTextureResourceRewriter.getItemModel(item.iconComponent()).key() + "/0");
+                final JsonObject guiCase = new JsonObject();
+                guiCase.addProperty("when", "gui");
+                guiCase.add("model", icon);
+                final JsonArray cases = new JsonArray();
+                cases.add(guiCase);
+                final JsonObject selector = new JsonObject();
+                selector.addProperty("type", "minecraft:select");
+                selector.addProperty("property", "minecraft:display_context");
+                selector.add("cases", cases);
+                // 背包使用物品图标；其余视角继续使用附着模型，包括刻意隐藏的空手持几何。
+                selector.add("fallback", itemDefinition.get("model"));
+                itemDefinition.add("model", selector);
+                javaContent.putJson(itemPath, itemDefinition);
+            }
         }
     }
 
@@ -125,6 +148,11 @@ public class CustomAttachableResourceRewriter extends ItemModelResourceRewriter 
     @Override
     public ResourcePackRewriter.RuntimeDataScope runtimeDataScope() {
         return ResourcePackRewriter.RuntimeDataScope.SHARED;
+    }
+
+    @Override
+    public String artifactFingerprint() {
+        return "3";
     }
 
 }

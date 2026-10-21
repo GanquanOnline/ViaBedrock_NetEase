@@ -56,8 +56,11 @@ public final class NeighborAwareBlockRewriter {
         this.rules = List.of(
                 new StairShapeRule(javaBlockStates),
                 new BlockConnectionRule(javaBlockStates),
+                new NetherPortalAxisRule(javaBlockStates),
                 new LinkedBlockRule(javaBlockStates),
-                new ChestPairingRule(javaBlockStates)
+                new ChestPairingRule(javaBlockStates),
+                new GrowingPlantRule(javaBlockStates),
+                new ChorusPlantConnectionRule(javaBlockStates)
         );
     }
 
@@ -127,6 +130,51 @@ public final class NeighborAwareBlockRewriter {
                 }
             }
         }
+    }
+
+    /**
+     * Whether one of the given chunk side's border planes contains a block owned by a rule that can depend on the
+     * chunk on the other side ({@link NeighborAwareBlockRule#affectsNeighborChunks()}). A fix computed for such a
+     * block is stale when that neighbor chunk had not arrived yet, so the caller re-sends the already sent neighbor.
+     *
+     * @param side 0 = -X, 1 = +X, 2 = -Z, 3 = +Z
+     */
+    public boolean hasCrossChunkSensitiveBlockOnBorder(final Chunk chunk, final int side) {
+        final ChunkSection[] sections = chunk.getSections();
+        for (ChunkSection section : sections) {
+            if (section == null) continue;
+            final DataPalette palette = section.palette(PaletteType.BLOCKS);
+            if (palette == null) continue;
+
+            boolean relevant = false;
+            for (int i = 0; i < palette.size(); i++) {
+                if (this.isCrossChunkSensitive(palette.idByIndex(i))) {
+                    relevant = true;
+                    break;
+                }
+            }
+            if (!relevant) continue;
+
+            for (int a = 0; a < 16; a++) {
+                for (int y = 0; y < 16; y++) {
+                    final int x = side <= 1 ? (side == 0 ? 0 : 15) : a;
+                    final int z = side >= 2 ? (side == 2 ? 0 : 15) : a;
+                    if (this.isCrossChunkSensitive(palette.idAt(x, y, z))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isCrossChunkSensitive(final int javaBlockStateId) {
+        for (NeighborAwareBlockRule rule : this.rules) {
+            if (rule.isCrossChunkSensitive(javaBlockStateId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

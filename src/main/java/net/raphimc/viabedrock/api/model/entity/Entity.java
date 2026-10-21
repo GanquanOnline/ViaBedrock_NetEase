@@ -215,6 +215,10 @@ public class Entity {
         return this.customJavaTypeId != null ? this.customJavaTypeId : this.javaType.getId();
     }
 
+    public boolean usesVanillaJavaType() {
+        return this.customJavaTypeId == null;
+    }
+
     public Position3f position() {
         return this.position;
     }

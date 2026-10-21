@@ -1,0 +1,19 @@
+rootProject.name = 'ViaBedrockCI'
+
+includeBuild('../..')
+includeBuild('../../.ci-dependencies/BedrockMotion') {
+    dependencySubstitution {
+        substitute module('com.github.EaseCation:BedrockMotion') using project(':')
+    }
+}
+includeBuild('../../.ci-dependencies/CubeConverter') {
+    dependencySubstitution {
+        substitute module('com.github.EaseCation:CubeConverter') using project(':')
+        substitute module('org.oryxel.cube:cubeconverter') using project(':')
+        substitute module('com.github.oryxel1:CubeConverter') using project(':')
+    }
+}
+
+// ViaVersion is not an included build. includeBuild would substitute every
+// com.viaversion:viaversion-common request with the unshaded classes directory.
+// The workflow publishes the shaded 5.9.2 and 5.12.0 jars to mavenLocal instead.

@@ -32,6 +32,7 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.minecraft.Particle;
+import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_11;
 import com.viaversion.viaversion.api.minecraft.item.StructuredItem;
 import com.viaversion.viaversion.api.type.Types;
@@ -222,6 +223,7 @@ public class BedrockMappingData extends MappingDataBase {
         { // Java misc
             this.javaRegistries = this.readNBT("java/registries.nbt");
             this.javaTags = this.readNBT("java/tags.nbt");
+            addBedrockProjectileTags(this.javaTags, javaViaMappingJson.getAsJsonArray("entities"));
 
             final JsonArray javaCommandArgumentTypesJson = javaViaMappingJson.getAsJsonArray("argumenttypes");
             this.javaCommandArgumentTypes = HashBiMap.create(javaCommandArgumentTypesJson.size());
@@ -1138,6 +1140,21 @@ public class BedrockMappingData extends MappingDataBase {
         }
 
         DataValues.validate();
+    }
+
+    static void addBedrockProjectileTags(final CompoundTag javaTags, final JsonArray javaEntityIdentifiers) {
+        final String witherSkullIdentifier = Key.stripMinecraftNamespace(EntityTypes1_21_11.WITHER_SKULL.identifier());
+        final int witherSkullId = javaEntityIdentifiers.asList().indexOf(new JsonPrimitive(witherSkullIdentifier));
+        if (witherSkullId == -1) {
+            throw new IllegalStateException("Missing Java entity identifier: " + witherSkullIdentifier);
+        }
+
+        // JE 只选中此标签内的弹体；允许凋灵头颅上报攻击，能否反弹仍由基岩服务端判定。
+        final CompoundTag entityTags = javaTags.getCompoundTag(Key.namespaced(RegistryType.ENTITY.identifier()));
+        final IntArrayTag redirectableProjectiles = entityTags.getIntArrayTag("minecraft:redirectable_projectile");
+        final IntSet entityIds = new IntLinkedOpenHashSet(redirectableProjectiles.getValue());
+        entityIds.add(witherSkullId);
+        redirectableProjectiles.setValue(entityIds.toIntArray());
     }
 
     public Map<ResourcePack.Key, ResourcePack> getBedrockResourcePacks() {

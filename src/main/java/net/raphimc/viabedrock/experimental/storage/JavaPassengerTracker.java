@@ -40,6 +40,11 @@ public class JavaPassengerTracker extends StoredObject {
         super(user);
     }
 
+    public void reset() {
+        this.bedrockPassengers.clear();
+        this.virtualPassengers.clear();
+    }
+
     public void setBedrockPassengers(final int vehicleJavaId, final int... passengerJavaIds) {
         if (passengerJavaIds.length == 0) {
             this.bedrockPassengers.remove(vehicleJavaId);

@@ -48,6 +48,8 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.EquipmentSlot;
+import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
+import net.raphimc.viabedrock.experimental.inventory.ItemUseHandContext;
 import net.raphimc.viabedrock.experimental.storage.GlowProjectionTracker;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.InteractionHand;
 import net.raphimc.viabedrock.protocol.model.EntityProperties;
@@ -90,6 +92,19 @@ public class EntityMetadataRewriter {
 
                 upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SILENT), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.SILENT)));
                 upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.NO_GRAVITY), VersionedTypes.V26_1.entityDataTypes().booleanType, noGravity(entity.javaType(), bedrockFlags)));
+
+                if (entity == entityTracker.getClientPlayer()) {
+                    final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
+                    final ClientPlayerEntity.ItemUseSnapshot snapshot = clientPlayer.itemUseSnapshot();
+                    if (snapshot != null) {
+                        final InventoryTracker inventoryTracker = user.get(InventoryTracker.class);
+                        final ItemUseHandContext handContext = ItemUseHandContext.resolve(inventoryTracker, snapshot.hand());
+                        if (inventoryTracker.isAnyScreenOpen() || !snapshot.matches(handContext.hand(), handContext.containerId(), handContext.containerSlot(), handContext.transactionHotbarSlot(), handContext.item())) {
+                            clientPlayer.setUsingItem(false);
+                        }
+                    }
+                    clientPlayer.updateServerItemUse(bedrockFlags.contains(ActorFlags.USINGITEM));
+                }
 
                 if (entity instanceof LivingEntity) {
                     final byte livingFlags = entity == entityTracker.getClientPlayer()
@@ -171,7 +186,9 @@ public class EntityMetadataRewriter {
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.IS_POWERED), VersionedTypes.V26_1.entityDataTypes().booleanType, charged));
 
                     boolean ignited = bedrockFlags.contains(ActorFlags.IGNITED);
-                    upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.IS_IGNITED), VersionedTypes.V26_1.entityDataTypes().booleanType, ignited));
+                    writeCreeperIgnition(javaEntityData,
+                            entity.getJavaEntityDataIndex(EntityDataFields.IS_IGNITED),
+                            entity.getJavaEntityDataIndex(EntityDataFields.SWELL_DIR), ignited);
                 }
 
                 if (entity.javaType().is(EntityTypes1_21_11.ZOGLIN)) {
@@ -1421,6 +1438,13 @@ public class EntityMetadataRewriter {
         final Integer color = colorData != null ? readNumber(colorData).intValue() : null;
         final byte spell = spellType(entity.hasEntityFlag(ActorFlags.CASTING), color);
         upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SPELL_CASTING), VersionedTypes.V26_1.entityDataTypes().byteType, spell));
+    }
+
+    static void writeCreeperIgnition(final List<EntityData> javaEntityData, final int ignitionIndex,
+                                    final int swellDirIndex, final boolean ignited) {
+        // Java 取消点燃不会重置膨胀方向，两个字段须在同一批元数据中更新。
+        upsert(javaEntityData, new EntityData(ignitionIndex, VersionedTypes.V26_1.entityDataTypes().booleanType, ignited));
+        upsert(javaEntityData, new EntityData(swellDirIndex, VersionedTypes.V26_1.entityDataTypes().varIntType, ignited ? 1 : -1));
     }
 
     private static void upsert(final List<EntityData> javaEntityData, final EntityData data) {

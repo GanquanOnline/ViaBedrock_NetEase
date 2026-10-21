@@ -51,20 +51,18 @@ public final class GlowProjectionTracker extends StoredObject {
     private final Long2ObjectMap<GlowState> states = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectMap<String> nonPlayerTeams = new Long2ObjectOpenHashMap<>();
     private final Set<String> createdTeams = new HashSet<>();
-    private long lastSnapshotRevision = -1L;
 
     public GlowProjectionTracker(final UserConnection user) {
         super(user);
     }
 
     public boolean isGlowing(final long uniqueId) {
-        GlowState state = this.states.get(uniqueId);
-        return state != null && state.enabled();
+        return this.states.containsKey(uniqueId);
     }
 
     public int colorOrdinal(final long uniqueId) {
         GlowState state = this.states.get(uniqueId);
-        if (state == null || !state.enabled()) {
+        if (state == null) {
             return TextFormatting.RESET.getOrdinal();
         }
         return JavaTeamColorUtil.closestOrdinal(state.red(), state.green(), state.blue());
@@ -82,11 +80,13 @@ public final class GlowProjectionTracker extends StoredObject {
         if (entity instanceof ClientPlayerEntity) {
             GlowState pending = this.states.remove(LOCAL_PLAYER_KEY);
             GlowState existing = this.states.get(entity.uniqueId());
-            if (pending != null && (existing == null || pending.revision() > existing.revision())) {
+            if (pending != null && existing == null) {
                 this.states.put(entity.uniqueId(), pending);
             }
         }
-        this.refreshEntity(entity);
+        if (this.states.containsKey(entity.uniqueId())) {
+            this.refreshEntity(entity);
+        }
     }
 
     public void onEntityRemoved(final Entity entity) {
@@ -108,7 +108,6 @@ public final class GlowProjectionTracker extends StoredObject {
         this.states.clear();
         this.nonPlayerTeams.clear();
         this.createdTeams.clear();
-        this.lastSnapshotRevision = -1L;
     }
 
     private void applyUpdate(final GlowModEventCodec.Update update) {
@@ -116,44 +115,28 @@ public final class GlowProjectionTracker extends StoredObject {
         if (uniqueId == Long.MIN_VALUE) {
             return;
         }
-        GlowState previous = this.states.get(uniqueId);
-        long previousRevision = previous == null ? -1L : previous.revision();
-        if (update.revision() <= Math.max(previousRevision, this.lastSnapshotRevision)) {
-            return;
+        if (update.enabled()) {
+            this.states.put(uniqueId, new GlowState(update.red(), update.green(), update.blue()));
+        } else {
+            this.states.remove(uniqueId);
         }
-        GlowState state = new GlowState(
-                update.enabled(), update.red(), update.green(), update.blue(), update.revision());
-        this.states.put(uniqueId, state);
         this.refreshEntityByUid(uniqueId);
     }
 
     private void applySync(final GlowModEventCodec.Sync sync) {
-        if (sync.revision() <= this.lastSnapshotRevision) {
-            return;
-        }
-        LongSet seen = new LongOpenHashSet();
+        LongSet changed = new LongOpenHashSet(this.states.keySet());
+        this.states.clear();
         for (GlowModEventCodec.Update update : sync.entries()) {
             long uniqueId = this.resolveUniqueId(update.entityId());
             if (uniqueId == Long.MIN_VALUE) {
                 continue;
             }
-            GlowState previous = this.states.get(uniqueId);
-            if (previous != null && sync.revision() <= previous.revision()) {
-                seen.add(uniqueId);
-                continue;
+            if (update.enabled()) {
+                this.states.put(uniqueId, new GlowState(update.red(), update.green(), update.blue()));
             }
-            this.states.put(uniqueId, new GlowState(
-                    update.enabled(), update.red(), update.green(), update.blue(), sync.revision()));
-            seen.add(uniqueId);
+            changed.add(uniqueId);
         }
-        for (long uniqueId : new LongOpenHashSet(this.states.keySet())) {
-            GlowState state = this.states.get(uniqueId);
-            if (!seen.contains(uniqueId) && state.revision() < sync.revision()) {
-                this.states.put(uniqueId, new GlowState(false, 255, 255, 255, sync.revision()));
-            }
-        }
-        this.lastSnapshotRevision = sync.revision();
-        for (long uniqueId : this.states.keySet()) {
+        for (long uniqueId : changed) {
             this.refreshEntityByUid(uniqueId);
         }
     }
@@ -168,12 +151,9 @@ public final class GlowProjectionTracker extends StoredObject {
 
     private void refreshEntity(final Entity entity) {
         GlowState state = this.states.get(entity.uniqueId());
-        if (state == null && !this.nonPlayerTeams.containsKey(entity.uniqueId())) {
-            return;
-        }
         if (entity instanceof PlayerEntity playerEntity) {
             playerEntity.refreshGlowTeam();
-        } else if (state != null && state.enabled()) {
+        } else if (state != null) {
             this.addNonPlayerToTeam(entity);
         } else {
             this.removeNonPlayerFromTeam(entity);
@@ -183,7 +163,7 @@ public final class GlowProjectionTracker extends StoredObject {
 
     private void addNonPlayerToTeam(final Entity entity) {
         GlowState state = this.states.get(entity.uniqueId());
-        if (state == null || !state.enabled()) {
+        if (state == null) {
             return;
         }
         String team = this.teamName(state);
@@ -237,7 +217,7 @@ public final class GlowProjectionTracker extends StoredObject {
 
     private long resolveUniqueId(final String value) {
         try {
-            if (value == null || value.length() > 32) {
+            if (value == null) {
                 return Long.MIN_VALUE;
             }
             if ("1".equals(value)) {
@@ -251,6 +231,6 @@ public final class GlowProjectionTracker extends StoredObject {
         }
     }
 
-    private record GlowState(boolean enabled, int red, int green, int blue, long revision) {
+    private record GlowState(int red, int green, int blue) {
     }
 }

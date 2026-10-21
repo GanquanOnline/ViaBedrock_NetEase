@@ -35,6 +35,7 @@ import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.storage.ClientSettingsStorage;
 import net.raphimc.viabedrock.api.util.PacketFactory;
 import net.raphimc.viabedrock.experimental.model.inventory.BedrockInventoryTransaction;
+import net.raphimc.viabedrock.experimental.storage.RidingTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.data.enums.Direction;
@@ -46,6 +47,7 @@ import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.EntityAttribute;
 import net.raphimc.viabedrock.protocol.model.PlayerAbilities;
 import net.raphimc.viabedrock.protocol.model.Position3f;
+import net.raphimc.viabedrock.api.util.MathUtil;
 import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 import net.raphimc.viabedrock.protocol.storage.CommandsStorage;
@@ -78,6 +80,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     // before the sync confirm arrives. See beginPositionSync() / confirmTeleport().
     private int positionSyncTeleportId;
     private boolean serverSideTeleportConfirmed;
+    private final JavaMovementPositionCache javaMovementPositionCache = new JavaMovementPositionCache();
 
     // Movement watchdog (fail-safe for a backend that never sends the unlock packet after a switch).
     // -1 = inactive; ages are compared against Entity.age (incremented once per client tick).
@@ -91,6 +94,9 @@ public class ClientPlayerEntity extends PlayerEntity {
     private final Set<PlayerAuthInputPacket_InputData> authInputData = EnumSet.noneOf(PlayerAuthInputPacket_InputData.class);
     private final List<AuthInputBlockAction> authInputBlockActions = new ArrayList<>();
     private BedrockInventoryTransaction authInputItemInteraction;
+    private int inputLockFlags;
+    private int sentInputLockFlags = -1;
+    private boolean sentImmobile;
     private Set<InputFlag> inputFlags = EnumSet.noneOf(InputFlag.class);
     private Set<InputFlag> prevInputFlags = EnumSet.noneOf(InputFlag.class);
     private boolean horizontalCollision;
@@ -123,6 +129,8 @@ public class ClientPlayerEntity extends PlayerEntity {
     private BlockBreakingInfo blockBreakingInfo;
     private DelayedMotBreak delayedMotBreak;
     private boolean usingItem;
+    private boolean blockItemUse;
+    private boolean serverUsingItem;
     private int usingItemStartAge = -1;
     private ItemUseSnapshot itemUseSnapshot;
     private boolean crossbowChargeFinishSent;
@@ -187,6 +195,12 @@ public class ClientPlayerEntity extends PlayerEntity {
     public void writePlayerPositionPacketToClient(final PacketWrapper wrapper, final Set<Relative> relatives, final boolean fakeTeleport) {
         this.pendingTeleportId = TELEPORT_ID.getAndIncrement();
 
+        if (this.prepareJavaMovementPositionCache()) {
+            this.javaMovementPositionCache.issueTeleport(this.pendingTeleportId * (fakeTeleport ? -1 : 1),
+                    (double) this.position.x(), (double) (this.position.y() - this.eyeOffset()), (double) this.position.z(),
+                    MathUtil.wrapDegrees(this.rotation.y()), this.rotation.x(), relatives.isEmpty());
+        }
+
         wrapper.write(Types.VAR_INT, this.pendingTeleportId * (fakeTeleport ? -1 : 1)); // teleport id
         wrapper.write(Types.DOUBLE, relatives.contains(Relative.X) ? 0D : (double) this.position.x()); // x
         wrapper.write(Types.DOUBLE, relatives.contains(Relative.Y) ? 0D : (double) (this.position.y() - this.eyeOffset())); // y
@@ -228,11 +242,17 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void updatePlayerPosition(final short flags) {
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
+        final Position3f omittedPosition = this.prepareJavaMovementPositionCache()
+                ? this.javaMovementPositionCache.omittedPosition() : null;
 
-        if (!this.preMove(null, null, newOnGround)) {
+        if (omittedPosition != null && this.rejectImmobilePosition(omittedPosition, null)) {
+            return;
+        }
+        if (!this.preMove(omittedPosition, null, newOnGround)) {
             return;
         }
 
+        if (omittedPosition != null) this.position = omittedPosition;
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
     }
@@ -240,6 +260,9 @@ public class ClientPlayerEntity extends PlayerEntity {
     public void updatePlayerPosition(final double x, final double y, final double z, final short flags) {
         final Position3f newPosition = new Position3f((float) x, (float) y + this.eyeOffset(), (float) z);
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
+        final boolean cachePosition = this.prepareJavaMovementPositionCache();
+        // 坐标报告是协议观测；即使实体无需移动，也已更新 Java 的普通位置缓存。
+        if (cachePosition) this.javaMovementPositionCache.recordPosition(newPosition);
 
         if (this.rejectImmobilePosition(newPosition, null)) {
             return;
@@ -258,6 +281,8 @@ public class ClientPlayerEntity extends PlayerEntity {
         final Position3f newPosition = new Position3f((float) x, (float) y + this.eyeOffset(), (float) z);
         final Position3f newRotation = new Position3f(pitch, yaw, yaw);
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
+        final boolean cachePosition = this.prepareJavaMovementPositionCache();
+        if (cachePosition) this.javaMovementPositionCache.recordPositionWithRotation(newPosition, x, y, z, yaw, pitch, flags);
 
         if (this.rejectImmobilePosition(newPosition, newRotation)) {
             return;
@@ -276,11 +301,17 @@ public class ClientPlayerEntity extends PlayerEntity {
     public void updatePlayerPosition(final float yaw, final float pitch, final short flags) {
         final Position3f newRotation = new Position3f(pitch, yaw, yaw);
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
+        final Position3f omittedPosition = this.prepareJavaMovementPositionCache()
+                ? this.javaMovementPositionCache.omittedPosition() : null;
 
-        if (!this.preMove(null, newRotation, newOnGround)) {
+        if (omittedPosition != null && this.rejectImmobilePosition(omittedPosition, newRotation)) {
+            return;
+        }
+        if (!this.preMove(omittedPosition, newRotation, newOnGround)) {
             return;
         }
 
+        if (omittedPosition != null) this.position = omittedPosition;
         this.rotation = newRotation;
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
@@ -297,6 +328,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public void confirmTeleport(final int teleportId) {
+        this.javaMovementPositionCache.confirmTeleport(teleportId);
         // Clear a pending position sync as soon as the client confirms ANY teleport whose id is at or
         // beyond the sync's id. Teleport ids increase monotonically and are confirmed in order, so this
         // is robust against pendingTeleportId being overwritten between sending the sync and the confirm
@@ -408,6 +440,14 @@ public class ClientPlayerEntity extends PlayerEntity {
         chunkTracker.sendCurrentCacheSettingsToJava();
     }
 
+    public void setPositionFromServer(final Position3f position) {
+        this.setPosition(position);
+        final RidingTracker riding = this.user.get(RidingTracker.class);
+        if (riding != null) {
+            riding.onPlayerPositionCorrection(position);
+        }
+    }
+
     @Override
     public void setOnGround(final boolean onGround) {
         super.setOnGround(onGround);
@@ -481,6 +521,7 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void setInitiallySpawned() {
         this.initiallySpawned = true;
+        this.resendInputLocks();
     }
 
     public DimensionChangeInfo dimensionChangeInfo() {
@@ -490,8 +531,25 @@ public class ClientPlayerEntity extends PlayerEntity {
     public void setDimensionChangeInfo(final DimensionChangeInfo dimensionChangeInfo) {
         this.dimensionChangeInfo = dimensionChangeInfo;
         if (dimensionChangeInfo != null) {
+            this.resetJavaMovementPosition();
             this.dimensionChangeStartAge = this.age; // watchdog timeout baseline
+        } else {
+            this.resendInputLocks();
         }
+    }
+
+    public void resetJavaMovementPosition() {
+        this.javaMovementPositionCache.reset();
+    }
+
+    private boolean prepareJavaMovementPositionCache() {
+        final RidingTracker riding = this.user.get(RidingTracker.class);
+        if (!this.initiallySpawned || this.isDead() || this.isImmobile() || this.dimensionChangeInfo != null
+                || this.waitingForPositionSync || riding != null && riding.isLocalRiding()) {
+            this.javaMovementPositionCache.reset();
+            return false;
+        }
+        return true;
     }
 
     public Set<InputFlag> inputFlags() {
@@ -499,7 +557,57 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public void setInputFlags(final Set<InputFlag> inputFlags) {
-        this.inputFlags = inputFlags;
+        this.inputFlags = this.isMovementInputLocked() ? EnumSet.noneOf(InputFlag.class) : inputFlags;
+    }
+
+    public void setInputLocks(final int flags) {
+        if (this.inputLockFlags == flags) {
+            return;
+        }
+        this.inputLockFlags = flags;
+        if (this.isMovementInputLocked()) {
+            this.inputFlags = EnumSet.noneOf(InputFlag.class);
+        }
+        this.synchronizeInputLocks(false);
+    }
+
+    public boolean isMovementInputLocked() {
+        return this.isImmobile() || (this.inputLockFlags & (1 << 2)) != 0;
+    }
+
+    /** 元数据完整合批后再观察NOAI，只有本地玩家将其投影为输入与物理锁。 */
+    @Override
+    protected void onEntityDataChanged() {
+        super.onEntityDataChanged();
+        if (this.isMovementInputLocked()) this.inputFlags = EnumSet.noneOf(InputFlag.class);
+        this.synchronizeInputLocks(false);
+    }
+
+    public void resendInputLocks() {
+        this.synchronizeInputLocks(true);
+    }
+
+    private void synchronizeInputLocks(final boolean force) {
+        if (!this.initiallySpawned || this.user.getProtocolInfo().getClientState() != State.PLAY) return;
+        final int flags = this.inputLockFlags & 6;
+        final boolean immobile = this.isImmobile();
+        if (!force && flags == this.sentInputLockFlags && immobile == this.sentImmobile) return;
+        if (ViaBedrockUtilityInterface.sendInputLocks(this.user, flags, immobile)) {
+            this.sentInputLockFlags = flags;
+            this.sentImmobile = immobile;
+        }
+    }
+
+    /** 新世界不继承旧世界的NOAI；其余实体标志仍交给既有重生流程处理。 */
+    public void resetInputLocks() {
+        this.inputLockFlags = 0;
+        final EntityData flags = this.entityData.get(ActorDataIDs.RESERVED_0);
+        if (flags != null) {
+            this.entityData.put(ActorDataIDs.RESERVED_0, new EntityData(flags.id(), flags.dataType(),
+                    flags.<Long>value() & ~(1L << ActorFlags.NOAI.getValue())));
+        }
+        this.inputFlags = EnumSet.noneOf(InputFlag.class);
+        this.resendInputLocks();
     }
 
     public Set<InputFlag> prevInputFlags() {
@@ -705,6 +813,7 @@ public class ClientPlayerEntity extends PlayerEntity {
             throw new IllegalArgumentException("Starting item use requires a hand and item snapshot");
         }
         this.usingItem = usingItem;
+        this.blockItemUse = false;
         this.usingItemStartAge = -1;
         // Don't clear snapshot in setUsingItem(false) - keep it for validation
         this.crossbowChargeFinishSent = false;
@@ -714,12 +823,29 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void startUsingItem(final InteractionHand hand, final byte containerId, final int containerSlot, final int transactionHotbarSlot, final BedrockItem item) {
         this.usingItem = true;
+        this.blockItemUse = false;
         this.usingItemStartAge = this.age;
         this.itemUseSnapshot = new ItemUseSnapshot(hand, containerId, containerSlot, transactionHotbarSlot, item);
         this.crossbowChargeFinishSent = false;
         this.consumableFinishSent = false;
         this.shieldSneakEmulated = false;
         // Offhand promotion is independent: startUsingItem may follow a silent F-swap.
+    }
+
+    public void prepareBlockItemUse(final InteractionHand hand, final byte containerId, final int containerSlot, final int transactionHotbarSlot, final BedrockItem item) {
+        this.startUsingItem(hand, containerId, containerSlot, transactionHotbarSlot, item);
+        this.usingItem = false;
+        this.blockItemUse = true;
+    }
+
+    public void updateServerItemUse(final boolean usingItem) {
+        if (this.serverUsingItem == usingItem) {
+            return;
+        }
+        this.serverUsingItem = usingItem;
+        if (this.blockItemUse && this.itemUseSnapshot != null) {
+            this.usingItem = usingItem;
+        }
     }
 
     public InteractionHand usingItemHand() {
@@ -947,11 +1073,6 @@ public class ClientPlayerEntity extends PlayerEntity {
     private boolean preMove(final Position3f newPosition, final Position3f newRotation, final boolean newOnGround) {
         final ChunkTracker chunkTracker = this.user.get(ChunkTracker.class);
 
-        // Allow position packet which is sent immediately after confirming a teleport
-        if (this.serverSideTeleportConfirmed) {
-            this.serverSideTeleportConfirmed = false;
-            return true;
-        }
         // Waiting for position sync. Silently drops movement (no rubber-band) until the client confirms
         // the sync teleport. Deterministic deadlock this used to cause, and how it is now prevented:
         //   1. Player switches world / cross-server; their position momentarily lands in a not-yet-loaded
@@ -973,6 +1094,11 @@ public class ClientPlayerEntity extends PlayerEntity {
         // so the real teleport in step 2 (or the fake confirm in step 3) resolves it. See confirmTeleport().
         if (this.waitingForPositionSync) {
             return false;
+        }
+        // An older teleport acknowledgement must not bypass a newer position sync.
+        if (this.serverSideTeleportConfirmed) {
+            this.serverSideTeleportConfirmed = false;
+            return true;
         }
         // Not spawned yet or respawning
         if (!this.initiallySpawned || this.dimensionChangeInfo != null) {

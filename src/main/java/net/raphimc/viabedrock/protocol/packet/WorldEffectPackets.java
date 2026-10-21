@@ -72,6 +72,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 public class WorldEffectPackets {
@@ -88,6 +89,8 @@ public class WorldEffectPackets {
     // Only log warnings about missing mappings if explicitly enabled for debugging
     // The Bedrock Dedicated Server sends a lot of unknown sound events which are expected to be ignored in most cases (Resource packs could add custom sounds for certain events)
     private static final boolean LEVEL_SOUND_DEBUG_LOG = false;
+    private static final SoundDefinitions.ConfiguredSound GENERIC_CUSTOM_ENTITY_HURT =
+            new SoundDefinitions.ConfiguredSound("game.player.hurt", 1F, 1F, 0.8F, 1.2F);
 
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PLAY_SOUND, ClientboundPackets26_1.SOUND, wrapper -> {
@@ -797,6 +800,18 @@ public class WorldEffectPackets {
         SoundDefinitions.ConfiguredSound configuredSound = null;
         if (!entityIdentifier.isEmpty()) { // entity specific sound
             configuredSound = soundEvents.get(Key.namespaced(entityIdentifier));
+            // 原版脚步等高频事件不构造资源包视图或捕获连接的回调。
+            if (configuredSound == null && soundEvent == SharedTypes_Legacy_LevelSoundEvent.Hurt) {
+                final ResourcePackStorage resourcePacks = user.get(ResourcePackStorage.class);
+                configuredSound = resolveEntitySound(soundEvent, entityIdentifier, soundEvents,
+                        BedrockProtocol.MAPPINGS.getBedrockEntities().keySet(),
+                        resourcePacks == null || resourcePacks.getEntities() == null
+                                ? Set.of() : resourcePacks.getEntities().entities().keySet(),
+                        resourcePacks == null || resourcePacks.getSounds() == null
+                                ? Map.of() : resourcePacks.getSounds().entitySounds(),
+                        name -> BedrockProtocol.MAPPINGS.getBedrockToJavaSounds().containsKey(name)
+                                || tryResolveCustomSound(user, name) != null);
+            }
             if (isBabyMob && configuredSound != null) {
                 configuredSound = new SoundDefinitions.ConfiguredSound(configuredSound.sound(), configuredSound.minVolume(), configuredSound.maxVolume(), configuredSound.minPitch() + 0.5F, configuredSound.maxPitch() + 0.5F);
             }
@@ -824,6 +839,39 @@ public class WorldEffectPackets {
             configuredSound = soundEvents.get(null); // generic sound
         }
         return configuredSound;
+    }
+
+    /** 原版映射保持优先；只为当前资源包声明的非原版实体补齐 Hurt 声音。 */
+    static SoundDefinitions.ConfiguredSound resolveEntitySound(
+            final SharedTypes_Legacy_LevelSoundEvent soundEvent, final String entityIdentifier,
+            final Map<String, SoundDefinitions.ConfiguredSound> soundEvents,
+            final Set<String> vanillaEntities, final Set<String> resourceEntities,
+            final Map<String, SoundDefinitions.EventSounds> entitySounds,
+            final Predicate<String> playableSound) {
+        if (entityIdentifier.isEmpty()) {
+            return null;
+        }
+        final String identifier = Key.namespaced(entityIdentifier);
+        final SoundDefinitions.ConfiguredSound mappedSound = soundEvents.get(identifier);
+        if (mappedSound != null) {
+            return mappedSound;
+        }
+        if (soundEvent != SharedTypes_Legacy_LevelSoundEvent.Hurt
+                || vanillaEntities.contains(identifier) || !resourceEntities.contains(identifier)) {
+            return null;
+        }
+        final SoundDefinitions.EventSounds configuredEvents = entitySounds.get(identifier);
+        final SoundDefinitions.ConfiguredSound hurtSound = configuredEvents == null
+                ? null : configuredEvents.eventSounds().get("hurt");
+        // 新接入的资源包范围必须是可采样的有限数值；缺失音频也回退，避免受击继续无声。
+        return hurtSound != null && hurtSound.sound() != null && Key.isValid("bedrock:" + hurtSound.sound())
+                && validSoundRange(hurtSound.minVolume(), hurtSound.maxVolume())
+                && validSoundRange(hurtSound.minPitch(), hurtSound.maxPitch())
+                && playableSound.test(hurtSound.sound()) ? hurtSound : GENERIC_CUSTOM_ENTITY_HURT;
+    }
+
+    private static boolean validSoundRange(final float min, final float max) {
+        return Float.isFinite(min) && Float.isFinite(max) && min >= 0F && max >= min;
     }
 
     private static boolean writeProjectedSound(final PacketWrapper wrapper, final Holder<SoundEvent> javaSound,

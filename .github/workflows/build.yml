@@ -13,6 +13,35 @@ jobs:
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
           persist-credentials: false
+      # 与已验收工作区的 gitlink 一致，使用公开源码中的定制 API。
+      - name: "Checkout BedrockMotion"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/BedrockMotion
+          ref: 1309712fd242eef9a508b1599a624ed503741514
+          path: .ci-dependencies/BedrockMotion
+          persist-credentials: false
+      - name: "Checkout CubeConverter"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/CubeConverter
+          ref: 80826eb92ccd5e75c1013e287c7308ac7e5d2471
+          path: .ci-dependencies/CubeConverter
+          persist-credentials: false
+      - name: "Checkout ViaVersion 5.9.2"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/ViaVersion
+          ref: eafcdf9c971f78e1b0a6408223a3a9b6db0c9d4a
+          path: .ci-dependencies/ViaVersion
+          persist-credentials: false
+      - name: "Checkout ViaVersion 5.12.0"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: ViaVersion/ViaVersion
+          ref: e8bbb5da5b7f9acae31a76f4d254ef24e1819719
+          path: .ci-dependencies/ViaVersion-5.12
+          persist-credentials: false
       - name: "Set up Gradle"
         uses: "gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e" # v6.1.0
         with:
@@ -23,8 +52,29 @@ jobs:
           distribution: "temurin"
           java-version: 25
           check-latest: true
+      - name: "Drop shadowed-variant requirement"
+        run: |
+          python3 - << 'PY'
+          import re
+          from pathlib import Path
+          pattern = re.compile(r"\{\s*attributes\s*\{[^}]*SHADOWED[^}]*\}\s*\}", re.S)
+          for relative in (".ci-dependencies/CubeConverter/build.gradle", ".ci-dependencies/BedrockMotion/build.gradle"):
+              path = Path(relative)
+              text = pattern.sub("", path.read_text())
+              text = text.replace("repositories {", "repositories {\n    mavenLocal()", 1)
+              path.write_text(text)
+          PY
+      - name: "Publish shaded ViaVersion 5.9.2"
+        working-directory: .ci-dependencies/ViaVersion
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
+      - name: "Apply Ganquan ViaVersion shims"
+        working-directory: .ci-dependencies/ViaVersion-5.12
+        run: "git apply --whitespace=nowarn \"$GITHUB_WORKSPACE/.github/ci/viaversion-5.12.0-ganquan.patch\""
+      - name: "Publish shaded ViaVersion 5.12.0"
+        working-directory: .ci-dependencies/ViaVersion-5.12
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
       - name: "Build with Gradle"
-        run: "./gradlew build --stacktrace"
+        run: "./gradlew --project-dir .github/ci :ViaBedrock:assemble :ViaBedrock:test --tests net.raphimc.viabedrock.experimental.storage.RidingTrackerTest --tests net.raphimc.viabedrock.experimental.storage.RidingTrackerMotTest --tests net.raphimc.viabedrock.protocol.storage.PacketSyncStorageTest --tests net.raphimc.viabedrock.protocol.rewriter.neighbor.PlantConnectionRulesTest --tests net.raphimc.viabedrock.experimental.rewriter.CreeperIgnitionMetadataTest --stacktrace"
       - name: "Upload artifacts to GitHub"
         uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" # v7.0.1
         with:

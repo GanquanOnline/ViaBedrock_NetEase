@@ -25,6 +25,7 @@ import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.libs.mcstructs.text.TextFormatting;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
+import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.util.StringUtil;
 import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
@@ -35,8 +36,11 @@ import net.raphimc.viabedrock.protocol.data.enums.java.generated.TeamVisibility;
 import net.raphimc.viabedrock.protocol.data.generated.java.Attributes;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.model.EntityAttribute;
+import net.raphimc.viabedrock.protocol.model.EntityProperties;
 import net.raphimc.viabedrock.protocol.model.PlayerAbilities;
+import net.raphimc.viabedrock.protocol.model.PlayerVisualState;
 import net.raphimc.viabedrock.experimental.storage.GlowProjectionTracker;
+import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +52,7 @@ public class PlayerEntity extends LivingEntity {
     protected PlayerAbilities abilities;
     private String teamPrefix = "";
     private boolean teamNameTagVisible = true;
+    private final PlayerVisualState visualState = new PlayerVisualState();
 
     public PlayerEntity(final UserConnection user, final long runtimeId, final int javaId, final UUID javaUuid, final PlayerAbilities abilities) {
         super(user, abilities.entityUniqueId(), runtimeId, "minecraft:player", javaId, javaUuid, EntityTypes1_21_11.PLAYER);
@@ -119,6 +124,20 @@ public class PlayerEntity extends LivingEntity {
         setEntityData.write(Types.VAR_INT, this.javaId); // entity id
         setEntityData.write(VersionedTypes.V26_1.entityDataList, entityData); // entity data
         setEntityData.send(BedrockProtocol.class);
+    }
+
+    public final void updateEntityProperties(final EntityProperties properties) {
+        final GameSessionStorage gameSession = this.user.get(GameSessionStorage.class);
+        if (gameSession == null) {
+            return;
+        }
+        final int propertyIndex = gameSession.getPlayerEntityPropertyIndex(ViaBedrockUtilityInterface.CUSTOM_SPECTATOR_PROPERTY);
+        if (propertyIndex < 0 || !properties.intProperties().containsKey(propertyIndex)) {
+            return;
+        }
+
+        this.visualState.updateCustomSpectator(properties, propertyIndex).ifPresent(next ->
+                ViaBedrockUtilityInterface.sendPlayerVisualState(this.user, this.javaUuid, next));
     }
 
     @Override

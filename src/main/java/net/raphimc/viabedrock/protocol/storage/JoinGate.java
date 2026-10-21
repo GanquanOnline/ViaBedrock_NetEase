@@ -68,6 +68,7 @@ public class JoinGate extends StoredObject {
             ClientboundPackets26_1.PLAYER_POSITION,
             ClientboundPackets26_1.CHUNK_BATCH_START,
             ClientboundPackets26_1.LEVEL_CHUNK_WITH_LIGHT,
+            ClientboundPackets26_1.FORGET_LEVEL_CHUNK,
             ClientboundPackets26_1.LIGHT_UPDATE,
             ClientboundPackets26_1.CHUNK_BATCH_FINISHED,
             ClientboundPackets26_1.SET_CHUNK_CACHE_CENTER,

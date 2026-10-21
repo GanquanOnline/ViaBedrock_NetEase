@@ -146,7 +146,7 @@ public class RidingModule implements FeatureModule {
 
             final RidingTracker tracker = wrapper.user().get(RidingTracker.class);
             if (tracker != null && tracker.isLocalRiding()) {
-                tracker.setLastMoveVehicleInput(x, y, z, yaw, pitch, onGround);
+                tracker.handleMoveVehicle(x, y, z, yaw, pitch, onGround);
             }
             wrapper.cancel();
         });

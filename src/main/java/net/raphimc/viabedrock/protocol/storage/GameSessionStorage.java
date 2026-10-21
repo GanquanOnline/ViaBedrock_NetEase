@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.storage;
 
 import com.vdurmont.semver4j.Semver;
 import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.ListTag;
 import com.viaversion.viaversion.api.connection.StoredObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.libs.fastutil.ints.IntIntImmutablePair;
@@ -42,6 +43,7 @@ public class GameSessionStorage extends StoredObject {
     private CompoundTag bedrockBiomeDefinitions = BedrockProtocol.MAPPINGS.getBedrockBiomeDefinitions();
     private final Map<String, IntIntPair> bedrockDimensionDefinitions = new HashMap<>();
     private final Set<String> availableEntityIdentifiers = new HashSet<>(BedrockProtocol.MAPPINGS.getBedrockEntities().keySet());
+    private final Map<String, Integer> playerEntityPropertyIndices = new HashMap<>();
     private Semver bedrockVanillaVersion;
     private boolean flatGenerator;
     private int movementRewindHistorySize;
@@ -97,6 +99,34 @@ public class GameSessionStorage extends StoredObject {
 
     public void addEntityIdentifier(final String entityIdentifier) {
         this.availableEntityIdentifiers.add(entityIdentifier);
+    }
+
+    public void setPlayerEntityProperties(final CompoundTag propertiesTag) {
+        this.playerEntityPropertyIndices.clear();
+        this.playerEntityPropertyIndices.putAll(parsePlayerEntityPropertyIndices(propertiesTag));
+    }
+
+    static Map<String, Integer> parsePlayerEntityPropertyIndices(final CompoundTag propertiesTag) {
+        final Map<String, Integer> indices = new HashMap<>();
+        if (propertiesTag == null || !"minecraft:player".equals(propertiesTag.getString("type"))) {
+            return indices;
+        }
+
+        final ListTag<CompoundTag> properties = propertiesTag.getListTag("properties", CompoundTag.class);
+        if (properties == null) {
+            return indices;
+        }
+        for (int index = 0; index < properties.size(); index++) {
+            final String name = properties.get(index).getString("name");
+            if (name != null && !name.isBlank()) {
+                indices.put(name, index);
+            }
+        }
+        return indices;
+    }
+
+    public int getPlayerEntityPropertyIndex(final String name) {
+        return this.playerEntityPropertyIndices.getOrDefault(name, -1);
     }
 
     public Semver getBedrockVanillaVersion() {

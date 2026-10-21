@@ -212,6 +212,8 @@ public class WorldPackets {
             }
             PacketLeftoverLayout.discardUnreadInput(wrapper);
 
+            // 热切后端保留同一连接，旧世界的确认不能被转发给新后端。
+            wrapper.user().get(PacketSyncStorage.class).invalidateNetworkStackLatencyResponses();
             final ChunkTracker oldChunkTracker = wrapper.user().get(ChunkTracker.class);
             final String resolvedKey = ExperimentalFeatures.dispatchResolveDimensionKey(dimension, oldChunkTracker);
             final String dimensionKey = resolvedKey != null ? resolvedKey : dimension.getKey();
@@ -221,6 +223,7 @@ public class WorldPackets {
             final EntityTracker oldEntityTracker = wrapper.user().get(EntityTracker.class);
             final ClientPlayerEntity clientPlayer = oldEntityTracker.getClientPlayer();
             wrapper.user().get(JavaPlayerStateStorage.class).reset();
+            clientPlayer.resetInputLocks();
             wrapper.user().get(SpectatorCameraTracker.class).onDimensionChange();
             ExperimentalFeatures.dispatchDimensionChange(wrapper.user());
             oldEntityTracker.prepareForRespawn();

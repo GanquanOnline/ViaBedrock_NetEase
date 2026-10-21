@@ -368,6 +368,7 @@ public class JoinPackets {
                     final boolean inventoryServerAuthoritative;
                     final String serverEngine;
                     final boolean hashedRuntimeBlockIds;
+                    final CompoundTag playerPropertyData;
                     if (isNetEaseLegacyStartGame()) {
                         final NetEaseLegacyStartGameTail tail = readNetEaseLegacyStartGameTail(wrapper);
                         if (tail.leftoverBytes() != 0) {
@@ -382,6 +383,7 @@ public class JoinPackets {
                         inventoryServerAuthoritative = tail.inventoryServerAuthoritative();
                         serverEngine = tail.serverEngine();
                         hashedRuntimeBlockIds = tail.hashedRuntimeBlockIds();
+                        playerPropertyData = tail.playerPropertyData();
                     } else {
                         wrapper.read(BedrockTypes.STRING); // level id
                         gameLevelName = wrapper.read(BedrockTypes.STRING); // level name
@@ -395,7 +397,7 @@ public class JoinPackets {
                         wrapper.read(BedrockTypes.STRING); // multiplayer correlation id
                         inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative inventories
                         serverEngine = wrapper.read(BedrockTypes.STRING); // server engine
-                        wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
+                        playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
                         wrapper.read(BedrockTypes.LONG_LE); // block registry checksum
                         wrapper.read(BedrockTypes.UUID); // world template id
                         wrapper.read(Types.BOOLEAN); // client side generation
@@ -426,6 +428,7 @@ public class JoinPackets {
                         wrapper.read(BedrockTypes.STRING); // world id
                         wrapper.read(BedrockTypes.STRING); // owner id
                     }
+                    gameSession.setPlayerEntityProperties(playerPropertyData);
 
                     if (editorWorldType == Editor_WorldType.EditorProject) {
                         final PacketWrapper disconnect = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.DISCONNECT, wrapper.user());
@@ -966,7 +969,7 @@ public class JoinPackets {
         wrapper.read(BedrockTypes.STRING); // multiplayer correlation id
         final boolean inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative inventories
         final String serverEngine = wrapper.read(BedrockTypes.STRING); // server engine
-        wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
+        final CompoundTag playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
         wrapper.read(BedrockTypes.LONG_LE); // block registry checksum
         wrapper.read(BedrockTypes.UUID); // world template id
         wrapper.read(Types.BOOLEAN); // client side generation
@@ -982,6 +985,7 @@ public class JoinPackets {
                 inventoryServerAuthoritative,
                 serverEngine,
                 hashedRuntimeBlockIds,
+                playerPropertyData,
                 remainingStartGameBytes(wrapper)
         );
     }
@@ -1020,6 +1024,7 @@ public class JoinPackets {
             boolean inventoryServerAuthoritative,
             String serverEngine,
             boolean hashedRuntimeBlockIds,
+            CompoundTag playerPropertyData,
             int leftoverBytes
     ) {
     }

@@ -82,7 +82,7 @@ public class OtherPlayerPackets {
             final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // entity links
 
             final PlayerEntity entity = entityTracker.addEntity(new PlayerEntity(wrapper.user(), entityRuntimeId, entityTracker.getNextJavaEntityId(), uuid, abilities));
-            entity.setPosition(position);
+            entity.setPosition(position.add(0F, entity.eyeOffset(), 0F));
             entity.setRotation(rotation);
             entity.setEntityProperties(entityProperties);
             entity.updateName(username);
@@ -143,6 +143,7 @@ public class OtherPlayerPackets {
 
             entity.sendInitialEntityData();
             entity.updateEntityData(entityData);
+            entity.updateEntityProperties(entityProperties);
             ExperimentalFeatures.dispatchEntityLinks(wrapper.user(), entityLinks);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_PLAYER, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
@@ -195,7 +196,7 @@ public class OtherPlayerPackets {
                     wrapper.cancel();
                     return;
                 }
-                entity.setPosition(position);
+                clientPlayer.setPositionFromServer(position);
                 entity.setRotation(rotation);
                 entity.setOnGround(onGround);
                 ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
