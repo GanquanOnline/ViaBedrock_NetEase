@@ -52,6 +52,19 @@ jobs:
           distribution: "temurin"
           java-version: 25
           check-latest: true
+      - name: "Drop shadowed-variant requirement"
+        run: |
+          python3 - << 'PY'
+          import re
+          from pathlib import Path
+          pattern = re.compile(r"\{\s*attributes\s*\{[^}]*SHADOWED[^}]*\}\s*\}", re.S)
+          for relative in (".ci-dependencies/CubeConverter/build.gradle", ".ci-dependencies/BedrockMotion/build.gradle"):
+              path = Path(relative)
+              path.write_text(pattern.sub("", path.read_text()))
+          PY
+      - name: "Publish shaded ViaVersion 5.9.2"
+        working-directory: .ci-dependencies/ViaVersion
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
       - name: "Publish shaded ViaVersion 5.12.0"
         working-directory: .ci-dependencies/ViaVersion-5.12
         run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"

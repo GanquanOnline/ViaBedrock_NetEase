@@ -14,11 +14,6 @@ includeBuild('../../.ci-dependencies/CubeConverter') {
     }
 }
 
-// Only BedrockMotion's 5.9.2 request is substituted. ViaBedrock's 5.12.0-SNAPSHOT
-// comes from the shaded jar published to mavenLocal; substituting that module would
-// expose the unshaded classes directory and drop relocated fastutil/gson.
-includeBuild('../../.ci-dependencies/ViaVersion') {
-    dependencySubstitution {
-        substitute module('com.viaversion:viaversion-common:5.9.2-SNAPSHOT') using project(':viaversion-common')
-    }
-}
+// ViaVersion is not an included build. includeBuild would substitute every
+// com.viaversion:viaversion-common request with the unshaded classes directory.
+// The workflow publishes the shaded 5.9.2 and 5.12.0 jars to mavenLocal instead.
