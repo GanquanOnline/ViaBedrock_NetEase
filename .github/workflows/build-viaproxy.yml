@@ -51,6 +51,75 @@ jobs:
           distribution: "temurin"
           java-version: 25
           check-latest: true
+      # 与 build.yml 相同的提交。根工程 publishToMavenLocal 不会走 .github/ci 的 includeBuild，
+      # 所以 BedrockMotion / CubeConverter 也要先进入 mavenLocal，ViaProxy 才能解析传递依赖。
+      - name: "Checkout BedrockMotion"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/BedrockMotion
+          ref: 1309712fd242eef9a508b1599a624ed503741514
+          path: .ci-dependencies/BedrockMotion
+          persist-credentials: false
+      - name: "Checkout CubeConverter"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/CubeConverter
+          ref: 80826eb92ccd5e75c1013e287c7308ac7e5d2471
+          path: .ci-dependencies/CubeConverter
+          persist-credentials: false
+      - name: "Checkout ViaVersion 5.9.2"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/ViaVersion
+          ref: eafcdf9c971f78e1b0a6408223a3a9b6db0c9d4a
+          path: .ci-dependencies/ViaVersion
+          persist-credentials: false
+      - name: "Checkout ViaVersion 5.12.0"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: ViaVersion/ViaVersion
+          ref: e8bbb5da5b7f9acae31a76f4d254ef24e1819719
+          path: .ci-dependencies/ViaVersion-5.12
+          persist-credentials: false
+      - name: "Drop shadowed-variant requirement"
+        run: |
+          python3 - << 'PY'
+          import re
+          from pathlib import Path
+          pattern = re.compile(r"\{\s*attributes\s*\{[^}]*SHADOWED[^}]*\}\s*\}", re.S)
+          for relative in (".ci-dependencies/CubeConverter/build.gradle", ".ci-dependencies/BedrockMotion/build.gradle"):
+              path = Path(relative)
+              text = pattern.sub("", path.read_text())
+              text = text.replace("repositories {", "repositories {\n    mavenLocal()", 1)
+              path.write_text(text)
+          PY
+      - name: "Publish shaded ViaVersion 5.9.2"
+        working-directory: .ci-dependencies/ViaVersion
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
+      - name: "Apply Ganquan ViaVersion shims"
+        working-directory: .ci-dependencies/ViaVersion-5.12
+        run: "git apply --whitespace=nowarn \"$GITHUB_WORKSPACE/.github/ci/viaversion-5.12.0-ganquan.patch\""
+      - name: "Publish shaded ViaVersion 5.12.0"
+        working-directory: .ci-dependencies/ViaVersion-5.12
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
+      # CubeConverter 是 Gradle 8.13，BedrockMotion 是 Gradle 8.8。两者都不能在 Java 25 上启动。
+      - name: "Set up Java 21"
+        uses: "actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654" # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: 21
+      - name: "Publish CubeConverter to mavenLocal"
+        working-directory: .ci-dependencies/CubeConverter
+        run: "./gradlew publishToMavenLocal -x test --no-daemon --stacktrace"
+      - name: "Publish BedrockMotion to mavenLocal"
+        working-directory: .ci-dependencies/BedrockMotion
+        run: "./gradlew publishToMavenLocal -x test --no-daemon --stacktrace"
+      - name: "Set up Java 25"
+        uses: "actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654" # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: 25
+          check-latest: true
       - name: "Publish this ViaBedrock to mavenLocal"
         id: "versions"
         run: |
