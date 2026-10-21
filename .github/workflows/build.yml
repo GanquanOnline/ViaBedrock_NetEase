@@ -31,8 +31,8 @@ jobs:
       - name: "Checkout ViaVersion"
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
-          repository: EaseCation/ViaVersion
-          ref: eafcdf9c971f78e1b0a6408223a3a9b6db0c9d4a
+          repository: ViaVersion/ViaVersion
+          ref: e8bbb5da5b7f9acae31a76f4d254ef24e1819719
           path: .ci-dependencies/ViaVersion
           persist-credentials: false
       - name: "Set up Gradle"
@@ -45,6 +45,9 @@ jobs:
           distribution: "temurin"
           java-version: 25
           check-latest: true
+      - name: "Publish shaded ViaVersion"
+        working-directory: .ci-dependencies/ViaVersion
+        run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
       - name: "Build with Gradle"
         run: "./gradlew --project-dir .github/ci :ViaBedrock:build --stacktrace"
       - name: "Upload artifacts to GitHub"

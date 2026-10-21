@@ -13,4 +13,6 @@ includeBuild('../../.ci-dependencies/CubeConverter') {
         substitute module('com.github.oryxel1:CubeConverter') using project(':')
     }
 }
-includeBuild('../../.ci-dependencies/ViaVersion')
+
+// ViaVersion 5.12.0-SNAPSHOT is published to mavenLocal by the workflow.
+// includeBuild would compile against the unshaded classes directory and drop relocated fastutil/gson.
