@@ -74,7 +74,7 @@ jobs:
         working-directory: .ci-dependencies/ViaVersion-5.12
         run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
       - name: "Build with Gradle"
-        run: "./gradlew --project-dir .github/ci :ViaBedrock:build --stacktrace"
+        run: "./gradlew --project-dir .github/ci :ViaBedrock:assemble :ViaBedrock:test --tests net.raphimc.viabedrock.experimental.storage.RidingTrackerTest --tests net.raphimc.viabedrock.experimental.storage.RidingTrackerMotTest --tests net.raphimc.viabedrock.protocol.storage.PacketSyncStorageTest --tests net.raphimc.viabedrock.protocol.rewriter.neighbor.PlantConnectionRulesTest --tests net.raphimc.viabedrock.experimental.rewriter.CreeperIgnitionMetadataTest --stacktrace"
       - name: "Upload artifacts to GitHub"
         uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" # v7.0.1
         with:
