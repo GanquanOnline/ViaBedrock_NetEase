@@ -28,7 +28,7 @@ public class BedrockItem implements Item {
 
     private int id;
     private short data;
-    private byte amount;
+    private int amount;
     private CompoundTag tag;
     private String[] canPlace;
     private String[] canBreak;
@@ -41,17 +41,21 @@ public class BedrockItem implements Item {
     }
 
     public BedrockItem(final int id, final short data, final byte amount) {
-        this(id, data, amount, null);
+        this(id, data, Byte.toUnsignedInt(amount), null);
     }
 
     public BedrockItem(final int id, final short data, final byte amount, final CompoundTag tag) {
+        this(id, data, Byte.toUnsignedInt(amount), tag);
+    }
+
+    public BedrockItem(final int id, final short data, final int amount, final CompoundTag tag) {
         this(id, data, amount, tag, new String[0], new String[0], 0, 0, null);
     }
 
-    public BedrockItem(final int id, final short data, final byte amount, final CompoundTag tag, final String[] canPlace, final String[] canBreak, final long blockingTicks, final int blockRuntimeId, final Integer netId) {
+    public BedrockItem(final int id, final short data, final int amount, final CompoundTag tag, final String[] canPlace, final String[] canBreak, final long blockingTicks, final int blockRuntimeId, final Integer netId) {
         this.setIdentifier(id);
         this.setData(data);
-        this.amount = amount;
+        this.setAmount(amount);
         this.tag = tag;
         this.canPlace = canPlace;
         this.canBreak = canBreak;
@@ -102,12 +106,15 @@ public class BedrockItem implements Item {
 
     @Override
     public int amount() {
-        return this.amount & 0xFF;
+        return this.amount;
     }
 
     @Override
     public void setAmount(final int amount) {
-        this.amount = (byte) amount;
+        if (amount < 0 || amount > 0xFFFF) {
+            throw new IllegalArgumentException("Bedrock item amount out of unsigned short range: " + amount);
+        }
+        this.amount = amount;
     }
 
     @Override

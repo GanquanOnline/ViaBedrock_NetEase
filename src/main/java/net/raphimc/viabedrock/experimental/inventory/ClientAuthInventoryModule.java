@@ -59,6 +59,7 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerTyp
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.ContainerInput;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
+import net.raphimc.viabedrock.protocol.rewriter.GameTypeRewriter;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.AnvilSessionStorage;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
@@ -112,8 +113,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
     public void onPacketRegistration(final BedrockProtocol protocol) {
         registerContainerClickHandler(protocol);
         registerCreativeContentHandler(protocol);
-        registerCreativeModeSlotHandler(protocol);
         registerSelectTradeHandler(protocol);
+        registerCreativeModeSlotHandler(protocol);
         registerSetBeaconHandler(protocol);
         registerCrafterSlotStateHandler(protocol);
         // Java expects the crafting output preview to be pushed by the server, but Bedrock computes it
@@ -359,6 +360,12 @@ public class ClientAuthInventoryModule implements FeatureModule {
         final InventoryTracker tracker = user.get(InventoryTracker.class);
         if (tracker == null) {
             return false;
+        }
+        final EntityTracker entityTracker = user.get(EntityTracker.class);
+        final ClientPlayerEntity clientPlayer = entityTracker != null ? entityTracker.getClientPlayer() : null;
+        if (clientPlayer != null && GameTypeRewriter.isMotSpectator(clientPlayer.gameType())) {
+            PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());
+            return true;
         }
         if (tracker.getPendingCloseContainer() != null) {
             PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());
@@ -748,8 +755,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
             final CreativeSlotSemantics.Plan plan = CreativeSlotSemantics.plan(
                     slot, item, tracker, wrapper.user().get(ItemRewriter.class), wrapper.user().get(CreativeContentCache.class));
             if (plan.isUnsupported()) {
-                PacketFactory.sendJavaContainerSetContent(wrapper.user(), tracker.getInventoryContainer());
-                sendJavaCursor(wrapper.user(), tracker);
+                // Leave JE's optimistic creative prediction alone. Force-resyncing
+                // from the Bedrock mirror is what made clicked items vanish (#1-1).
+                // Do not invent Take-to-cursor here: emptying a slot is Destroy.
                 return;
             }
             if (plan.isEmpty()) {
@@ -757,15 +765,12 @@ public class ClientAuthInventoryModule implements FeatureModule {
             }
             final ItemStackRequestEncoder.EncodedRequest encoded = encodeCreativePlan(plan, tracker);
             if (encoded.unsupported() || encoded.isEmpty()) {
-                PacketFactory.sendJavaContainerSetContent(wrapper.user(), tracker.getInventoryContainer());
-                sendJavaCursor(wrapper.user(), tracker);
+                // Same as Plan.unsupported(): do not wipe the cursor or inventory.
                 return;
             }
             final InventorySnapshot snapshot = InventorySnapshot.capture(tracker);
             sendItemStackRequest(wrapper.user(), encoded, snapshot);
-            CreativeSlotSemantics.applyPredictedItem(slot, plan.predicted(), tracker);
-            PacketFactory.sendJavaContainerSetContent(wrapper.user(), tracker.getInventoryContainer());
-            sendJavaCursor(wrapper.user(), tracker);
+            CreativeSlotSemantics.applyPredictedPlan(slot, plan, tracker);
         });
     }
 
@@ -817,14 +822,22 @@ public class ClientAuthInventoryModule implements FeatureModule {
             final int requestId = tracker.nextItemStackRequestId();
             net.raphimc.viabedrock.protocol.types.BedrockTypes.VAR_INT.write(buffer, requestId);
             net.raphimc.viabedrock.protocol.types.BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 1);
-            ItemStackRequestLayout.writeDestroy(buffer, plan.count(), plan.destination(), true, ViaBedrock.getConfig().getNetEaseProtocolVersion());
-            ItemStackRequestLayout.writeRequestTrailer(buffer, true, ViaBedrock.getConfig().getNetEaseProtocolVersion());
+            final int protocol = creativeEncodeProtocol();
+            ItemStackRequestLayout.writeDestroy(buffer, plan.count(), plan.destination(), true, protocol);
+            ItemStackRequestLayout.writeRequestTrailer(buffer, true, protocol);
             final byte[] payload = new byte[buffer.readableBytes()];
             buffer.readBytes(payload);
             return ItemStackRequestEncoder.EncodedRequest.of(payload, requestId);
         } finally {
             buffer.release();
         }
+    }
+
+    private static int creativeEncodeProtocol() {
+        if (ViaBedrock.getConfig() != null && ViaBedrock.getConfig().getNetEaseProtocolVersion() > 0) {
+            return ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        }
+        return 860;
     }
 
     private static boolean sendPredictedActions(final UserConnection user, final List<InventoryActionData> actions) {
@@ -1164,3 +1177,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
 }
+
+
+
+
+
+

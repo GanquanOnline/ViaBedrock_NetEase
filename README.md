@@ -1,5 +1,9 @@
 # ViaBedrock_NetEase
 
+**⚠️ This project is still under development and is not recommended for production use.**
+
+If you encounter any issues while using it, feel free to submit feedback. You may also submit a PR to merge your branch.
+
 Public fork of [EaseCation/ViaBedrock](https://github.com/EaseCation/ViaBedrock) (`main`, based on [`fcf85f2`](https://github.com/EaseCation/ViaBedrock/commit/fcf85f26309eaed7fa3a070c5916a7d9492e2a91)).
 EaseCation/ViaBedrock itself is a fork of [RaphiMC/ViaBedrock](https://github.com/RaphiMC/ViaBedrock).
 

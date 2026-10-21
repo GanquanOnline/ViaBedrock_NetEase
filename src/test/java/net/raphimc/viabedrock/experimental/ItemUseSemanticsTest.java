@@ -149,19 +149,20 @@ class ItemUseSemanticsTest {
         assertTrue(ItemUseSemantics.javaUsingVisible(true, true, 31));
         assertFalse(ItemUseSemantics.javaUsingVisible(true, true, 32));
         assertTrue(ItemUseSemantics.javaUsingVisible(true, false, 40));
-        assertTrue(ItemUseSemantics.ignoreJavaConsumableRelease(true, true));
+        assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(true, true),
+                "two-arg helper must not swallow an early Java RELEASE_USE_ITEM");
         assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(false, true));
         assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(true, false));
-        assertTrue(ItemUseSemantics.ignoreJavaConsumableRelease(true, true, false, 0),
-                "1-tick Java RELEASE_USE_ITEM while chewing must not abort MOT auto-complete");
-        assertTrue(ItemUseSemantics.ignoreJavaConsumableRelease(false, true, false, 1));
+        assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(true, true, false, 0),
+                "an early Java RELEASE_USE_ITEM must reach MOT to clear using-state");
+        assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(false, true, false, 1));
         assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(true, true, false, 2),
                 "a later empty-hand release is still an interrupt");
         assertTrue(ItemUseSemantics.ignoreJavaConsumableRelease(true, true, true));
         assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(true, false, true));
         assertFalse(ItemUseSemantics.ignoreJavaConsumableRelease(false, true, true));
-        assertFalse(ItemUseSemantics.sendCancelRelease(true, true, 0));
-        assertFalse(ItemUseSemantics.sendCancelRelease(false, true, 1));
+        assertTrue(ItemUseSemantics.sendCancelRelease(true, true, 0));
+        assertTrue(ItemUseSemantics.sendCancelRelease(false, true, 1));
         assertTrue(ItemUseSemantics.sendCancelRelease(true, true, 2));
         assertTrue(ItemUseSemantics.sendCancelRelease(true, false, 0));
         assertTrue(ItemUseSemantics.suppressStartSprintingWhileUsingItem(true, true));

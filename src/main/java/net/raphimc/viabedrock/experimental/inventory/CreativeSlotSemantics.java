@@ -26,7 +26,7 @@ import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
 /**
- * Turns Java SET_CREATIVE_MODE_SLOT into Nukkit 860 SAI CraftCreative / Destroy / Drop.
+ * Turns Java SET_CREATIVE_MODE_SLOT into Nukkit 860 SAI CraftCreative / Destroy.
  * Official 975 keeps the old cancel-and-resync path; this helper is NetEase-only.
  */
 public final class CreativeSlotSemantics {
@@ -72,6 +72,13 @@ public final class CreativeSlotSemantics {
         }
     }
 
+    public static void applyPredictedPlan(final int javaSlot, final Plan plan, final InventoryTracker tracker) {
+        if (plan == null || plan.isEmpty() || plan.isUnsupported()) {
+            return;
+        }
+        applyPredictedItem(javaSlot, plan.predicted(), tracker);
+    }
+
     public static Plan plan(final int javaSlot, final Item javaItem, final InventoryTracker tracker,
                             final ItemRewriter itemRewriter, final CreativeContentCache cache) {
         final ItemStackRequestLayout.SlotInfo destination = destinationSlot(javaSlot, tracker);
@@ -84,6 +91,10 @@ public final class CreativeSlotSemantics {
             if (current.isEmpty()) {
                 return Plan.empty();
             }
+            // Java SET_CREATIVE_MODE_SLOT is an absolute slot assignment. Empty item
+            // means destroy that slot (cursor, hotbar, backpack, armor, offhand).
+            // Pickup/move is CONTAINER_CLICK; treating empties as Take duplicated stacks
+            // and made creative-tab deletes a no-op.
             return Plan.destroy(current.amount(), withNetId(destination, current));
         }
         if (cache == null) {

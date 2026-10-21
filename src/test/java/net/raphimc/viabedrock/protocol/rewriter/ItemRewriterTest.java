@@ -44,6 +44,8 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2IntOpenHashMap;
 import com.viaversion.viaversion.protocol.ProtocolPipelineImpl;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.PotionEffects1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Potions1_20_5;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.util.TextUtil;
@@ -89,8 +91,13 @@ class ItemRewriterTest {
     private static final int WOOL_ID = 104;
     private static final int CUSTOM_ITEM_ID = 105;
     private static final int POTION_ID = 106;
+    private static final int BED_ID = 107;
+    private static final int CROSSBOW_ID = 108;
+    private static final int ARROW_ID = 109;
     private static final int SYNCED_CUSTOM_JAVA_ID = 200_000;
     private static final String CUSTOM_IDENTIFIER = "example:wand";
+    private static final int MOT_ARROW_LEGACY_ID = 262;
+    private static final int MOT_IRON_SWORD_LEGACY_ID = 267;
 
     private EmbeddedChannel channel;
     private UserConnectionImpl user;
@@ -122,7 +129,10 @@ class ItemRewriterTest {
                 itemEntry("minecraft:stone", STONE_ID),
                 itemEntry("minecraft:wool", WOOL_ID),
                 itemEntry(CUSTOM_IDENTIFIER, CUSTOM_ITEM_ID),
-                itemEntry("minecraft:potion", POTION_ID)
+                itemEntry("minecraft:potion", POTION_ID),
+                itemEntry("minecraft:bed", BED_ID),
+                itemEntry("minecraft:crossbow", CROSSBOW_ID),
+                itemEntry("minecraft:arrow", ARROW_ID)
         });
         this.user.put(this.rewriter);
     }
@@ -181,6 +191,34 @@ class ItemRewriterTest {
         assertEquals(WOOL_ID, bedrockItem.identifier());
         assertEquals(0, bedrockItem.data());
         assertEquals(3, bedrockItem.amount());
+    }
+
+    @Test
+    void coloredBedsKeepMetaInsteadOfUndyedBlockRuntime() {
+        final StructuredItem javaRedBed = creativeJavaItem("minecraft:red_bed", 1);
+        final BedrockItem bedrockItem = this.rewriter.bedrockItem(javaRedBed);
+
+        assertFalse(bedrockItem.isEmpty());
+        assertEquals(BED_ID, bedrockItem.identifier());
+        assertEquals(14, bedrockItem.data());
+        assertEquals(0, bedrockItem.blockRuntimeId());
+
+        final Item roundTrip = this.rewriter.javaItem(bedrockItem.copy());
+        assertEquals(javaRedBed.identifier(), roundTrip.identifier());
+        assertEquals(1, roundTrip.amount());
+
+        final BedrockItem onWire = new BedrockItem(BED_ID, (short) 14, (byte) 1);
+        onWire.setBlockRuntimeId(12345);
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            this.rewriter.itemType().write(buffer, onWire);
+            final BedrockItem decoded = this.rewriter.itemType().read(buffer);
+            assertEquals(14, decoded.data());
+            assertEquals(0, decoded.blockRuntimeId());
+            assertEquals(javaRedBed.identifier(), this.rewriter.javaItem(decoded).identifier());
+        } finally {
+            buffer.release();
+        }
     }
 
     @Test
@@ -428,6 +466,79 @@ class ItemRewriterTest {
     }
 
     @Test
+    void numericEnchantmentTagsMapToJavaEnchantments() {
+        final int sharpnessJavaId = registryId("minecraft:enchantment", "minecraft:sharpness");
+        final CompoundTag tag = new CompoundTag();
+        final ListTag<CompoundTag> ench = new ListTag<>(CompoundTag.class);
+        final CompoundTag entry = new CompoundTag();
+        entry.putInt("id", Enchant_Type.Sharpness.getValue());
+        entry.putInt("lvl", 5);
+        ench.add(entry);
+        tag.put("ench", ench);
+        final BedrockItem source = new BedrockItem(IRON_SWORD_ID, (short) 0, (byte) 1, tag);
+
+        final Item javaItem = this.rewriter.javaItem(source.copy());
+        ExperimentalItemRewriter.handleItem(this.user, source, source.tag(), javaItem);
+
+        final Enchantments enchantments = javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENTS1_21_5);
+        assertNotNull(enchantments);
+        assertEquals(5, enchantments.getLevel(sharpnessJavaId));
+        assertNull(javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE));
+    }
+
+    @Test
+    void mixedShortAndIntEnchantmentTagsStillMap() {
+        final int sharpnessJavaId = registryId("minecraft:enchantment", "minecraft:sharpness");
+        final CompoundTag tag = new CompoundTag();
+        final ListTag<CompoundTag> ench = new ListTag<>(CompoundTag.class);
+        final CompoundTag entry = new CompoundTag();
+        entry.putShort("id", (short) Enchant_Type.Sharpness.getValue());
+        entry.putInt("lvl", 3);
+        ench.add(entry);
+        tag.put("ench", ench);
+        final BedrockItem source = new BedrockItem(IRON_SWORD_ID, (short) 0, (byte) 1, tag);
+
+        final Item javaItem = this.rewriter.javaItem(source.copy());
+        ExperimentalItemRewriter.handleItem(this.user, source, source.tag(), javaItem);
+
+        final Enchantments enchantments = javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENTS1_21_5);
+        assertNotNull(enchantments);
+        assertEquals(3, enchantments.getLevel(sharpnessJavaId));
+        assertNull(javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE));
+    }
+
+    @Test
+    void unknownEnchantmentIdsStillRequestJavaGlint() {
+        final CompoundTag tag = new CompoundTag();
+        final ListTag<CompoundTag> ench = new ListTag<>(CompoundTag.class);
+        final CompoundTag entry = new CompoundTag();
+        entry.putInt("id", 32_767);
+        entry.putInt("lvl", 1);
+        ench.add(entry);
+        tag.put("ench", ench);
+        final BedrockItem source = new BedrockItem(IRON_SWORD_ID, (short) 0, (byte) 1, tag);
+
+        final Item javaItem = this.rewriter.javaItem(source.copy());
+        ExperimentalItemRewriter.handleItem(this.user, source, source.tag(), javaItem);
+
+        final Enchantments enchantments = javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENTS1_21_5);
+        assertTrue(enchantments == null || enchantments.size() == 0);
+        assertEquals(Boolean.TRUE, javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE));
+    }
+
+    @Test
+    void emptyEnchantmentListRequestsJavaGlint() {
+        final CompoundTag tag = new CompoundTag();
+        tag.put("ench", new ListTag<>(CompoundTag.class));
+        final BedrockItem source = new BedrockItem(IRON_SWORD_ID, (short) 0, (byte) 1, tag);
+
+        final Item javaItem = this.rewriter.javaItem(source.copy());
+        ExperimentalItemRewriter.handleItem(this.user, source, source.tag(), javaItem);
+
+        assertEquals(Boolean.TRUE, javaItem.dataContainer().get(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE));
+    }
+
+    @Test
     void creativePotionUsesBedrockAuxAndRoundTripsKnownCustomNbt() {
         final int nightVision = Potions1_20_5.keyToId("minecraft:night_vision");
         final int wither = PotionEffects1_20_5.keyToId("minecraft:wither");
@@ -508,6 +619,54 @@ class ItemRewriterTest {
         assertEquals(List.of("First line", "Second line"), List.of(roundTrip.dataContainer().get(StructuredDataKey.LORE)).stream()
                 .map(ItemRewriterTest::legacy)
                 .toList());
+    }
+
+    @Test
+    void motNumericNbtIdResolvesThroughLegacyTable() {
+        // MOT NBTIO.putItemHelper writes Count (byte), Damage (short aux/meta), and
+        // unsigned short id. Java durability lives in the nested tag compound, not root Damage.
+        final CompoundTag motArrow = new CompoundTag();
+        motArrow.putShort("id", (short) MOT_ARROW_LEGACY_ID);
+        motArrow.putByte("Count", (byte) 1);
+        motArrow.putShort("Damage", (short) 0);
+
+        final Item javaArrow = this.rewriter.javaItemFromNbt(motArrow);
+        assertFalse(javaArrow.isEmpty());
+        assertEquals(BedrockProtocol.MAPPINGS.getJavaItems().get("minecraft:arrow"), javaArrow.identifier());
+
+        final CompoundTag motSword = new CompoundTag();
+        motSword.putShort("id", (short) MOT_IRON_SWORD_LEGACY_ID);
+        motSword.putByte("Count", (byte) 1);
+        motSword.putShort("Damage", (short) 0);
+
+        final Item javaSword = this.rewriter.javaItemFromNbt(motSword);
+        assertFalse(javaSword.isEmpty());
+        assertEquals(BedrockProtocol.MAPPINGS.getJavaItems().get("minecraft:iron_sword"), javaSword.identifier());
+        assertNull(javaSword.dataContainer().get(StructuredDataKey.DAMAGE));
+    }
+
+    @Test
+    void chargedCrossbowWritesMotNumericChargedItemAndRoundTrips() {
+        final StructuredItem javaArrow = creativeJavaItem("minecraft:arrow", 1);
+        final StructuredItem javaCrossbow = creativeJavaItem("minecraft:crossbow", 1);
+        javaCrossbow.dataContainer().set(VersionedTypes.V26_1.structuredDataKeys().chargedProjectiles, new Item[]{javaArrow});
+
+        final BedrockItem bedrockCrossbow = this.rewriter.bedrockItem(javaCrossbow);
+        assertEquals(CROSSBOW_ID, bedrockCrossbow.identifier());
+        final CompoundTag chargedItem = bedrockCrossbow.tag().getCompoundTag("chargedItem");
+        assertNotNull(chargedItem);
+        assertTrue(bedrockCrossbow.tag().getBoolean("Charged"));
+        assertEquals(MOT_ARROW_LEGACY_ID, chargedItem.getShort("id"));
+        assertNull(chargedItem.getString("Name", null));
+        assertEquals(1, chargedItem.getByte("Count"));
+        assertEquals(0, chargedItem.getShort("Damage"));
+
+        final Item roundTrip = this.rewriter.javaItem(bedrockCrossbow.copy());
+        ExperimentalItemRewriter.handleItem(this.user, bedrockCrossbow, bedrockCrossbow.tag(), roundTrip);
+        final Item[] projectiles = roundTrip.dataContainer().get(VersionedTypes.V26_1.structuredDataKeys().chargedProjectiles);
+        assertNotNull(projectiles);
+        assertEquals(1, projectiles.length);
+        assertEquals(javaArrow.identifier(), projectiles[0].identifier());
     }
 
     private void installSyncedCustomItem() {

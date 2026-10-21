@@ -79,6 +79,7 @@ import net.raphimc.viabedrock.experimental.task.ScriptDebugTextTickTask;
 import net.raphimc.viabedrock.experimental.util.JavaMapPaletteUtil;
 import net.raphimc.viabedrock.experimental.util.ProtocolUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.packet.ClientPlayerPackets;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
@@ -223,6 +224,20 @@ public class ExperimentalFeatures {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error in module onChannelRegistered", e);
             }
         }
+    }
+
+    public static String dispatchResolveClientboundPyRpcChannel(final byte[] data) {
+        for (final FeatureModule module : MODULES) {
+            try {
+                final String channel = module.resolveClientboundPyRpcChannel(data);
+                if (channel != null) {
+                    return channel;
+                }
+            } catch (final Throwable e) {
+                ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error in module resolveClientboundPyRpcChannel", e);
+            }
+        }
+        return null;
     }
 
     public static boolean isPlayerListEntryListed(final UserConnection user, final UUID uuid, final long entityUniqueId, final String name) {
@@ -801,6 +816,7 @@ public class ExperimentalFeatures {
             // MOT PredictDestroy already aborts then completes. A trailing Abort
             // is stored in MOT's EnumMap before Predict, so GanAC/MOT would see
             // Abort first and drop the break. Mirror finishBlockBreak: Start+Predict.
+            clientPlayer.clearDelayedMotBreak();
             for (PlayerActionType type : overlayCreativeBreakActions()) {
                 clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(
                         type, position, direction.ordinal()));
@@ -809,12 +825,14 @@ public class ExperimentalFeatures {
             // Survival overlay is Java ATTACK on a fake display — there is no STOP_DESTROY.
             // MOT only finishes on PredictDestroyBlock. Instant (hardness 0) overlays must
             // Start+Predict like creative. Non-instant overlays keep CrackBlock via SWING.
+            clientPlayer.clearDelayedMotBreak();
             for (PlayerActionType type : overlayCreativeBreakActions()) {
                 clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(
                         type, position, direction.ordinal()));
             }
         } else {
             clientPlayer.setBlockBreakingInfo(new ClientPlayerEntity.BlockBreakingInfo(position, direction));
+            ClientPlayerPackets.scheduleDelayedMotBreak(clientPlayer, user.get(ChunkTracker.class), position, direction);
         }
     }
 
@@ -1597,18 +1615,21 @@ public class ExperimentalFeatures {
                     stopUsingItem(wrapper.user(), clientPlayer);
                     return;
                 }
-                if (releaseAction == ItemReleaseInventoryTransaction_ActionType.Use) {
-                    finishConsumableUse(wrapper.user(), inventoryTransactionRewriter, clientPlayer);
-                    if (!ItemUseSemantics.keepLocalUsingAfterConsumableFinish(ViaBedrock.getConfig().shouldEmulateNetEaseClient(), true, clientPlayer.isConsumableFinishSent())) {
-                        stopUsingItem(wrapper.user(), clientPlayer);
-                    }
-                    return;
-                }
+                // Duration-ready Java RELEASE_USE_ITEM is completed by CLIENT_TICK_END.
+                // Check that before the Use branch so this skip actually runs. Early
+                // releases are not duration-ready and must still reach MOT.
                 if (ItemUseSemantics.ignoreJavaConsumableRelease(
                         ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
                         isConsumableUseItem(wrapper.user().get(ItemRewriter.class), selectedItem),
                         releaseAction == ItemReleaseInventoryTransaction_ActionType.Use,
                         clientPlayer.usingItemTicks())) {
+                    return;
+                }
+                if (releaseAction == ItemReleaseInventoryTransaction_ActionType.Use) {
+                    finishConsumableUse(wrapper.user(), inventoryTransactionRewriter, clientPlayer);
+                    if (!ItemUseSemantics.keepLocalUsingAfterConsumableFinish(ViaBedrock.getConfig().shouldEmulateNetEaseClient(), true, clientPlayer.isConsumableFinishSent())) {
+                        stopUsingItem(wrapper.user(), clientPlayer);
+                    }
                     return;
                 }
                 if (ItemUseSemantics.emulateShieldAsSneak(ViaBedrock.getConfig().shouldEmulateNetEaseClient(), isShield(wrapper.user().get(ItemRewriter.class), selectedItem))) {

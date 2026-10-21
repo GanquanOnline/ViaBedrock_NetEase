@@ -63,6 +63,27 @@ class CreativeSlotSemanticsTest {
     }
 
     @Test
+    void emptyingHotbarDestroysTheAssignedSlot() {
+        this.tracker.getInventoryContainer().setItemSilent(0, new BedrockItem(35, (short) 0, (byte) 16));
+        final CreativeSlotSemantics.Plan destroy = CreativeSlotSemantics.plan(36, StructuredItem.empty(), this.tracker, null, new CreativeContentCache(this.user));
+        assertEquals(CreativeSlotSemantics.Kind.DESTROY, destroy.kind());
+        assertEquals(16, destroy.count());
+        assertEquals(ContainerEnumName.HotbarContainer, destroy.destination().container());
+        assertEquals(0, destroy.destination().slot());
+        assertTrue(destroy.predicted().isEmpty());
+    }
+
+    @Test
+    void emptyingBackpackDestroysTheAssignedSlot() {
+        this.tracker.getInventoryContainer().setItemSilent(9, new BedrockItem(35, (short) 0, (byte) 8));
+        final CreativeSlotSemantics.Plan destroy = CreativeSlotSemantics.plan(9, StructuredItem.empty(), this.tracker, null, new CreativeContentCache(this.user));
+        assertEquals(CreativeSlotSemantics.Kind.DESTROY, destroy.kind());
+        assertEquals(8, destroy.count());
+        assertEquals(ContainerEnumName.InventoryContainer, destroy.destination().container());
+        assertEquals(9, destroy.destination().slot());
+    }
+
+    @Test
     void spawnNeedsACreativeCache() {
         final StructuredItem wool = new StructuredItem(35, 64);
         assertTrue(CreativeSlotSemantics.plan(-1, wool, this.tracker, null, null).isUnsupported());

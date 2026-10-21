@@ -424,14 +424,10 @@ public class HudPackets {
             }
 
             final Entity entity = entityTracker.getEntityByUid(bossEntityUniqueId);
-            if (entity == null) {
-                wrapper.cancel();
-                return;
-            }
-            final UUID uuid = entity.javaUuid();
             final BossBarStorage bossBars = wrapper.user().get(BossBarStorage.class);
             switch (updateType) {
                 case Add -> {
+                    final UUID uuid = bossBars.resolveOrCreateJavaUuid(bossEntityUniqueId, entity != null ? entity.javaUuid() : null);
                     final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
                     wrapper.read(BedrockTypes.STRING); // filtered name
                     final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
@@ -439,7 +435,7 @@ public class HudPackets {
                     final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
                     wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // overlay | Does nothing in Bedrock Edition
                     final BossBarStorage.BossBar bar = bossBars.add(uuid, name, progress, color);
-                    entity.setHasBossBar(true);
+                    if (entity != null) entity.setHasBossBar(true);
                     if (!bossBars.markAddSent(uuid)) {
                         wrapper.cancel();
                         return;
@@ -447,7 +443,12 @@ public class HudPackets {
                     writeBossBarAdd(wrapper, uuid, bar);
                 }
                 case Remove -> {
-                    entity.setHasBossBar(false);
+                    final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
+                    if (uuid == null) {
+                        wrapper.cancel();
+                        return;
+                    }
+                    if (entity != null) entity.setHasBossBar(false);
                     if (!bossBars.remove(uuid)) {
                         wrapper.cancel();
                         return;
@@ -457,6 +458,11 @@ public class HudPackets {
                 }
                 case Update_Percent -> {
                     final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
+                    final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
+                    if (uuid == null) {
+                        wrapper.cancel();
+                        return;
+                    }
                     final BossBarStorage.BossBar bar = bossBars.get(uuid);
                     if (bar == null) {
                         wrapper.cancel();
@@ -471,6 +477,11 @@ public class HudPackets {
                 case Update_Name -> {
                     final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
                     wrapper.read(BedrockTypes.STRING); // filtered name
+                    final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
+                    if (uuid == null) {
+                        wrapper.cancel();
+                        return;
+                    }
                     final BossBarStorage.BossBar bar = bossBars.get(uuid);
                     if (bar == null) {
                         wrapper.cancel();
@@ -486,6 +497,11 @@ public class HudPackets {
                     wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // darken screen | Does nothing in Bedrock Edition
                     final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
                     wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // overlay | Does nothing in Bedrock Edition
+                    final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
+                    if (uuid == null) {
+                        wrapper.cancel();
+                        return;
+                    }
                     final BossBarStorage.BossBar bar = bossBars.get(uuid);
                     if (bar == null) {
                         wrapper.cancel();
@@ -501,6 +517,11 @@ public class HudPackets {
                 case Update_Style -> {
                     final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
                     wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // overlay | Does nothing in Bedrock Edition
+                    final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
+                    if (uuid == null) {
+                        wrapper.cancel();
+                        return;
+                    }
                     final BossBarStorage.BossBar bar = bossBars.get(uuid);
                     if (bar == null) {
                         wrapper.cancel();

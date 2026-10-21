@@ -29,6 +29,10 @@ import com.viaversion.viaversion.libs.fastutil.longs.LongList;
 import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
 import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.api.model.entity.PlayerEntity;
+import com.viaversion.viaversion.api.minecraft.BlockPosition;
+import net.raphimc.viabedrock.api.model.BlockState;
+import net.raphimc.viabedrock.api.model.container.HorseContainer;
+import net.raphimc.viabedrock.experimental.ItemUseAirClickTarget;
 import net.raphimc.viabedrock.experimental.model.PlayerAuthInputContext;
 import net.raphimc.viabedrock.experimental.riding.RidingAnchorHelper;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
@@ -36,7 +40,8 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerAuthIn
 import net.raphimc.viabedrock.protocol.data.enums.java.InputFlag;
 import net.raphimc.viabedrock.protocol.model.EntityLink;
 import net.raphimc.viabedrock.protocol.model.Position3f;
-import net.raphimc.viabedrock.api.model.container.HorseContainer;
+import net.raphimc.viabedrock.protocol.rewriter.BlockStateRewriter;
+import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
@@ -54,6 +59,22 @@ public class RidingTracker extends StoredObject {
     private static final float JAVA_PLAYER_VEHICLE_ATTACHMENT_Y = 0.6F; // PlayerEntity.VEHICLE_ATTACHMENT_POS
     private static final int PENDING_DISMOUNT_TICKS = 10;
     private static final Position3f BOAT_PLAYER_SEAT_OFFSET = new Position3f(0F, 1.02001F, 0F);
+    // MOT EntityMinecartAbstract: getMountedOffset = height * 0.75 = 0.525. Off-rail adds +0.35 via seat metadata.
+    // Visual sitting stays on JE's 0.1875 passenger attachment; this offset is SAI / dismount only.
+    private static final Position3f MINECART_PLAYER_SEAT_OFFSET = new Position3f(0F, 0.525F, 0F);
+    // MOT EntityBoat dimensions. Occupied boats disable wave sim, so ViaBedrock must derive a
+    // resting network Y from the water surface instead of freezing the last tracker snapshot.
+    private static final float BOAT_WIDTH = 1.4F;
+    // Absolute no-op epsilon for tiny float noise when comparing visual vs sync target.
+    private static final float BOAT_CLIENT_SYNC_EPSILON = 0.02F;
+    // Soft vertical approach for SAI/tracker and for rare JE corrections.
+    private static final float BOAT_VERTICAL_APPROACH_STEP = 0.045F;
+    // Dead zone around the FINAL resting foot Y. Inside this band we do not send MOVE_VEHICLE,
+    // otherwise JE buoyancy (~0.045/tick) fights our sync every few ticks and jitters.
+    private static final float BOAT_JAVA_SYNC_TAKEOFF_MARGIN = 0.20F;
+    private static final float BOAT_JAVA_SYNC_HOVER_MARGIN = 0.35F;
+    // Reject continuous JE buoyancy climbs while still allowing waterfall / slope drops.
+    private static final float BOAT_MAX_JAVA_CLIMB = 0.75F;
 
     private final Long2ObjectMap<LongList> vehiclePassengers = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectMap<AnchorState> anchorsByPassenger = new Long2ObjectOpenHashMap<>();
@@ -163,6 +184,11 @@ public class RidingTracker extends StoredObject {
                 final MoveVehicleInput vehicleInput = this.lastMoveVehicleInputFresh ? this.lastMoveVehicleInput : null;
                 final float vehiclePitch = vehicleInput != null ? vehicleInput.pitch() : vehicle.rotation().x();
                 final float vehicleYaw = vehicleInput != null ? vehicleInput.yaw() : vehicle.rotation().y();
+                // Soft-follow the water-aware SAI target. Snap JE only when the visual hull
+                // drifted beyond the larger epsilon so MOVE_VEHICLE does not jitter every tick.
+                // Keep the ViaBedrock tracker Y aligned with the approached network Y.
+                this.syncPredictedBoatToJavaClient(vehicle, vehicleInput);
+                vehicle.setPosition(new Position3f(authInputPosition.x(), authInputPosition.y(), authInputPosition.z()));
                 clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.IsInClientPredictedVehicle);
                 context.setPredictedVehicle(vehicle.uniqueId(), vehiclePitch, vehicleYaw);
             }
@@ -329,7 +355,7 @@ public class RidingTracker extends StoredObject {
         }
         anchor.vehicleUniqueId = vehicle.uniqueId();
 
-        final Position3f rawOffset = this.rawSeatOffset(passenger);
+        final Position3f rawOffset = this.rawSeatOffset(vehicle, passenger);
         final float anchorYOffset = this.passengerAnchorYOffset(passenger);
         final Position3f position = vehicle.position().add(this.seatOffset(vehicle, passenger, rawOffset, anchorYOffset));
         if (!anchor.spawned) {
@@ -385,6 +411,10 @@ public class RidingTracker extends StoredObject {
         return offset;
     }
 
+    private Position3f rawSeatOffset(final Entity vehicle, final Entity passenger) {
+        return defaultSeatOffset(vehicle.javaType(), this.rawSeatOffset(passenger));
+    }
+
     private boolean canRideDirectly(final Entity vehicle, final Entity passenger) {
         if (!this.isLocalPlayer(vehicle)) {
             return false;
@@ -417,14 +447,20 @@ public class RidingTracker extends StoredObject {
 
     private Position3f authInputPosition(final Entity vehicle, final ClientPlayerEntity clientPlayer, final LocalRidingMode mode) {
         if (mode == LocalRidingMode.BOAT_PREDICTED) {
-            // Java MOVE_VEHICLE Y is the boat foot. MOT predicted-boat SAI is the boat network Y
-            // (EntityBoat.getBaseOffset() = 0.375) and onInput subtracts that offset. The first
-            // tick after mounting often has no fresh MOVE_VEHICLE yet; falling through to
-            // player eye 1.62 lifts the boat ~1.245 and looks like flying in place.
-            if (this.lastMoveVehicleInputFresh && this.lastMoveVehicleInput != null) {
-                return predictedBoatAuthInputPosition(this.lastMoveVehicleInput.position(), vehicle.eyeOffset());
-            }
-            return predictedBoatAuthInputFromVehicle(vehicle.position(), vehicle.eyeOffset());
+            // MOT 860 still uses IN_CLIENT_PREDICTED_IN_VEHICLE + EntityBoat.onInput(x,y,z,yaw).
+            // Raw JE buoyancy Y climbs forever if echoed. Hard-pinning to the frozen MOT tracker Y
+            // stopped the fly-up but left the hull hovering/jittering because occupied boats disable
+            // MOT wave sim and never refresh network Y on slopes/waterfalls. Keep XZ/yaw from
+            // MOVE_VEHICLE and choose a water-surface (or grounded) network Y instead.
+            final Position3f vehicleNetworkPosition = vehicle.position();
+            final Position3f javaVehiclePosition = this.lastMoveVehicleInputFresh && this.lastMoveVehicleInput != null
+                    ? this.lastMoveVehicleInput.position()
+                    : null;
+            return predictedBoatAuthInputPosition(
+                    javaVehiclePosition,
+                    vehicleNetworkPosition,
+                    vehicle.eyeOffset(),
+                    this.boatWorldView());
         }
 
         final Position3f vehiclePosition = vehicle.position();
@@ -434,9 +470,14 @@ public class RidingTracker extends StoredObject {
             // foot, which trips GanAC AntiVehicle.FlyCheck (0.5). Match VIRTUAL_INPUT_ONLY /
             // safeDismountPosition: vehicle + seat + player eye.
             // Ref: MOT Player.java clientPosition; Entity.getMountedOffset; EntityHorse height 1.6.
+            // Minecart network Y includes getBaseOffset (0.35); Bedrock player SAI is
+            // internal foot + seat + player 1.62.
+            final Position3f authVehiclePosition = usesMinecartRiding(vehicle.javaType())
+                    ? new Position3f(vehiclePosition.x(), vehiclePosition.y() - vehicle.eyeOffset(), vehiclePosition.z())
+                    : vehiclePosition;
             return passengerAuthInputPosition(
-                    vehiclePosition,
-                    this.seatOffset(vehicle, clientPlayer, this.rawSeatOffset(clientPlayer), 0F),
+                    authVehiclePosition,
+                    this.seatOffset(vehicle, clientPlayer, this.rawSeatOffset(vehicle, clientPlayer), 0F),
                     clientPlayer.eyeOffset());
         }
 
@@ -456,11 +497,11 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * Java {@code MOVE_VEHICLE} Y is the boat foot. MOT predicted-boat SAI is the
-     * boat network Y ({@code EntityBoat.getBaseOffset()} = 0.375) and {@code onInput}
-     * subtracts that offset. Adding the player eye (1.62) lifts the boat +1.245
-     * every tick and trips GanAC AntiVehicle.FlyCheck (0.5).
-     * Ref: MOT Player.java IN_CLIENT_PREDICTED_IN_VEHICLE; EntityBoat.onInput.
+     * Java {@code MOVE_VEHICLE} carries JE client XZ plus a buoyancy-affected Y. MOT predicted-boat
+     * SAI must be the boat network Y ({@code EntityBoat.getBaseOffset()} = 0.375) because
+     * {@code onInput} subtracts that offset. Adding the player eye (1.62), or feeding raw JE
+     * buoyancy Y back through SAI, lifts the boat every tick and trips GanAC AntiVehicle.FlyCheck.
+     * Ref: MOT Player.java IN_CLIENT_PREDICTED_IN_VEHICLE; EntityBoat.onInput / getWaterLevel.
      */
     static Position3f predictedBoatAuthInputPosition(final Position3f javaVehiclePosition, final float vehicleEyeOffset) {
         return new Position3f(
@@ -469,10 +510,29 @@ public class RidingTracker extends StoredObject {
                 javaVehiclePosition.z());
     }
 
+    static Position3f predictedBoatAuthInputPosition(
+            final Position3f javaVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset) {
+        return predictedBoatAuthInputPosition(javaVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, null);
+    }
+
+    static Position3f predictedBoatAuthInputPosition(
+            final Position3f javaVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset,
+            final ItemUseAirClickTarget.WorldView world) {
+        final float networkY = predictedBoatNetworkY(javaVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, world);
+        if (javaVehiclePosition == null) {
+            return new Position3f(vehicleNetworkPosition.x(), networkY, vehicleNetworkPosition.z());
+        }
+        return new Position3f(javaVehiclePosition.x(), networkY, javaVehiclePosition.z());
+    }
+
     /**
      * MOT ADD/MOVE already stores the boat network Y (foot + {@code getBaseOffset()}). Convert
-     * that tracker position back to the Java boat foot so the no-{@code MOVE_VEHICLE} path uses
-     * the same SAI as a later predicted input.
+     * that tracker position back to the Java boat foot so helpers that still speak in JE foot
+     * space stay consistent with spawn / MOVE sync.
      */
     static Position3f predictedBoatJavaFoot(final Position3f vehicleNetworkPosition, final float vehicleEyeOffset) {
         return new Position3f(
@@ -481,8 +541,319 @@ public class RidingTracker extends StoredObject {
                 vehicleNetworkPosition.z());
     }
 
+    static float predictedBoatNetworkY(final Position3f vehicleNetworkPosition) {
+        return vehicleNetworkPosition.y();
+    }
+
+    /**
+     * Choose the SAI network Y for a predicted boat.
+     * <p>
+     * Priority:
+     * <ol>
+     *   <li>Chunk water surface under the steered XZ (occupied MOT boats disable wave sim, so the
+     *       tracker Y never follows slopes / waterfalls by itself).</li>
+     *   <li>Small, physically plausible JE MOVE_VEHICLE corrections around that surface.</li>
+     *   <li>Last MOT tracker network Y when chunks are unloaded.</li>
+     * </ol>
+     * Large JE buoyancy climbs are rejected so #1-2 fly-up cannot accumulate through onInput.
+     */
+    static float predictedBoatNetworkY(
+            final Position3f javaVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset,
+            final ItemUseAirClickTarget.WorldView world) {
+        return approachBoatNetworkY(
+                vehicleNetworkPosition.y(),
+                boatTargetNetworkY(javaVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, world));
+    }
+
+    /**
+     * Final resting network Y (water surface / grounded), without the per-tick approach.
+     * JE MOVE_VEHICLE must aim at this value; syncing to the intermediate approached Y was
+     * fighting JE buoyancy every tick and caused the remaining water jitter.
+     */
+    static float boatTargetNetworkY(
+            final Position3f javaVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset,
+            final ItemUseAirClickTarget.WorldView world) {
+        final float trackerNetworkY = vehicleNetworkPosition.y();
+        final float sampleX = javaVehiclePosition != null ? javaVehiclePosition.x() : vehicleNetworkPosition.x();
+        final float sampleZ = javaVehiclePosition != null ? javaVehiclePosition.z() : vehicleNetworkPosition.z();
+        final float javaOrTrackerNetworkY = javaVehiclePosition != null ? javaVehiclePosition.y() + vehicleEyeOffset : trackerNetworkY;
+        final Float waterNetworkY = resolveBoatWaterNetworkY(world, sampleX, trackerNetworkY, javaOrTrackerNetworkY, sampleZ);
+
+        if (waterNetworkY != null) {
+            return waterNetworkY;
+        }
+
+        final Float groundNetworkY = resolveBoatGroundNetworkY(world, sampleX, trackerNetworkY, javaOrTrackerNetworkY, sampleZ, vehicleEyeOffset);
+        if (groundNetworkY != null) {
+            // Same soft-follow path as water: land cliffs / slopes must not freeze at the old
+            // mount snapshot or the hull hangs in the air.
+            return groundNetworkY;
+        }
+
+        if (javaVehiclePosition != null) {
+            final float javaNetworkY = javaOrTrackerNetworkY;
+            final float delta = javaNetworkY - trackerNetworkY;
+            // Chunks unloaded / no solid sample: always allow downward JE motion (cliffs), and
+            // only small upward corrections. Large upward climbs are still the #1-2 fly-up.
+            if (delta <= 0.12F) {
+                return javaNetworkY;
+            }
+        }
+        return trackerNetworkY;
+    }
+
+    static float approachBoatNetworkY(final float currentNetworkY, final float targetNetworkY) {
+        final float delta = targetNetworkY - currentNetworkY;
+        if (Math.abs(delta) <= BOAT_VERTICAL_APPROACH_STEP) {
+            return targetNetworkY;
+        }
+        return currentNetworkY + Math.copySign(BOAT_VERTICAL_APPROACH_STEP, delta);
+    }
+
+    static boolean shouldSyncPredictedBoatJavaY(final float visualFootY, final float targetFootY) {
+        final float dy = visualFootY - targetFootY;
+        return dy > BOAT_JAVA_SYNC_TAKEOFF_MARGIN || dy < -BOAT_JAVA_SYNC_HOVER_MARGIN;
+    }
+
+    static float approachBoatJavaSyncFootY(final float visualFootY, final float targetFootY) {
+        return approachBoatNetworkY(visualFootY, targetFootY);
+    }
+
     static Position3f predictedBoatAuthInputFromVehicle(final Position3f vehicleNetworkPosition, final float vehicleEyeOffset) {
         return predictedBoatAuthInputPosition(predictedBoatJavaFoot(vehicleNetworkPosition, vehicleEyeOffset), vehicleEyeOffset);
+    }
+
+    /**
+     * JE foot used to snap the local predicted boat. Keep MOVE_VEHICLE XZ/yaw for steering, and
+     * use the same water-aware network Y that SAI will send so the visual hull and MOT onInput
+     * stay locked together without fighting every tick.
+     */
+    static Position3f predictedBoatJavaSyncPosition(
+            final Position3f javaMoveVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset) {
+        return predictedBoatJavaSyncPosition(javaMoveVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, null);
+    }
+
+    static Position3f predictedBoatJavaSyncPosition(
+            final Position3f javaMoveVehiclePosition,
+            final Position3f vehicleNetworkPosition,
+            final float vehicleEyeOffset,
+            final ItemUseAirClickTarget.WorldView world) {
+        final float targetNetworkY = boatTargetNetworkY(javaMoveVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, world);
+        final float targetFootY = targetNetworkY - vehicleEyeOffset;
+        if (javaMoveVehiclePosition == null) {
+            // No fresh JE sample: keep XZ from the tracker and soft-follow the final foot target.
+            final float footY = approachBoatJavaSyncFootY(vehicleNetworkPosition.y() - vehicleEyeOffset, targetFootY);
+            return new Position3f(vehicleNetworkPosition.x(), footY, vehicleNetworkPosition.z());
+        }
+        final float footY = approachBoatJavaSyncFootY(javaMoveVehiclePosition.y(), targetFootY);
+        return new Position3f(javaMoveVehiclePosition.x(), footY, javaMoveVehiclePosition.z());
+    }
+
+    /**
+     * Sample water under the boat BB the same way MOT {@code EntityBoat.getWaterLevel()} does.
+     * Resting network Y equals the highest water {@code maxY} under the hull
+     * ({@code waterDiff = (footY + baseOffset) - waterMaxY ~= 0}).
+     */
+    /**
+     * Sample solid ground under the boat BB. Resting network Y is {@code groundTop + eyeOffset}
+     * (MOT boat foot sits on the block top; network Y adds {@code EntityBoat.getBaseOffset()}).
+     */
+    static Float resolveBoatGroundNetworkY(
+            final ItemUseAirClickTarget.WorldView world,
+            final float x,
+            final float primarySeedNetworkY,
+            final float secondarySeedNetworkY,
+            final float z,
+            final float vehicleEyeOffset) {
+        if (world == null) {
+            return null;
+        }
+        final float half = BOAT_WIDTH * 0.5F;
+        final int minX = (int) Math.floor(x - half);
+        final int maxX = (int) Math.floor(x + half);
+        final int minZ = (int) Math.floor(z - half);
+        final int maxZ = (int) Math.floor(z + half);
+        final int minY = (int) Math.floor(Math.min(primarySeedNetworkY, secondarySeedNetworkY)) - 32;
+        final int maxY = (int) Math.floor(Math.max(primarySeedNetworkY, secondarySeedNetworkY)) + 2;
+        float bestTop = Float.NEGATIVE_INFINITY;
+        boolean found = false;
+        for (int bx = minX; bx <= maxX; bx++) {
+            for (int bz = minZ; bz <= maxZ; bz++) {
+                for (int by = maxY; by >= minY; by--) {
+                    if (isBoatPassableSupportBlock(world, bx, by, bz)) {
+                        continue;
+                    }
+                    found = true;
+                    final float top = by + 1F;
+                    if (top > bestTop) {
+                        bestTop = top;
+                    }
+                    break;
+                }
+            }
+        }
+        return found ? bestTop + vehicleEyeOffset : null;
+    }
+
+    static boolean isBoatPassableSupportBlock(final ItemUseAirClickTarget.WorldView world, final int x, final int y, final int z) {
+        final BlockPosition pos = new BlockPosition(x, y, z);
+        final int id = world.blockStateId(0, pos);
+        if (id == world.airId()) {
+            return true;
+        }
+        final BlockState state = world.blockState(id);
+        if (state == null) {
+            return false;
+        }
+        final String identifier = state.identifier();
+        return "air".equals(identifier)
+                || "water".equals(identifier)
+                || "flowing_water".equals(identifier)
+                || "lava".equals(identifier)
+                || "flowing_lava".equals(identifier)
+                || "short_grass".equals(identifier)
+                || "tall_grass".equals(identifier)
+                || "tallgrass".equals(identifier)
+                || "double_plant".equals(identifier)
+                || "snow_layer".equals(identifier)
+                || "carpet".equals(identifier)
+                || "reeds".equals(identifier)
+                || "waterlily".equals(identifier)
+                || "lily_pad".equals(identifier);
+    }
+
+    static Float resolveBoatWaterNetworkY(
+            final ItemUseAirClickTarget.WorldView world,
+            final float x,
+            final float seedNetworkY,
+            final float z) {
+        return resolveBoatWaterNetworkY(world, x, seedNetworkY, seedNetworkY, z);
+    }
+
+    static Float resolveBoatWaterNetworkY(
+            final ItemUseAirClickTarget.WorldView world,
+            final float x,
+            final float primarySeedNetworkY,
+            final float secondarySeedNetworkY,
+            final float z) {
+        if (world == null) {
+            return null;
+        }
+        final float half = BOAT_WIDTH * 0.5F;
+        final int minX = (int) Math.floor(x - half);
+        final int maxX = (int) Math.floor(x + half);
+        final int minZ = (int) Math.floor(z - half);
+        final int maxZ = (int) Math.floor(z + half);
+        final int minY = (int) Math.floor(Math.min(primarySeedNetworkY, secondarySeedNetworkY)) - 8;
+        final int maxY = (int) Math.floor(Math.max(primarySeedNetworkY, secondarySeedNetworkY)) + 8;
+        float bestSurface = Float.NEGATIVE_INFINITY;
+        boolean found = false;
+        for (int bx = minX; bx <= maxX; bx++) {
+            for (int bz = minZ; bz <= maxZ; bz++) {
+                for (int by = maxY; by >= minY; by--) {
+                    final Float surface = waterSurfaceMaxY(world, bx, by, bz);
+                    if (surface == null) {
+                        continue;
+                    }
+                    found = true;
+                    if (surface > bestSurface) {
+                        bestSurface = surface;
+                    }
+                    break;
+                }
+            }
+        }
+        return found ? bestSurface : null;
+    }
+
+    static Float waterSurfaceMaxY(final ItemUseAirClickTarget.WorldView world, final int x, final int y, final int z) {
+        final BlockPosition pos = new BlockPosition(x, y, z);
+        Float best = null;
+        for (int layer = 0; layer <= 1; layer++) {
+            final BlockState state = world.blockState(world.blockStateId(layer, pos));
+            final Float surface = waterSurfaceMaxY(state, y);
+            if (surface != null && (best == null || surface > best)) {
+                best = surface;
+            }
+        }
+        return best;
+    }
+
+    static Float waterSurfaceMaxY(final BlockState state, final int blockY) {
+        if (state == null) {
+            return null;
+        }
+        final String identifier = state.identifier();
+        if (!"water".equals(identifier) && !"flowing_water".equals(identifier)) {
+            return null;
+        }
+        int depth = 0;
+        final String liquidDepth = state.properties().get("liquid_depth");
+        if (liquidDepth != null) {
+            try {
+                depth = Integer.parseInt(liquidDepth);
+            } catch (final NumberFormatException ignored) {
+                depth = 0;
+            }
+        }
+        // MOT BlockLiquid: damage >= 8 is falling water treated as full source for height percent.
+        if (depth >= 8) {
+            depth = 0;
+        }
+        final float heightPercent = (depth + 1) / 9F;
+        return blockY + 1F - heightPercent;
+    }
+
+    private ItemUseAirClickTarget.WorldView boatWorldView() {
+        final ChunkTracker chunkTracker = this.user().get(ChunkTracker.class);
+        final BlockStateRewriter blockStateRewriter = this.user().get(BlockStateRewriter.class);
+        if (chunkTracker == null || blockStateRewriter == null) {
+            return null;
+        }
+        return new ItemUseAirClickTarget.WorldView() {
+            @Override
+            public int blockStateId(final int layer, final BlockPosition position) {
+                return chunkTracker.getBlockState(layer, position);
+            }
+
+            @Override
+            public BlockState blockState(final int bedrockBlockStateId) {
+                return blockStateRewriter.blockState(bedrockBlockStateId);
+            }
+
+            @Override
+            public int airId() {
+                return chunkTracker.bedrockAirId();
+            }
+        };
+    }
+
+    private void syncPredictedBoatToJavaClient(final Entity vehicle, final MoveVehicleInput vehicleInput) {
+        final ItemUseAirClickTarget.WorldView world = this.boatWorldView();
+        final Position3f visual = vehicleInput != null ? vehicleInput.position() : null;
+        final float targetNetworkY = boatTargetNetworkY(visual, vehicle.position(), vehicle.eyeOffset(), world);
+        final float targetFootY = targetNetworkY - vehicle.eyeOffset();
+        // Near the final resting height, leave JE alone. Syncing to the intermediate approached
+        // tracker Y (or to the exact water foot every few buoyancy ticks) was the remaining jitter.
+        if (visual != null && !shouldSyncPredictedBoatJavaY(visual.y(), targetFootY)) {
+            return;
+        }
+        final Position3f javaPosition = predictedBoatJavaSyncPosition(visual, vehicle.position(), vehicle.eyeOffset(), world);
+        final float yaw = vehicleInput != null ? vehicleInput.yaw() : vehicle.rotation().y();
+        final float pitch = vehicleInput != null ? vehicleInput.pitch() : vehicle.rotation().x();
+        if (visual != null
+                && Math.abs(visual.x() - javaPosition.x()) < BOAT_CLIENT_SYNC_EPSILON
+                && Math.abs(visual.y() - javaPosition.y()) < BOAT_CLIENT_SYNC_EPSILON
+                && Math.abs(visual.z() - javaPosition.z()) < BOAT_CLIENT_SYNC_EPSILON) {
+            return;
+        }
+        RidingAnchorHelper.moveVehicle(this.user(), javaPosition, yaw, pitch);
     }
 
     private Position3f safeDismountPosition(final Entity vehicle, final ClientPlayerEntity clientPlayer, final LocalRidingMode mode, final Position3f authInputPosition) {
@@ -490,8 +861,10 @@ public class RidingTracker extends StoredObject {
             return authInputPosition.add(this.seatOffset(vehicle, clientPlayer, this.boatMountedOffset(clientPlayer), 0F));
         }
 
-        final Position3f vehiclePosition = vehicle.position();
-        final Position3f seatPosition = vehiclePosition.add(this.seatOffset(vehicle, clientPlayer, this.rawSeatOffset(clientPlayer), 0F));
+        final Position3f vehiclePosition = usesMinecartRiding(vehicle.javaType())
+                ? new Position3f(vehicle.position().x(), vehicle.position().y() - vehicle.eyeOffset(), vehicle.position().z())
+                : vehicle.position();
+        final Position3f seatPosition = vehiclePosition.add(this.seatOffset(vehicle, clientPlayer, this.rawSeatOffset(vehicle, clientPlayer), 0F));
         return new Position3f(seatPosition.x(), seatPosition.y() + clientPlayer.eyeOffset(), seatPosition.z());
     }
 
@@ -514,7 +887,7 @@ public class RidingTracker extends StoredObject {
         if (usesBoatRiding(type)) {
             return LocalRidingMode.BOAT_PREDICTED;
         }
-        if (type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_MINECART)
+        if (usesMinecartRiding(type)
                 || type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_HORSE)
                 || type == EntityTypes1_21_11.PIG
                 || type == EntityTypes1_21_11.STRIDER
@@ -659,16 +1032,30 @@ public class RidingTracker extends StoredObject {
         return clientPlayer != null && clientPlayer == entity;
     }
 
-    private static boolean usesVanillaRiding(final EntityTypes1_21_11 type) {
+    static boolean usesVanillaRiding(final EntityTypes1_21_11 type) {
         return usesBoatRiding(type)
                 || type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_HORSE)
-                || type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_MINECART)
+                || usesMinecartRiding(type)
                 || type == EntityTypes1_21_11.PIG
                 || type == EntityTypes1_21_11.STRIDER;
     }
 
     private static boolean usesBoatRiding(final EntityTypes1_21_11 type) {
         return type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_BOAT);
+    }
+
+    static boolean usesMinecartRiding(final EntityTypes1_21_11 type) {
+        return type != null && type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_MINECART);
+    }
+
+    static Position3f defaultSeatOffset(final EntityTypes1_21_11 type, final Position3f metadataOffset) {
+        if (metadataOffset != null && (metadataOffset.x() != 0F || metadataOffset.y() != 0F || metadataOffset.z() != 0F)) {
+            return metadataOffset;
+        }
+        if (usesMinecartRiding(type)) {
+            return MINECART_PLAYER_SEAT_OFFSET;
+        }
+        return metadataOffset != null ? metadataOffset : Position3f.ZERO;
     }
 
     private static boolean contains(final LongList list, final long value) {

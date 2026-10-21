@@ -11,6 +11,7 @@ package net.raphimc.viabedrock.api.util;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +57,20 @@ class InstantBreakBlocksTest {
     @Test
     void unknownCustomSecondsDoesNotCompleteOnStart() {
         assertFalse(InstantBreakBlocks.shouldCompleteOnJavaStart(false, "stone", Float.NaN, "minecraft:air", null));
+    }
+
+    @Test
+    void survivalScaffoldingDoesNotCompleteOnStart() {
+        assertFalse(InstantBreakBlocks.shouldCompleteOnJavaStart(false, "scaffolding", null, "minecraft:air", null));
+        assertFalse(InstantBreakBlocks.isVanillaInstantBreak("scaffolding"));
+        assertTrue(InstantBreakBlocks.isJavaStartOnlyDelayedMotBreak("scaffolding"));
+        assertEquals(13, InstantBreakBlocks.delayedMotBreakTicks("scaffolding"));
+        assertEquals(0, InstantBreakBlocks.delayedMotBreakTicks("wheat"));
+    }
+
+    @Test
+    void creativeScaffoldingStillCompletesOnStart() {
+        assertTrue(InstantBreakBlocks.shouldCompleteOnJavaStart(true, "scaffolding", null, "minecraft:air", null));
     }
 
 }

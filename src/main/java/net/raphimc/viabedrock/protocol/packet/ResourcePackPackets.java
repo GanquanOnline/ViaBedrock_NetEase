@@ -71,6 +71,8 @@ import java.util.logging.Level;
 
 public class ResourcePackPackets {
 
+    /** One Java connection owns one translated Bedrock stack; a later push replaces the prior stack. */
+    static final UUID JAVA_TRANSLATED_PACK_ID = UUID.fromString("f777c5a3-8ae6-4a58-a3ea-1bca4f0aa847");
     private static final int RESOURCE_PACK_CHUNK_REQUEST_WINDOW = 4;
     private static final Type<byte[]> RESOURCE_PACK_CONTENT_KEY = new BoundedByteArrayType(0, 4 * 1024);
     private static final Type<byte[]> RESOURCE_PACK_HASH = new BoundedByteArrayType(32, 32);
@@ -156,7 +158,8 @@ public class ResourcePackPackets {
                                     httpToken, wrapper.user().getChannel().closeFuture());
                             final String resourcePackUrl = ViaBedrock.getResourcePackServer().getUrl()
                                     + "?token=" + httpToken;
-                            writeJavaPackAnnouncement(wrapper, httpToken, resourcePackUrl, "");
+                            writeJavaPackAnnouncement(wrapper, JAVA_TRANSLATED_PACK_ID,
+                                    resourcePackUrl, "");
                         }
                     } else {
                         wrapper.cancel();
@@ -701,7 +704,7 @@ public class ResourcePackPackets {
                 try {
                     final PacketWrapper resourcePack = PacketWrapper.create(
                             ClientboundConfigurationPackets1_21_9.RESOURCE_PACK_PUSH, user);
-                    writeJavaPackAnnouncement(resourcePack, lookup.id(), lookup.publicUrl(),
+                    writeJavaPackAnnouncement(resourcePack, JAVA_TRANSLATED_PACK_ID, lookup.publicUrl(),
                             lookup.ready() ? lookup.sha1() : "");
                     resourcePack.send(BedrockProtocol.class);
                 } catch (Throwable sendError) {

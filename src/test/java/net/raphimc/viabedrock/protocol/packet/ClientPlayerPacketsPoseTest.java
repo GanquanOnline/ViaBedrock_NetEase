@@ -29,11 +29,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ClientPlayerPacketsPoseTest {
 
     @Test
-    void sprintInWaterStartsSwimmingOnce() {
+    void sprintInWaterRetriesStartUntilMotConfirms() {
         assertTrue(ClientPlayerPackets.wantsJavaSwim(false, false, false, true, false, true));
         assertEquals(PlayerAuthInputPacket_InputData.StartSwimming,
                 ClientPlayerPackets.swimTransitionFlag(true, false));
+        assertEquals(PlayerAuthInputPacket_InputData.StartSwimming,
+                ClientPlayerPackets.swimTransitionFlag(true, false),
+                "MOT may cancel the first Start against the previous feet block");
         assertNull(ClientPlayerPackets.swimTransitionFlag(true, true));
+        assertFalse(ClientPlayerPackets.localSwimmingAfterTransition(true, false));
+        assertTrue(ClientPlayerPackets.localSwimmingAfterTransition(true, true));
     }
 
     @Test
@@ -43,6 +48,8 @@ class ClientPlayerPacketsPoseTest {
         assertEquals(PlayerAuthInputPacket_InputData.StopSwimming,
                 ClientPlayerPackets.swimTransitionFlag(false, true));
         assertNull(ClientPlayerPackets.swimTransitionFlag(false, false));
+        assertFalse(ClientPlayerPackets.localSwimmingAfterTransition(false, true));
+        assertFalse(ClientPlayerPackets.localSwimmingAfterTransition(false, false));
     }
 
     @Test
@@ -114,6 +121,25 @@ class ClientPlayerPacketsPoseTest {
         final boolean inWater = ClientPlayerPackets.keepLastInsideOfWater(null, true);
         assertTrue(ClientPlayerPackets.wantsJavaSwim(false, false, false, true, false, inWater));
         assertNull(ClientPlayerPackets.swimTransitionFlag(true, true));
+        assertTrue(ClientPlayerPackets.localSwimmingAfterTransition(true, true));
+    }
+
+    @Test
+    void unknownWaterKeepsRetryingStartFromLastInsideSample() {
+        final boolean inWater = ClientPlayerPackets.keepLastInsideOfWater(null, true);
+        assertTrue(ClientPlayerPackets.wantsJavaSwim(false, false, false, true, false, inWater));
+        assertEquals(PlayerAuthInputPacket_InputData.StartSwimming,
+                ClientPlayerPackets.swimTransitionFlag(true, false));
+        assertFalse(ClientPlayerPackets.localSwimmingAfterTransition(true, false),
+                "do not latch swimming before MOT ActorFlags.SWIMMING");
+    }
+
+    @Test
+    void lastInsideSampleFallsBackToMotSwimmingFlag() {
+        assertTrue(ClientPlayerPackets.lastInsideOfWaterSample(true, false));
+        assertTrue(ClientPlayerPackets.lastInsideOfWaterSample(false, true));
+        assertFalse(ClientPlayerPackets.lastInsideOfWaterSample(false, false));
+        assertTrue(ClientPlayerPackets.lastInsideOfWaterSample(true, true));
     }
 
     @Test

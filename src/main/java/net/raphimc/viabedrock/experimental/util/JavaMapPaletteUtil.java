@@ -54,7 +54,7 @@ public class JavaMapPaletteUtil {
 
         for (int i = 0; i < colors.length; i++) {
             Color c = colors[i].getColor();
-            float[] lab = rgbToLab(c.getRed(), c.getGreen(), c.getBlue());
+            float[] lab = ColorSpaceUtil.rgbToLab(c.getRed(), c.getGreen(), c.getBlue());
             JAVA_L[i] = lab[0];
             JAVA_A[i] = lab[1];
             JAVA_B[i] = lab[2];
@@ -88,7 +88,7 @@ public class JavaMapPaletteUtil {
                 continue;
             }
 
-            float[] lab = rgbToLab(r, g, b);
+            float[] lab = ColorSpaceUtil.rgbToLab(r, g, b);
 
             float bestDist = Float.MAX_VALUE;
             short best = 0;
@@ -175,7 +175,7 @@ public class JavaMapPaletteUtil {
     }
 
     private static short nearestPaletteIndex(final int r, final int g, final int b, final int startIndex) {
-        final float[] lab = rgbToLab(r, g, b);
+        final float[] lab = ColorSpaceUtil.rgbToLab(r, g, b);
         float bestDist = Float.MAX_VALUE;
         short best = (short) startIndex;
         for (short j = (short) startIndex; j < JAVA_L.length; j++) {
@@ -205,47 +205,4 @@ public class JavaMapPaletteUtil {
         return (rq << (CACHE_BITS * 2)) | (gq << CACHE_BITS) | bq;
     }
 
-    private static float[] rgbToLab(int r, int g, int b) {
-        // sRGB → linear
-        float rf = pivotRgb(r / 255f);
-        float gf = pivotRgb(g / 255f);
-        float bf = pivotRgb(b / 255f);
-
-        // linear RGB → XYZ
-        float x = rf * 0.4124f + gf * 0.3576f + bf * 0.1805f;
-        float y = rf * 0.2126f + gf * 0.7152f + bf * 0.0722f;
-        float z = rf * 0.0193f + gf * 0.1192f + bf * 0.9505f;
-
-        // XYZ → LAB
-        return xyzToLab(x, y, z);
-    }
-
-    private static float pivotRgb(float n) {
-        return n <= 0.04045f
-                ? n / 12.92f
-                : (float) Math.pow((n + 0.055f) / 1.055f, 2.4f);
-    }
-
-    private static float[] xyzToLab(float x, float y, float z) {
-        // D65 reference white
-        float xr = x / 0.95047f;
-        float yr = y / 1.00000f;
-        float zr = z / 1.08883f;
-
-        float fx = pivotXyz(xr);
-        float fy = pivotXyz(yr);
-        float fz = pivotXyz(zr);
-
-        float L = 116f * fy - 16f;
-        float A = 500f * (fx - fy);
-        float B = 200f * (fy - fz);
-
-        return new float[] { L, A, B };
-    }
-
-    private static float pivotXyz(float n) {
-        return n > 0.008856f
-                ? (float) Math.cbrt(n)
-                : (7.787f * n) + (16f / 116f);
-    }
 }

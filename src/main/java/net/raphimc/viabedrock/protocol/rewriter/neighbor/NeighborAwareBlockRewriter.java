@@ -38,13 +38,13 @@ import java.util.Map;
  * <p>
  * Neighbor propagation is purely geometric: after a change, every block in the surrounding cells is re-corrected and
  * an update is emitted only where the value actually changed. This keeps the rules free of any "who do I affect"
- * knowledge and makes a plain block change correctly re-shape adjacent stairs/fences/door halves.
+ * knowledge and makes a plain block change correctly re-shape adjacent stairs/fences/door halves/chest pairs.
  */
 public final class NeighborAwareBlockRewriter {
 
     /**
      * The cells a change can propagate to: the four horizontal neighbors (stair shape, fence/pane connections, bed
-     * partner) plus up/down (door halves).
+     * partner, chest pair) plus up/down (door halves).
      */
     private static final BlockFace[] NEIGHBOR_FACES = {
             BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST, BlockFace.TOP, BlockFace.BOTTOM
@@ -56,7 +56,8 @@ public final class NeighborAwareBlockRewriter {
         this.rules = List.of(
                 new StairShapeRule(javaBlockStates),
                 new BlockConnectionRule(javaBlockStates),
-                new LinkedBlockRule(javaBlockStates)
+                new LinkedBlockRule(javaBlockStates),
+                new ChestPairingRule(javaBlockStates)
         );
     }
 

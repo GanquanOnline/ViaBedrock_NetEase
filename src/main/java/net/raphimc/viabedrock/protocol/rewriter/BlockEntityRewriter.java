@@ -72,7 +72,7 @@ public class BlockEntityRewriter {
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.BLAST_FURNACE, new FurnaceBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.BRUSHABLE_BLOCK, new BrushableBlockBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CAULDRON, NULL_REWRITER);
-        BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CHEST, new LootableContainerBlockEntityRewriter());
+        BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CHEST, new ChestBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CHISELED_BOOKSHELF, new ChiseledBookshelfBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.COMMAND_BLOCK, new CommandBlockBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.COMPARATOR, new ComparatorBlockEntityRewriter());
@@ -105,7 +105,7 @@ public class BlockEntityRewriter {
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.SMOKER, new FurnaceBlockEntityRewriter());
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.SPORE_BLOSSOM, NULL_REWRITER);
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.STRUCTURE_BLOCK, new StructureBlockBlockEntityRewriter());
-        BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.TRAPPED_CHEST, new LootableContainerBlockEntityRewriter());
+        BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.TRAPPED_CHEST, new ChestBlockEntityRewriter());
     }
 
     public static void registerRewriter(final String tag, final Rewriter rewriter) {

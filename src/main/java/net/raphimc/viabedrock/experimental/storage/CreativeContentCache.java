@@ -17,14 +17,20 @@
  */
 package net.raphimc.viabedrock.experimental.storage;
 
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.StoredObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.data.StructuredData;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Caches Bedrock CREATIVE_CONTENT so Java creative-tab clicks can be turned into
@@ -99,13 +105,26 @@ public class CreativeContentCache extends StoredObject {
         if (itemRewriter == null || javaItem == null || javaItem.isEmpty()) {
             return null;
         }
+        // JE creative clicks never carry viabedrock:bedrock_item shadow. Prefer restoring the
+        // Bedrock identity first so potion/meta variants do not collapse to the first same id.
+        final BedrockItem restored = itemRewriter.bedrockItem(javaItem);
+        if (restored != null && !restored.isEmpty()) {
+            final Integer exact = this.findExactNetId(restored);
+            if (exact != null) {
+                return exact;
+            }
+            final Integer identity = this.findNetId(restored);
+            if (identity != null) {
+                return identity;
+            }
+        }
         Integer fallback = null;
         for (final Entry entry : this.entries) {
             final Item mapped = itemRewriter.javaItem(entry.item().copy());
             if (mapped == null || mapped.isEmpty() || mapped.identifier() != javaItem.identifier()) {
                 continue;
             }
-            if (sameComponents(mapped, javaItem)) {
+            if (sameEffectiveComponents(mapped, javaItem)) {
                 return entry.netId();
             }
             if (fallback == null) {
@@ -115,11 +134,77 @@ public class CreativeContentCache extends StoredObject {
         return fallback;
     }
 
-    private static boolean sameComponents(final Item left, final Item right) {
-        if (left.dataContainer() == null || right.dataContainer() == null) {
-            return left.dataContainer() == right.dataContainer();
+    /**
+     * Compare JE creative clicks against mapped creative entries while ignoring the private
+     * {@code viabedrock:bedrock_item} shadow. StructuredDataContainer has no equals(), so the
+     * previous container.equals() path never matched and every spawn fell through to fallback /
+     * unsupported.
+     */
+    static boolean sameEffectiveComponents(final Item left, final Item right) {
+        final StructuredDataContainer leftData = safeDataContainer(left);
+        final StructuredDataContainer rightData = safeDataContainer(right);
+        if (leftData == null || rightData == null) {
+            return leftData == rightData;
         }
-        return left.dataContainer().equals(right.dataContainer());
+        return sameEffectiveData(leftData, rightData);
+    }
+
+    private static StructuredDataContainer safeDataContainer(final Item item) {
+        if (item == null) {
+            return null;
+        }
+        try {
+            return item.dataContainer();
+        } catch (final UnsupportedOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean sameEffectiveData(final StructuredDataContainer left, final StructuredDataContainer right) {
+        final Map<StructuredDataKey<?>, StructuredData<?>> leftMap = left.data();
+        final Map<StructuredDataKey<?>, StructuredData<?>> rightMap = right.data();
+        final boolean leftHasCustom = leftMap.containsKey(StructuredDataKey.CUSTOM_DATA);
+        final boolean rightHasCustom = rightMap.containsKey(StructuredDataKey.CUSTOM_DATA);
+        final int leftSize = leftMap.size() - (leftHasCustom ? 1 : 0);
+        final int rightSize = rightMap.size() - (rightHasCustom ? 1 : 0);
+        if (leftSize != rightSize) {
+            return false;
+        }
+        for (final Map.Entry<StructuredDataKey<?>, StructuredData<?>> entry : leftMap.entrySet()) {
+            final StructuredDataKey<?> key = entry.getKey();
+            if (key == StructuredDataKey.CUSTOM_DATA) {
+                continue;
+            }
+            final StructuredData<?> other = rightMap.get(key);
+            if (!Objects.equals(entry.getValue(), other)) {
+                return false;
+            }
+        }
+        return sameEffectiveCustomData(left.get(StructuredDataKey.CUSTOM_DATA), right.get(StructuredDataKey.CUSTOM_DATA));
+    }
+
+    private static boolean sameEffectiveCustomData(final CompoundTag left, final CompoundTag right) {
+        final CompoundTag leftEffective = withoutBedrockItemShadow(left);
+        final CompoundTag rightEffective = withoutBedrockItemShadow(right);
+        if (leftEffective == null || rightEffective == null) {
+            return leftEffective == rightEffective;
+        }
+        return leftEffective.equals(rightEffective);
+    }
+
+    private static CompoundTag withoutBedrockItemShadow(final CompoundTag customData) {
+        if (customData == null) {
+            return null;
+        }
+        if (!customData.contains("viabedrock:bedrock_item")) {
+            return customData.isEmpty() ? null : customData;
+        }
+        if (customData.size() == 1) {
+            return null;
+        }
+        final CompoundTag copy = customData.copy();
+        copy.remove("viabedrock:bedrock_item");
+        return copy.isEmpty() ? null : copy;
     }
 
     public record Entry(int netId, BedrockItem item) {

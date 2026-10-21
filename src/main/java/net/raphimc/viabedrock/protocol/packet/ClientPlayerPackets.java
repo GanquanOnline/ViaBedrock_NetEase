@@ -29,6 +29,7 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPack
 import com.viaversion.viaversion.util.Pair;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.chunk.BedrockChunk;
+import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.model.BlockState;
 import net.raphimc.viabedrock.api.model.container.player.InventoryContainer;
 import net.raphimc.viabedrock.api.model.entity.ClientPlayerEntity;
@@ -46,6 +47,7 @@ import net.raphimc.viabedrock.experimental.inventory.ItemUseHandContext;
 import net.raphimc.viabedrock.experimental.model.PlayerAuthInputContext;
 import net.raphimc.viabedrock.experimental.model.inventory.BedrockInventoryTransaction;
 import net.raphimc.viabedrock.experimental.rewriter.InventoryTransactionRewriter;
+import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.RidingTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
@@ -162,6 +164,62 @@ public class ClientPlayerPackets {
                 || action == PlayerActionAction.DROP_ALL_ITEMS
                 || action == PlayerActionAction.SWAP_ITEM_WITH_OFFHAND
                 || action == PlayerActionAction.STAB;
+    }
+
+    public static boolean scheduleDelayedMotBreak(final ClientPlayerEntity clientPlayer, final ChunkTracker chunkTracker, final BlockPosition position, final Direction direction) {
+        if (clientPlayer == null) {
+            return false;
+        }
+        final String javaIdentifier = javaBlockIdentifier(chunkTracker, position);
+        final int delayTicks = InstantBreakBlocks.delayedMotBreakTicks(javaIdentifier);
+        if (delayTicks <= 0) {
+            clientPlayer.clearDelayedMotBreak();
+            return false;
+        }
+        clientPlayer.scheduleDelayedMotBreak(position, direction, clientPlayer.age() + delayTicks);
+        return true;
+    }
+
+    static void completeDueDelayedMotBreak(final UserConnection user, final ClientPlayerEntity clientPlayer) {
+        if (user == null || clientPlayer == null) {
+            return;
+        }
+        final ClientPlayerEntity.DelayedMotBreak due = clientPlayer.pollDueDelayedMotBreak();
+        if (due == null) {
+            return;
+        }
+        final GameSessionStorage gameSession = user.get(GameSessionStorage.class);
+        final ChunkTracker chunkTracker = user.get(ChunkTracker.class);
+        if (gameSession == null || chunkTracker == null) {
+            return;
+        }
+        final int javaBlockStateId = chunkTracker.getJavaBlockState(due.position());
+        // Delayed START-only blocks must not share a tick with StartDestroy. MOT 860
+        // EnumMap iterates Predict before Continue, so Continue after Predict restarts mining.
+        if (!gameSession.isBlockBreakingServerAuthoritative()) {
+            clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StopDestroyBlock));
+            clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.CrackBlock, due.position(), due.direction().ordinal()));
+        } else if (ViaBedrock.getConfig() != null && ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
+            clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.PredictDestroyBlock, due.position(), due.direction().ordinal()));
+        } else {
+            clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.ContinueDestroyBlock, due.position(), due.direction().ordinal()));
+            clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.PredictDestroyBlock, due.position(), due.direction().ordinal()));
+        }
+        chunkTracker.handleBlockChange(due.position(), 0, chunkTracker.bedrockAirId());
+        PacketFactory.sendJavaBlockUpdate(user, due.position(), ProtocolConstants.JAVA_AIR_ID);
+        final BlockBreakingProgressTracker tracker = user.get(BlockBreakingProgressTracker.class);
+        if (tracker != null) {
+            tracker.finishMining(due.position(), 0, javaBlockStateId);
+        }
+    }
+
+    static String javaBlockIdentifier(final ChunkTracker chunkTracker, final BlockPosition position) {
+        if (chunkTracker == null || position == null) {
+            return null;
+        }
+        final int javaBlockStateId = chunkTracker.getJavaBlockState(position);
+        final BlockState javaBlockState = BedrockProtocol.MAPPINGS.getJavaBlockStates().inverse().get(javaBlockStateId);
+        return javaBlockState != null ? javaBlockState.identifier() : null;
     }
 
     private static void finishBlockBreak(final UserConnection user, final GameSessionStorage gameSession, final ClientPlayerEntity clientPlayer, final ChunkTracker chunkTracker, final BlockPosition position, final Direction direction) {
@@ -355,7 +413,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined)); // game type
+                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
                 handler(CLIENT_PLAYER_GAME_MODE_UPDATE);
@@ -366,7 +424,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined)); // game type
+                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
                     wrapper.user().get(EntityTracker.class).getClientPlayer().updateJavaGameMode();
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
@@ -378,7 +436,7 @@ public class ClientPlayerPackets {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             final PlayerListStorage playerList = wrapper.user().get(PlayerListStorage.class);
 
-            final GameType gameType = GameType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GameType.Undefined); // game type
+            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // game type
             final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
             wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
 
@@ -392,7 +450,11 @@ public class ClientPlayerPackets {
             wrapper.write(Types.VAR_INT, 1); // length
             wrapper.write(Types.UUID, playerListEntry.key()); // uuid
             final boolean clientPlayerUpdate = playerListEntry.key().equals(clientPlayer.javaUuid());
-            GameMode javaGameMode = GameTypeRewriter.getEffectiveGameMode(gameType, gameSession.getLevelGameType());
+            GameMode javaGameMode = GameTypeRewriter.getEffectiveGameMode(
+                    gameType,
+                    gameSession.getLevelGameType(),
+                    clientPlayerUpdate && ViaBedrockUtilityInterface.hasSpectatorNoclip(wrapper.user())
+            );
             playerList.updateJavaGameMode(playerListEntry.key(), javaGameMode);
             if (clientPlayerUpdate) {
                 clientPlayer.setGameType(gameType);
@@ -522,18 +584,22 @@ public class ClientPlayerPackets {
                         // Instant-break cases (creative, 0 destroy time, shears on leaves): Java only
                         // sends START_DESTROY_BLOCK and never a STOP. MOT SAI ignores CreativeDestroyBlock(13)
                         // and only breaks on PredictDestroyBlock, so finish in this same tick.
+                        clientPlayer.clearDelayedMotBreak();
                         finishBlockBreak(wrapper.user(), gameSession, clientPlayer, chunkTracker, position, direction);
                     } else {
+                        scheduleDelayedMotBreak(clientPlayer, chunkTracker, position, direction);
                         clientPlayer.setBlockBreakingInfo(new ClientPlayerEntity.BlockBreakingInfo(position, direction));
                     }
                 }
                 case ABORT_DESTROY_BLOCK -> {
                     final int abortFacing = abortDestroyFacing(direction, clientPlayer.blockBreakingInfo());
+                    clientPlayer.clearDelayedMotBreak();
                     clientPlayer.setBlockBreakingInfo(null);
                     clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.AbortDestroyBlock, position, abortFacing));
                 }
                 case STOP_DESTROY_BLOCK -> {
                     clientPlayer.cancelNextSwingPacket();
+                    clientPlayer.clearDelayedMotBreak();
                     clientPlayer.setBlockBreakingInfo(null);
                     finishBlockBreak(wrapper.user(), gameSession, clientPlayer, chunkTracker, position, direction);
                 }
@@ -738,10 +804,12 @@ public class ClientPlayerPackets {
 
             if (!clientPlayer.isInitiallySpawned() || clientPlayer.isDead()) {
                 wrapper.cancel();
+                clientPlayer.clearDelayedMotBreak();
                 discardPendingAuthInput(clientPlayer);
                 clientPlayer.deferredEntityActions().clear();
                 return;
             }
+            completeDueDelayedMotBreak(wrapper.user(), clientPlayer);
             ExperimentalFeatures.retryPromotedOffhandRestore(wrapper.user(), clientPlayer);
             EntityInteractionPacketSender.flushDeferred(wrapper.user(), clientPlayer);
 
@@ -1175,15 +1243,21 @@ public class ClientPlayerPackets {
                 && !identifier.equals("soul_fire");
     }
 
+    /**
+     * MOT {@code START_SWIMMING} uses the feet block from <em>before</em> this AuthInput
+     * position is applied. The first in-water tick is cancelled with {@code needSendData}
+     * and never sets {@code ActorFlags.SWIMMING}. Java still predicts pose 3 locally.
+     * Do not latch {@link ClientPlayerEntity#isSwimming()} on the emit; retry Start
+     * until MOT metadata confirms, otherwise observers stay on {@code POSE=STANDING}.
+     */
     static void applyJavaSwimTransition(final UserConnection user, final ClientPlayerEntity clientPlayer) {
-        final PlayerAuthInputPacket_InputData flag = swimTransitionFlag(wantsJavaSwim(user, clientPlayer), clientPlayer.isSwimming());
-        if (flag == PlayerAuthInputPacket_InputData.StartSwimming) {
-            clientPlayer.setSwimming(true);
-            clientPlayer.addAuthInputData(flag);
-        } else if (flag == PlayerAuthInputPacket_InputData.StopSwimming) {
-            clientPlayer.setSwimming(false);
+        final boolean wantSwim = wantsJavaSwim(user, clientPlayer);
+        final boolean motSwimming = clientPlayer.hasEntityFlag(ActorFlags.SWIMMING);
+        final PlayerAuthInputPacket_InputData flag = swimTransitionFlag(wantSwim, motSwimming);
+        if (flag != null) {
             clientPlayer.addAuthInputData(flag);
         }
+        clientPlayer.setSwimming(localSwimmingAfterTransition(wantSwim, motSwimming));
     }
 
     static void applyJavaGlideStart(final UserConnection user, final ClientPlayerEntity clientPlayer) {
@@ -1225,14 +1299,27 @@ public class ClientPlayerPackets {
         }
     }
 
-    static PlayerAuthInputPacket_InputData swimTransitionFlag(final boolean wantSwim, final boolean currentlySwimming) {
-        if (wantSwim && !currentlySwimming) {
+    /**
+     * {@code motSwimming} is MOT {@link ActorFlags#SWIMMING}, not a local prediction.
+     * {@code wantSwim && !motSwimming} must keep returning Start so a cancelled first
+     * tick can be retried after MOT applies the in-water coordinates.
+     */
+    static PlayerAuthInputPacket_InputData swimTransitionFlag(final boolean wantSwim, final boolean motSwimming) {
+        if (wantSwim && !motSwimming) {
             return PlayerAuthInputPacket_InputData.StartSwimming;
         }
-        if (!wantSwim && currentlySwimming) {
+        if (!wantSwim && motSwimming) {
             return PlayerAuthInputPacket_InputData.StopSwimming;
         }
         return null;
+    }
+
+    /**
+     * Mirror MOT confirmation only while Java still wants to swim. A Stop emit must
+     * drop the local latch even if SET_ACTOR_DATA has not cleared the flag yet.
+     */
+    static boolean localSwimmingAfterTransition(final boolean wantSwim, final boolean motSwimming) {
+        return wantSwim && motSwimming;
     }
 
     static boolean shouldStopGliding(final boolean gliding, final boolean onGround) {
@@ -1297,13 +1384,31 @@ public class ClientPlayerPackets {
      * waterlogging. ClientPlayerEntity.position() is the eye, so subtract {@code eyeOffset()}.
      * {@link ChunkTracker#getBlockState(int, BlockPosition)} returns air when the column is
      * missing, which would invert a swim edge; keep the last in-water sample until the feet
-     * chunk is loaded.
+     * chunk is loaded. Do not reuse {@link ClientPlayerEntity#isSwimming()} for that sample:
+     * StartSwimming is retried before MOT sets {@link ActorFlags#SWIMMING}.
      */
     static boolean isInsideOfWater(final UserConnection user, final ClientPlayerEntity clientPlayer) {
-        return keepLastInsideOfWater(
-                knownInsideOfWater(user, clientPlayer),
-                clientPlayer != null && clientPlayer.isSwimming()
-        );
+        if (clientPlayer == null) {
+            return false;
+        }
+        final Boolean known = knownInsideOfWater(user, clientPlayer);
+        if (known != null) {
+            clientPlayer.setLastInsideOfWater(known);
+        }
+        return keepLastInsideOfWater(known, lastInsideOfWaterSample(clientPlayer));
+    }
+
+    /**
+     * Pending StartSwimming ticks have no MOT flag yet. Remember the last loaded
+     * feet sample, and treat confirmed {@link ActorFlags#SWIMMING} as still in water
+     * when the column is missing.
+     */
+    static boolean lastInsideOfWaterSample(final boolean lastInside, final boolean motSwimming) {
+        return lastInside || motSwimming;
+    }
+
+    static boolean lastInsideOfWaterSample(final ClientPlayerEntity clientPlayer) {
+        return lastInsideOfWaterSample(clientPlayer.lastInsideOfWater(), clientPlayer.hasEntityFlag(ActorFlags.SWIMMING));
     }
 
     static BlockPosition feetBlockPosition(final ClientPlayerEntity clientPlayer) {

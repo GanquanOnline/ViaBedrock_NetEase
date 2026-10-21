@@ -88,6 +88,38 @@ class EntityMetadataRewriterTest {
     }
 
     @Test
+    void mapsMotSaddleFlagToJavaSaddleEquipmentTypes() {
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.HORSE));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.DONKEY));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.MULE));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.SKELETON_HORSE));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.ZOMBIE_HORSE));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.PIG));
+        assertTrue(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.STRIDER));
+        assertFalse(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.LLAMA));
+        assertFalse(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.TRADER_LLAMA));
+        assertFalse(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.CAMEL));
+        assertFalse(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.HAPPY_GHAST));
+        assertFalse(EntityMetadataRewriter.usesJavaSaddleEquipment(EntityTypes1_21_11.COW));
+    }
+
+    @Test
+    void sendsJavaSaddleEquipmentOnlyWhenTheMotFlagChanges() {
+        assertFalse(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(null, false));
+        assertTrue(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(null, true));
+        assertTrue(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(false, true));
+        assertFalse(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(true, true));
+        assertTrue(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(true, false));
+        assertFalse(EntityMetadataRewriter.shouldSendJavaSaddleEquipment(false, false));
+    }
+
+    @Test
+    void buildsEmptyJavaSaddleItemWhenMotFlagIsOff() {
+        assertTrue(EntityMetadataRewriter.javaSaddleEquipmentItem(800, false).isEmpty());
+        assertTrue(EntityMetadataRewriter.javaSaddleEquipmentItem(null, true).isEmpty());
+    }
+
+    @Test
     void localPlayerIgnoresBedrockBlockingWithoutTrackedItemUse() {
         assertEquals(0, EntityMetadataRewriter.localPlayerLivingFlags(
                 EnumSet.of(ActorFlags.BLOCKING), false, null));
@@ -197,5 +229,17 @@ class EntityMetadataRewriterTest {
         assertNull(EntityMetadataRewriter.playerBedPosition(new EntityData(
                 ActorDataIDs.BED_POSITION.getValue(), EntityDataTypesBedrock.BLOCK_POSITION, new BlockPosition(0, 0, 0))));
         assertNull(EntityMetadataRewriter.playerBedPosition(null));
+    }
+
+    @Test
+    void mapsMotFishingHookTargetToJavaHookedEntityPlusOne() {
+        assertEquals(0, EntityMetadataRewriter.fishingBobberHookedEntity(0L, uniqueId -> {
+            throw new AssertionError("unset TARGET must not look up an entity");
+        }));
+        assertEquals(0, EntityMetadataRewriter.fishingBobberHookedEntity(-1L, uniqueId -> {
+            throw new AssertionError("unset TARGET must not look up an entity");
+        }));
+        assertEquals(43, EntityMetadataRewriter.fishingBobberHookedEntity(100L, uniqueId -> uniqueId == 100L ? 42 : null));
+        assertNull(EntityMetadataRewriter.fishingBobberHookedEntity(100L, uniqueId -> null));
     }
 }

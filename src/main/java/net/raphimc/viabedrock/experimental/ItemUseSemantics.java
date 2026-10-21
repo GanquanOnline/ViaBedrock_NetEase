@@ -543,50 +543,29 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Java always sends RELEASE_USE_ITEM when the local eat animation ends. Official 975
-     * still translates a too-early release into ItemRelease; Nukkit 860's ItemRelease
-     * handler has a finally that always calls {@code setUsingItem(false)}, which would
-     * cancel eating before {@code processAutoCompletion()} can consume.
-     * <p>
-     * Only a duration-ready Java release must be ignored. An early release is a real
-     * interrupt: swallowing it keeps proxy {@code isUsingItem} latched so SET_CARRIED_ITEM
-     * never applies and the hotbar stays locked.
+     * A duration-ready consumable release is completed by CLIENT_TICK_END and must not
+     * send a second cancel transaction. Any early release is a real interrupt and must
+     * reach MOT so its {@code TYPE_RELEASE_ITEM} handler can clear using-state.
      */
     static boolean ignoreJavaConsumableRelease(final boolean emulateNetEase, final boolean consumable) {
-        return ignoreJavaConsumableRelease(emulateNetEase, consumable, true);
+        return ignoreJavaConsumableRelease(emulateNetEase, consumable, false);
     }
 
     static boolean ignoreJavaConsumableRelease(final boolean emulateNetEase, final boolean consumable,
                                                final boolean durationReady) {
-        return ignoreJavaConsumableRelease(emulateNetEase, consumable, durationReady, Integer.MAX_VALUE);
+        return emulateNetEase && consumable && durationReady;
     }
 
-    /**
-     * Java can emit {@code RELEASE_USE_ITEM} on the tick after USE_ITEM when the
-     * crosshair is on a block. MOT {@code TYPE_RELEASE_ITEM} finally always cleared
-     * using. Swallow that 1-tick interrupt; a later empty-hand / duration-ready
-     * finish still goes through.
-     */
     static boolean ignoreJavaConsumableRelease(final boolean emulateNetEase, final boolean consumable,
                                                final boolean durationReady, final int usingTicks) {
-        if (!consumable) {
-            return false;
-        }
-        if (usingTicks < 2) {
-            return true;
-        }
-        return emulateNetEase && durationReady;
+        return ignoreJavaConsumableRelease(emulateNetEase, consumable, durationReady);
     }
 
     /**
-     * Snapshot NBT / blockRuntimeId mismatch on CLIENT_TICK_END used to send
-     * ItemRelease and abort MOT auto-complete. Keep local using for the first
-     * ticks; a real hotbar change still fails {@code matchesUseItem} id+data.
+     * A mismatched use snapshot is a real cancellation, including during the first tick.
+     * Send it to MOT instead of leaving a stale server-side using latch.
      */
     static boolean sendCancelRelease(final boolean emulateNetEase, final boolean consumable, final int usingTicks) {
-        if (consumable && usingTicks < 2) {
-            return false;
-        }
         return true;
     }
 

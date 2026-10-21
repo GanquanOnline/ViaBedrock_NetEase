@@ -83,6 +83,7 @@ public class ItemRewriter extends StoredObject {
     private static final Map<String, NbtRewriter> ITEM_NBT_REWRITERS = new HashMap<>();
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_PLACE_ON = VersionedTypes.V26_1.structuredDataKeys().canPlaceOn;
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_BREAK = VersionedTypes.V26_1.structuredDataKeys().canBreak;
+    private static final StructuredDataKey<Item[]> JAVA_CHARGED_PROJECTILES = VersionedTypes.V26_1.structuredDataKeys().chargedProjectiles;
     private static final Set<String> DYEABLE_LEATHER_ITEMS = Set.of(
             "minecraft:leather_helmet",
             "minecraft:leather_chestplate",
@@ -138,7 +139,10 @@ public class ItemRewriter extends StoredObject {
                 }
             }
         }
-        blockItems.removeIf(identifier -> !this.items.containsKey(identifier));
+        // MOT 860 still ships colored beds (and similar) as one identifier + meta 0-15.
+        // Those identifiers also name an undyed block, so treating them as block items
+        // would zero aux data and collapse every color to white_bed / the undyed Java item.
+        blockItems.removeIf(identifier -> !this.items.containsKey(identifier) || isMetaOnlyItem(identifier));
 
         this.blockItemValidBlockStates = new Int2ObjectOpenHashMap<>(blockItems.size());
         for (String identifier : blockItems) {
@@ -445,13 +449,7 @@ public class ItemRewriter extends StoredObject {
 
         String name = itemTag.getString("Name", null);
         if (name == null && itemTag.get("id") instanceof NumberTag idTag) {
-            int legacyId = idTag.asInt();
-            if (legacyId > 32767) {
-                legacyId -= 65536;
-            }
-            if (legacyId != 255) {
-                name = BedrockProtocol.MAPPINGS.getBedrockLegacyItemIdentifier(legacyId);
-            }
+            name = this.bedrockIdentifierFromNumericNbtId(idTag.asInt());
         }
         if (name == null) return StructuredItem.empty();
         name = Key.namespaced(name);
@@ -710,6 +708,11 @@ public class ItemRewriter extends StoredObject {
             javaId++;
         }
         return mappings;
+    }
+
+    private static boolean isMetaOnlyItem(final String identifier) {
+        return BedrockProtocol.MAPPINGS.getBedrockToJavaMetaItems().containsKey(identifier)
+                && !BedrockProtocol.MAPPINGS.getBedrockToJavaBlockItems().containsKey(identifier);
     }
 
     private static boolean isVanillaItem(final String bedrockIdentifier, final Integer bedrockId) {
@@ -1039,6 +1042,7 @@ public class ItemRewriter extends StoredObject {
             this.writeEnchantments(data, bedrockTag);
             writePotionContents(data, bedrockTag);
         }
+        this.writeChargedProjectiles(data, bedrockTag);
         return bedrockTag.isEmpty() && shadowTag == null ? null : bedrockTag;
     }
 
@@ -1065,6 +1069,51 @@ public class ItemRewriter extends StoredObject {
         if (!bedrockEnchantments.isEmpty()) {
             bedrockTag.put("ench", bedrockEnchantments);
         }
+    }
+
+    private void writeChargedProjectiles(final StructuredDataContainer data, final CompoundTag bedrockTag) {
+        final Item[] projectiles = data.get(JAVA_CHARGED_PROJECTILES);
+        if (projectiles == null && !data.hasEmpty(JAVA_CHARGED_PROJECTILES)) {
+            return;
+        }
+        if (projectiles == null || projectiles.length == 0 || projectiles[0] == null || projectiles[0].isEmpty()) {
+            bedrockTag.remove("chargedItem");
+            if (bedrockTag.get("Charged") != null) {
+                bedrockTag.putBoolean("Charged", false);
+            }
+            return;
+        }
+
+        final CompoundTag chargedItem = this.motItemNbt(projectiles[0]);
+        if (chargedItem == null) {
+            return;
+        }
+        bedrockTag.put("chargedItem", chargedItem);
+        bedrockTag.putBoolean("Charged", true);
+    }
+
+    private CompoundTag motItemNbt(final Item javaItem) {
+        final BedrockItem bedrockItem = this.bedrockItem(javaItem);
+        if (bedrockItem == null || bedrockItem.isEmpty()) {
+            return null;
+        }
+        final CompoundTag itemTag = new CompoundTag();
+        itemTag.putByte("Count", (byte) bedrockItem.amount());
+        itemTag.putShort("Damage", bedrockItem.data());
+        final String identifier = this.bedrockIdentifier(bedrockItem);
+        final Integer legacyId = identifier != null ? BedrockProtocol.MAPPINGS.getBedrockLegacyItems().get(identifier) : null;
+        if (legacyId == null || legacyId == 255) {
+            if (identifier == null) {
+                return null;
+            }
+            itemTag.putString("Name", identifier);
+        } else {
+            itemTag.putShort("id", (short) (legacyId.intValue() & 0xFFFF));
+        }
+        if (bedrockItem.tag() != null) {
+            itemTag.put("tag", bedrockItem.tag());
+        }
+        return itemTag;
     }
 
     private static void writePotionContents(final StructuredDataContainer data, final CompoundTag bedrockTag) {
@@ -1173,6 +1222,21 @@ public class ItemRewriter extends StoredObject {
             return this.items.inverse().get(itemId + 65536);
         }
         return null;
+    }
+
+    private String bedrockIdentifierFromNumericNbtId(final int numericId) {
+        int signedId = numericId;
+        if (signedId > 32767) {
+            signedId -= 65536;
+        }
+        if (signedId == 255) {
+            return null;
+        }
+        final String legacyIdentifier = BedrockProtocol.MAPPINGS.getBedrockLegacyItemIdentifier(signedId);
+        if (legacyIdentifier != null) {
+            return legacyIdentifier;
+        }
+        return this.bedrockIdentifier(signedId);
     }
 
     public ItemDefinitions.ItemUseDefinition itemUseDefinition(final BedrockItem item) {

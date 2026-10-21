@@ -48,6 +48,7 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.EquipmentSlot;
+import net.raphimc.viabedrock.experimental.storage.GlowProjectionTracker;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.InteractionHand;
 import net.raphimc.viabedrock.protocol.model.EntityProperties;
 import net.raphimc.viabedrock.protocol.model.EntityPropertyValue;
@@ -55,6 +56,7 @@ import net.raphimc.viabedrock.protocol.types.entitydata.EntityDataTypesBedrock;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongFunction;
 import java.util.logging.Level;
 
 public class EntityMetadataRewriter {
@@ -70,7 +72,7 @@ public class EntityMetadataRewriter {
         switch (id) {
             case RESERVED_0, RESERVED_092 -> { // Entity flags mask
                 Set<ActorFlags> bedrockFlags = entity.entityFlags();
-                byte javaBitMask = sharedFlags(entity, false);
+                byte javaBitMask = sharedFlags(user, entity, isForceInvisible(entity));
                 final EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
                 if (entity instanceof LivingEntity && scaleData != null && readNumber(scaleData).floatValue() == 0F) {
                     javaBitMask |= (1 << 5);
@@ -142,6 +144,12 @@ public class EntityMetadataRewriter {
 
                 if (entity.javaType().isOrHasParent(EntityTypes1_21_11.ABSTRACT_CHESTED_HORSE)) {
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.CHEST), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.CHESTED)));
+                }
+
+                // Java 1.21.5+ draws saddles from SADDLE equipment, not ABSTRACT_HORSE FLAGS 0x04.
+                // MOT only sets ActorFlags.SADDLED (EntityHorseBase/Pig/Strider.setSaddled).
+                if (usesJavaSaddleEquipment(entity.javaType())) {
+                    sendSaddleEquipment(entity, bedrockFlags.contains(ActorFlags.SADDLED));
                 }
 
                 if (entity.javaType().isOrHasParent(EntityTypes1_21_11.TAMABLE_ANIMAL)) {
@@ -733,6 +741,18 @@ public class EntityMetadataRewriter {
                 } else if (entity.javaType().is(EntityTypes1_21_11.VEX)) {
                     final byte flags = (byte) (targetId != -1 && targetId != 0 ? 0x01 : 0);
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, flags));
+                } else if (entity.javaType().is(EntityTypes1_21_11.FISHING_BOBBER)) {
+                    // MOT EntityFishingHook.setTarget writes DATA_TARGET_EID. Java fishing
+                    // bobbers store HOOKED_ENTITY as the hooked Java id plus one (0 = none).
+                    final Integer hookedEntity = fishingBobberHookedEntity(targetId, uniqueId -> {
+                        final Entity hooked = entityTracker.getEntityByUid(uniqueId);
+                        return hooked != null ? hooked.javaId() : null;
+                    });
+                    if (hookedEntity == null) {
+                        ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to find TARGET entity with id " + targetId + " for entity " + entity.type());
+                        break;
+                    }
+                    upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.HOOKED_ENTITY), VersionedTypes.V26_1.entityDataTypes().varIntType, hookedEntity));
                 } else if (targetId != 0 && targetId != -1)  {
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received TARGET for non-GUARDIAN entity " + entity.type() + " with non-zero value " + targetId);
                 }
@@ -748,7 +768,7 @@ public class EntityMetadataRewriter {
             case RESERVED_038 -> { // SCALE (Bedrock entity data ID 38)
                 float scale = readNumber(entityData).floatValue();
                 if (entity instanceof LivingEntity) {
-                    javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, sharedFlags(entity, scale == 0f)));
+                    javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, sharedFlags(user, entity, scale == 0f)));
                 }
                 if (entity.javaType().is(EntityTypes1_21_11.ARMOR_STAND)) {
                     if (scale == 0f) {
@@ -1408,6 +1428,19 @@ public class EntityMetadataRewriter {
         javaEntityData.add(data);
     }
 
+    /**
+     * Java fishing bobber {@code HOOKED_ENTITY} is the hooked entity's Java id plus one
+     * (vanilla / Geyser convention). {@code 0} means not hooked. MOT writes
+     * {@code DATA_TARGET_EID}; {@code null} means the target unique id is not in the tracker yet.
+     */
+    static Integer fishingBobberHookedEntity(final long targetUniqueId, final LongFunction<Integer> javaIdLookup) {
+        if (targetUniqueId == 0L || targetUniqueId == -1L) {
+            return 0;
+        }
+        final Integer javaId = javaIdLookup.apply(targetUniqueId);
+        return javaId == null ? null : javaId + 1;
+    }
+
     // Bedrock villager VARIANT (profession) -> Java profession registry id. Inverse of Geyser's
     // VillagerEntity#VILLAGER_PROFESSIONS (Java->Bedrock). Index = Bedrock value, value = Java id.
     private static final int[] BEDROCK_TO_JAVA_PROFESSION = {0, 5, 6, 12, 7, 9, 3, 4, 1, 14, 13, 2, 8, 10, 11};
@@ -1443,7 +1476,7 @@ public class EntityMetadataRewriter {
         javaEntityData.add(new EntityData(index, VersionedTypes.V26_1.entityDataTypes().villagerDataType, new VillagerData(type, profession, level)));
     }
 
-    private static byte sharedFlags(final Entity entity, final boolean forceInvisible) {
+    private static byte sharedFlags(final UserConnection user, final Entity entity, final boolean forceInvisible) {
         byte sharedFlags = 0;
         if (entity.hasEntityFlag(ActorFlags.ONFIRE)) sharedFlags |= (1 << 0);
         if (entity.hasEntityFlag(ActorFlags.SNEAKING)) sharedFlags |= (1 << 1);
@@ -1451,6 +1484,8 @@ public class EntityMetadataRewriter {
         if (entity.hasEntityFlag(ActorFlags.SPRINTING)) sharedFlags |= (1 << 3);
         if (entity.hasEntityFlag(ActorFlags.SWIMMING)) sharedFlags |= (1 << 4);
         if (forceInvisible || entity.hasEntityFlag(ActorFlags.INVISIBLE)) sharedFlags |= (1 << 5);
+        final GlowProjectionTracker glow = user.get(GlowProjectionTracker.class);
+        if (glow != null && glow.isGlowing(entity.uniqueId())) sharedFlags |= (1 << 6);
         if (entity.hasEntityFlag(ActorFlags.GLIDING)) sharedFlags |= (byte) (1 << 7);
         return sharedFlags;
     }
@@ -1586,6 +1621,49 @@ public class EntityMetadataRewriter {
         return javaRegistryIndex("minecraft:villager_type", name);
     }
 
+    static boolean usesJavaSaddleEquipment(final EntityTypes1_21_11 type) {
+        if (type.isOrHasParent(EntityTypes1_21_11.LLAMA) || type.isOrHasParent(EntityTypes1_21_11.CAMEL)) {
+            return false;
+        }
+        return type.isOrHasParent(EntityTypes1_21_11.ABSTRACT_HORSE)
+                || type.is(EntityTypes1_21_11.PIG)
+                || type.is(EntityTypes1_21_11.STRIDER);
+    }
+
+    static boolean shouldSendJavaSaddleEquipment(final Boolean lastSent, final boolean saddled) {
+        if (lastSent != null && lastSent == saddled) {
+            return false;
+        }
+        return saddled || lastSent != null;
+    }
+
+    static Item javaSaddleEquipmentItem(final Integer saddleItemId, final boolean saddled) {
+        if (!saddled || saddleItemId == null) {
+            return StructuredItem.empty();
+        }
+        return new StructuredItem(saddleItemId, 1, ProtocolConstants.createStructuredDataContainer());
+    }
+
+    static void sendSaddleEquipment(final Entity entity, final boolean saddled) {
+        if (!shouldSendJavaSaddleEquipment(entity.javaSaddleEquipped(), saddled)) {
+            return;
+        }
+        final UserConnection user = entity.user();
+        if (user == null) {
+            return;
+        }
+        final Integer saddleId = BedrockProtocol.MAPPINGS.getJavaItems().get("minecraft:saddle");
+        if (saddled && saddleId == null) {
+            return;
+        }
+        final PacketWrapper equipment = PacketWrapper.create(ClientboundPackets26_1.SET_EQUIPMENT, user);
+        equipment.write(Types.VAR_INT, entity.javaId());
+        equipment.write(Types.BYTE, (byte) EquipmentSlot.SADDLE.ordinal());
+        equipment.write(VersionedTypes.V26_1.item, javaSaddleEquipmentItem(saddleId, saddled));
+        equipment.send(BedrockProtocol.class);
+        entity.setJavaSaddleEquipped(saddled);
+    }
+
     static void sendCopperGolemFlowerEquipment(final Entity entity, final Boolean hasFlower) {
         if (hasFlower == null) {
             return;
@@ -1603,6 +1681,26 @@ public class EntityMetadataRewriter {
         equipment.write(Types.BYTE, (byte) EquipmentSlot.SADDLE.ordinal());
         equipment.write(VersionedTypes.V26_1.item, flower);
         equipment.send(BedrockProtocol.class);
+    }
+
+    public static void sendSharedFlags(final UserConnection user, final Entity entity) {
+        final List<EntityData> data = List.of(new EntityData(
+                entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS),
+                VersionedTypes.V26_1.entityDataTypes().byteType,
+                sharedFlags(user, entity, isForceInvisible(entity))
+        ));
+        final PacketWrapper packet = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, user);
+        packet.write(Types.VAR_INT, entity.javaId());
+        packet.write(VersionedTypes.V26_1.entityDataList, data);
+        packet.send(BedrockProtocol.class);
+    }
+
+    private static boolean isForceInvisible(final Entity entity) {
+        if (!(entity instanceof LivingEntity)) {
+            return false;
+        }
+        final EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
+        return scaleData != null && readNumber(scaleData).floatValue() == 0F;
     }
 
     private static Number readNumber(EntityData data) {

@@ -17,16 +17,24 @@
  */
 package net.raphimc.viabedrock.experimental.inventory;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.embedded.EmbeddedChannel;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemStackRequestActionType;
+import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.packet.ItemStackRequestLayout;
+import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
+import net.raphimc.viabedrock.protocol.types.BedrockTypes;
+import net.raphimc.viabedrock.test.StubUserConnection;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,5 +114,42 @@ class ClientAuthInventoryModuleTest {
                 new ItemStackRequestLayout.SlotInfo(ContainerEnumName.OffhandContainer, 0, 0));
         assertEquals(ContainerID.CONTAINER_ID_OFFHAND.getValue(), offhand.containerId());
         assertEquals(45, offhand.javaSlot());
+    }
+
+    @Test
+    void encodeCreativeEmptyHotbarWritesDestroy() {
+        final EmbeddedChannel channel = new EmbeddedChannel();
+        try {
+            final StubUserConnection user = new StubUserConnection(channel);
+            final InventoryTracker tracker = new InventoryTracker(user);
+            user.put(tracker);
+            final BedrockItem wool = new BedrockItem(35, (short) 0, (byte) 16);
+            tracker.getInventoryContainer().setItemSilent(0, wool.copy());
+            final CreativeSlotSemantics.Plan destroy = CreativeSlotSemantics.plan(
+                    36, com.viaversion.viaversion.api.minecraft.item.StructuredItem.empty(), tracker, null, null);
+            assertEquals(CreativeSlotSemantics.Kind.DESTROY, destroy.kind());
+
+            final ItemStackRequestEncoder.EncodedRequest encoded = ClientAuthInventoryModule.encodeCreativePlan(destroy, tracker);
+            assertFalse(encoded.unsupported());
+            assertFalse(encoded.isEmpty());
+
+            final ByteBuf buffer = Unpooled.wrappedBuffer(encoded.payload());
+            try {
+                assertEquals(1, (int) BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
+                BedrockTypes.VAR_INT.read(buffer);
+                assertEquals(1, (int) BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
+                assertEquals(ItemStackRequestActionType.Destroy.getValue(), buffer.readUnsignedByte());
+                assertEquals(16, buffer.readUnsignedByte());
+                final ItemStackRequestLayout.DecodedSlotInfo source = ItemStackRequestLayout.readSlotInfo(buffer, true, 860);
+                assertEquals(ContainerEnumName.HotbarContainer, source.container());
+                assertEquals(0, source.slot());
+                ItemStackRequestLayout.readRequestTrailer(buffer, true, 860);
+                assertFalse(buffer.isReadable());
+            } finally {
+                buffer.release();
+            }
+        } finally {
+            channel.finishAndReleaseAll();
+        }
     }
 }

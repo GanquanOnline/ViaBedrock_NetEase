@@ -72,6 +72,7 @@ public class Entity {
     protected String name;
     protected int age;
     protected boolean hasBossBar;
+    private Boolean javaSaddleEquipped;
 
     public UserConnection user() {
         return this.user;
@@ -178,6 +179,10 @@ public class Entity {
         // subtracts the same offset. Writing raw MOT Y would place the JE AABB 0.375 too high.
         if ("minecraft:boat".equals(this.type) || "minecraft:chest_boat".equals(this.type)) {
             return 0.375F;
+        }
+        // MOT EntityMinecartAbstract.getBaseOffset() is 0.35. Same ADD/MOVE rule as boats.
+        if (this.javaType != null && this.javaType.isOrHasParent(EntityTypes1_21_11.ABSTRACT_MINECART)) {
+            return 0.35F;
         }
         return 0F;
     }
@@ -302,6 +307,14 @@ public class Entity {
 
     public void setHasBossBar(final boolean hasBossBar) {
         this.hasBossBar = hasBossBar;
+    }
+
+    public Boolean javaSaddleEquipped() {
+        return this.javaSaddleEquipped;
+    }
+
+    public void setJavaSaddleEquipped(final Boolean javaSaddleEquipped) {
+        this.javaSaddleEquipped = javaSaddleEquipped;
     }
 
     public final int getJavaEntityDataIndex(final String fieldName) {

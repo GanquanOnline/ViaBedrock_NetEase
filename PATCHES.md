@@ -2,19 +2,26 @@
 
 Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitmaster` for PyRpc / ModUI. Do not treat international Bedrock wiki or Geyser palettes as MOT 860.
 
-## 2026-03-21 — Mark Java clients without ViaProxy auth secret
+## 2026-08-30 — Local MOT spectator stays Java ADVENTURE; VBU forces noclip
 
-- **Goal:** Waterdog only skips fake-dimension transfers when clientData has a non-empty `ViaProxyAuthToken`. The default ViaBedrock config leaves `viaproxy-auth-secret` empty, so Java players were treated as Bedrock. Vertex then waited for `TransferComplete`, hit the 5s request timeout, and showed Redis unavailable.
-- **Change:** Always write `ViaProxyAuthToken` in the skin JWT. Signed tokens are used when a secret is configured; otherwise emit the `ViaProxy` sentinel. Echo server-originated `DIMENSION_CHANGE_SUCCESS` even after `CHANGE_DIMENSION` already ACKed.
-- **Refs:** Waterdog `HandshakeEntry` `isJavaClient`; `SwitchDownstreamHandler` Java same-dimension path; Vertex `GroupController.onTransferComplete`.
-- **Risk:** Servers that required a signed ViaProxy token for login still need `viaproxy-auth-secret` set. The sentinel only marks the client as Java.
+- **Goal:** #1-16 still needs MOT spectator noclip, but mapping the local player to Java `SPECTATOR` locks the backpack HUD. Remote spectators must stay Java `SPECTATOR` so vanilla clients keep hiding them.
+- **Change:** `fromWire` still maps MOT 3/4/6 to Spectator. Local `getEffectiveGameMode(..., true)` presents `ADVENTURE` only when VBU registered `viabedrockutility:spectator_noclip`. ViaBedrock then sends `SPECTATOR_NOCLIP` (payload ordinal 10). Without the capability, local spectator stays Java `SPECTATOR`. Spectator hotbar Q still resyncs instead of SAI Drop. Nametag visibility keys off MOT spectator, not the disguised Java mode.
+- **Refs:** MOT `Player.getClientFriendlyGamemode`, `AdventureSettings` spectator layer / `NoClip`, VBU `PlayerEntityMixin` tick-local `isSpectator()` redirect, GitHub issue #1-16 / PR #21.
+- **Risk:** Clients without this VBU build keep vanilla spectator HUD. PayloadType ordinals must stay appended; `SPAWN_PARTICLE_V2` remains 9.
 
-## 2026-03-21 — Java Waterdog seamless transfer after MOT TransferPacket leftovers
+## 2026-08-29 — Numeric Bedrock ench tags still map; unknown ids keep Java glint
 
-- **Goal:** Latest MOT writes `reloadWorld` and optional gatherings on `TransferPacket`. Latest Waterdog Java same-dimension transfers inject `CHANGE_DIMENSION` and wait for `DIMENSION_CHANGE_SUCCESS`. Java players then saw transfer unavailable while Bedrock still transferred.
-- **Change:** Map Bedrock TRANSFER without cancelling on leftover `reloadWorld`/gatherings bytes. After `CHANGE_DIMENSION`, ACK Waterdog immediately and end the loading screen so the handshake does not depend on the injected PlayerAction order.
-- **Refs:** `cn/nukkit/network/protocol/TransferPacket.java`; Waterdog `SwitchDownstreamHandler` Java same-dimension path; `PlayerRewriteUtils.injectDimensionChange`.
-- **Risk:** Immediate ACK completes Waterdog phase 2 before Java finishes chunk reload. That matches the previous watchdog fallback and is required for same-dimension proxy transfers.
+- **Goal:** MOT / NetEase often write ench[].id / lvl as int (or mixed short+int) instead of short. The experimental rewriter previously required ShortTag, so known enchantments never reached Java and unknown/custom ids lost both tooltip and glint.
+- **Change:** applyBedrockEnchantment accepts any NumberTag. Empty ench lists, unmapped numeric ids, and unknown custom enchantments still set ENCHANTMENT_GLINT_OVERRIDE. Mapped vanilla ids continue to populate ENCHANTMENTS1_21_5 without a redundant glint override.
+- **Refs:** ExperimentalItemRewriter.handleItem, MOT item NBT ench, GitHub issue custom-item enchantment glint.
+- **Risk:** Requires enable-experimental-features. Worn custom attachable armor still uses VBU entity materials and may not draw Java item glint.
+
+## 2026-08-28 — Colored beds keep item meta instead of undyed block runtime
+
+- **Goal:** MOT 860 still ships 16 bed colors as `minecraft:bed` + meta 0–15. The item identifier also names the undyed bed block, so ViaBedrock treated every bed as a block item, zeroed aux data, and mapped inventory display to `white_bed`. Placement stayed correct because MOT clones by creative netId / item damage.
+- **Change:** Identifiers that exist only in `bedrockToJavaMetaItems` are no longer registered as block items. `BedrockItemType` therefore keeps bed meta and `javaItem()` uses the existing 0–15 color table.
+- **Refs:** `cn/nukkit/item/ItemBed.java` (`this.block = Block.get(BED_BLOCK)`), `BinaryStream.getBlockRuntimeId`, `item_mappings.json` `minecraft:bed` meta table, GitHub issue #1-3.
+- **Risk:** Other meta-only items that share a block identifier (banners, skulls) get the same decode path. True block items that also have a meta table are unchanged.
 
 ## 2026-08-24 — Consume leftover CAMERA_INSTRUCTION after fade
 
@@ -91,6 +98,29 @@ Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitma
   - `decompiled/nukkit-mot/cn/nukkit/inventory/request/CraftRecipeAutoProcessor.java`
   - `decompiled/nukkit-mot/cn/nukkit/entity/Entity.java` (sniffer flags 110–112)
 - **Risk:** README boxes stay unchecked. Full `gradlew test` still includes optional JFR/GC soak tests gated by env vars. Extra-output auto-craft with `times != 1` is rejected by MOT.
+
+## 2026-08-27 — Restore creative spawn SAI (#6, keep #1-1)
+
+- **Goal:** After PR #4 disabled `registerCreativeModeSlotHandler`, Java creative-tab clicks never reached MOT. JE predicted the stack locally, but MOT inventory / ViaBedrock `InventoryTracker` stayed empty, so switching back to survival wiped the items and using them did nothing.
+- **Root cause:** NetEase `SET_CREATIVE_MODE_SLOT` is owned by `ClientAuthInventoryModule`. Official `InventoryPackets` early-returns on the NetEase path and does not cancel/resync. Disabling the handler therefore dropped the packet on the floor. The earlier #1-1 wipe came from `Plan.unsupported()` force-resyncing JE from the empty Bedrock mirror, plus backpack empties being misread as creative `Destroy`.
+- **Change:**
+  - Re-enable `registerCreativeModeSlotHandler` so spawn writes MOT 860 `CraftCreative` + `Take` and ISR can assign netIds.
+  - Prefer `ItemRewriter.bedrockItem()` identity lookup and compare components with `sameEffectiveComponents` (ignore private `viabedrock:bedrock_item` shadow; `StructuredDataContainer` has no `equals()`).
+  - On unsupported / encode failure, leave JE's optimistic prediction alone instead of wiping the cursor.
+  - Java `SET_CREATIVE_MODE_SLOT` is an absolute slot assignment. Empty item (cursor, hotbar, backpack, armor, offhand) is MOT 860 `Destroy` of that slot. Pickup/move is `CONTAINER_CLICK`; do not translate empties as `Take` onto the cursor.
+- **Refs:** `ClientAuthInventoryModule.registerCreativeModeSlotHandler`, `CreativeSlotSemantics`, `CreativeContentCache`, MOT `CraftCreativeActionProcessor`.
+- **Risk:** Items still missing a creative netId remain unsupported and can stay as a JE-only ghost until a later authoritative update. Potion/tipped-arrow/bed colour variants still depend on `bedrockItem()` restoring aux (#1-3 / #1-4 / #1-15).
+
+## 2026-08-27 — Creative empty-slot is Destroy, not Take-to-cursor (#6 follow-up)
+
+- **Goal:** After restoring spawn SAI, emptying backpack/hotbar was mapped to `PICKUP` (`Take` onto the cursor). Players then could not throw stacks back into the creative catalog (that click is client-only; vanilla already destroyed the slot), could not move hotbar → backpack/armor, and moving inside the 27-slot inventory duplicated the stack.
+- **Root cause:** Vanilla creative never "picks up" via this packet. `SET_CREATIVE_MODE_SLOT(slot, empty)` means the slot is now empty. Dropping onto the creative tab only clears the JE cursor and sends no extra packet. Treating empties as `Take` left the stack on the MOT cursor/source, so the next `SPAWN` into another slot created a second copy.
+- **Change:**
+  - Empty assigned slots (including hotbar/backpack/armor/offhand) encode MOT 860 `Destroy`.
+  - Remove `Kind.PICKUP` / `encodePickup`.
+  - Predicted apply only writes the assigned slot (empty on destroy, spawned item on spawn).
+- **Refs:** `CreativeSlotSemantics.plan`, `ClientAuthInventoryModule.encodeDestroy`.
+- **Risk:** A failed `Destroy` still leaves JE's optimistic empty prediction; MOT may restore the stack on the next authoritative update.
 
 ## Open risks (not patched here)
 

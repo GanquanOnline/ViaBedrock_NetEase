@@ -64,6 +64,21 @@ public final class RidingAnchorHelper {
         move.send(BedrockProtocol.class);
     }
 
+    /**
+     * Snap the locally controlled JE vehicle (boat/horse/etc.) back to an authoritative pose.
+     * Clientbound {@code MOVE_VEHICLE} updates the ridden vehicle itself; plain
+     * {@code ENTITY_POSITION_SYNC} is ignored/overwritten by JE local boat buoyancy.
+     */
+    public static void moveVehicle(final UserConnection user, final Position3f position, final float yaw, final float pitch) {
+        final PacketWrapper move = PacketWrapper.create(ClientboundPackets26_1.MOVE_VEHICLE, user);
+        move.write(Types.DOUBLE, (double) position.x()); // x
+        move.write(Types.DOUBLE, (double) position.y()); // y
+        move.write(Types.DOUBLE, (double) position.z()); // z
+        move.write(Types.FLOAT, yaw); // yaw
+        move.write(Types.FLOAT, pitch); // pitch
+        move.send(BedrockProtocol.class);
+    }
+
     public static void remove(final UserConnection user, final int javaId) {
         final PacketWrapper removeEntities = PacketWrapper.create(ClientboundPackets26_1.REMOVE_ENTITIES, user);
         removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{javaId});

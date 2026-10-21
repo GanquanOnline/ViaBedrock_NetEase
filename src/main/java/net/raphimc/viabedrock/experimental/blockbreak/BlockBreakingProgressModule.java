@@ -55,6 +55,7 @@ import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
 import net.raphimc.viabedrock.protocol.packet.EntityPacketLayout;
+import net.raphimc.viabedrock.protocol.packet.ClientPlayerPackets;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -195,12 +196,16 @@ public final class BlockBreakingProgressModule implements FeatureModule {
             PacketFactory.sendJavaBlockChangedAck(user, sequence);
         }
         if (instantBreak) {
+            clientPlayer.clearDelayedMotBreak();
             // Instant breaks still wait for the authoritative UPDATE_BLOCK before their ACK.
             this.finishMining(user, user.get(GameSessionStorage.class), clientPlayer, tracker, chunkTracker, position, direction, sequence);
+        } else {
+            ClientPlayerPackets.scheduleDelayedMotBreak(clientPlayer, chunkTracker, position, direction);
         }
     }
 
     private void suspendMining(final ClientPlayerEntity clientPlayer, final BlockBreakingProgressTracker tracker, final BlockPosition position) {
+        clientPlayer.clearDelayedMotBreak();
         clientPlayer.setBlockBreakingInfo(null);
         tracker.suspendMining(position);
     }
@@ -212,6 +217,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         }
 
         clientPlayer.cancelNextSwingPacket();
+        clientPlayer.clearDelayedMotBreak();
         clientPlayer.setBlockBreakingInfo(null);
         // MOT PredictDestroy already aborts then completes. Same-tick Abort(face=0)
         // is redundant. Ref: MOT Player.java PREDICT_DESTROY_BLOCK.

@@ -77,9 +77,14 @@ public final class InstantBreakBlocks {
             // Torches / lights
             "torch", "wall_torch", "soul_torch", "soul_wall_torch",
             "redstone_torch", "redstone_wall_torch", "redstone_wire",
-            // Misc zero-hardness
+            // Misc zero-hardness. Scaffolding is Java hardness 0 (START only) but MOT
+            // BlockScaffolding hardness is 0.5, so it is not instant on the backend.
             "tnt", "slime_block", "honey_block", "fire", "soul_fire", "frogspawn",
-            "tripwire", "scaffolding", "flower_pot", "decorated_pot", "end_rod"
+            "tripwire", "flower_pot", "decorated_pot", "end_rod"
+    );
+
+    private static final Set<String> JAVA_START_ONLY_DELAYED_MOT_BREAK = Set.of(
+            "scaffolding"
     );
 
     private InstantBreakBlocks() {
@@ -100,6 +105,9 @@ public final class InstantBreakBlocks {
         if (creative) {
             return true;
         }
+        if (isJavaStartOnlyDelayedMotBreak(javaIdentifier)) {
+            return false;
+        }
         if (javaIdentifier != null && isVanillaInstantBreak(javaIdentifier)) {
             return true;
         }
@@ -108,6 +116,28 @@ public final class InstantBreakBlocks {
         }
         return "minecraft:shears".equals(heldIdentifier)
                 && isShearsInstantBreak(javaIdentifier, customBedrockIdentifier);
+    }
+
+    /**
+     * Java still only sends {@code START_DESTROY_BLOCK}, but MOT hardness is not 0.
+     * Completing with same-tick {@code PredictDestroyBlock} is rejected as fast-break.
+     */
+    public static boolean isJavaStartOnlyDelayedMotBreak(final String javaIdentifier) {
+        return javaIdentifier != null && JAVA_START_ONLY_DELAYED_MOT_BREAK.contains(javaIdentifier);
+    }
+
+    /**
+     * MOT {@code BlockScaffolding} hardness 0.5, harvestable by hand:
+     * {@code calculateBreakTime = 0.5 * 1.5 = 0.75s}. {@code Level.useBreakOn} subtracts
+     * a 0.15s grace, so PredictDestroy is accepted after 0.60s (12 ticks). START is
+     * typically followed by same-tick {@code CLIENT_TICK_END} which increments age
+     * once, so the due age is 13 ticks after the START snapshot.
+     */
+    public static int delayedMotBreakTicks(final String javaIdentifier) {
+        if (!isJavaStartOnlyDelayedMotBreak(javaIdentifier)) {
+            return 0;
+        }
+        return 13;
     }
 
     /**

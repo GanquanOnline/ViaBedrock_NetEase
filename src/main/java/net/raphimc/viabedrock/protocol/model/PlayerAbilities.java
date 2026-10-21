@@ -39,6 +39,11 @@ public record PlayerAbilities(long entityUniqueId, byte playerPermission, byte c
         ));
     }
 
+    public boolean hasSpectatorNoclip() {
+        return this.abilityLayers.containsKey(SerializedAbilitiesData_SerializedAbilitiesLayer.Spectator)
+                || this.getBooleanValue(AbilitiesIndex.NoClip);
+    }
+
     public boolean getBooleanValue(final AbilitiesIndex ability) {
         for (SerializedAbilitiesData_SerializedAbilitiesLayer layer : SerializedAbilitiesData_SerializedAbilitiesLayer.values()) {
             final AbilitiesLayer abilitiesLayer = this.abilityLayers.get(layer);

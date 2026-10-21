@@ -27,6 +27,7 @@ import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundCon
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
 import net.raphimc.viabedrock.protocol.model.SkinData;
+import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.storage.JavaPlayerStateStorage;
 import net.raphimc.viabedrock.protocol.types.primitive.ImageType;
 
@@ -45,7 +46,13 @@ public class ViaBedrockUtilityInterface {
     public static final String PLAYER_STATE_CHANNEL = "viabedrockutility:player_state";
     /** Client capability: unmapped Bedrock particle effects can use anchor-aware V2 requests. */
     public static final String PARTICLE_RUNTIME_V2_CAPABILITY = "viabedrockutility:particle_runtime_v2";
-    private static final int MAX_PAYLOAD_SIZE = 1048576;
+    /** Client capability: local MOT spectator can stay Java ADVENTURE while VBU forces Entity.noClip. */
+    public static final String SPECTATOR_NOCLIP_CAPABILITY = "viabedrockutility:spectator_noclip";
+    static final int MAX_PAYLOAD_SIZE = 1_048_576;
+    static final int SKIN_DATA_HEADER_SIZE = Integer.BYTES + 2 * Long.BYTES + Integer.BYTES;
+    static final int SKIN_ANIMATION_DATA_HEADER_SIZE = SKIN_DATA_HEADER_SIZE + Integer.BYTES;
+    static final int SKIN_DATA_CHUNK_SIZE = MAX_PAYLOAD_SIZE - SKIN_DATA_HEADER_SIZE;
+    static final int SKIN_ANIMATION_DATA_CHUNK_SIZE = MAX_PAYLOAD_SIZE - SKIN_ANIMATION_DATA_HEADER_SIZE;
 
     public static void confirmPresence(final UserConnection user) {
         final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
@@ -113,8 +120,7 @@ public class ViaBedrockUtilityInterface {
 
         final boolean hasGeometry = !skin.geometryData().isEmpty() && !skin.geometryData().toLowerCase(Locale.ROOT).equals("null");
         final byte[] skinData = ImageType.getImageData(skin.skinData());
-        final int maxPayloadSize = MAX_PAYLOAD_SIZE - 24;
-        final int chunkCount = (int) Math.ceil(skinData.length / (double) maxPayloadSize);
+        final int chunkCount = (int) Math.ceil(skinData.length / (double) SKIN_DATA_CHUNK_SIZE);
 
         {
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
@@ -142,7 +148,7 @@ public class ViaBedrockUtilityInterface {
             if (chunkCount == 1) { // Fast path
                 pluginMessage.write(Types.REMAINING_BYTES, skinData);
             } else {
-                pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(skinData, i * maxPayloadSize, Math.min((i + 1) * maxPayloadSize, skinData.length)));
+                pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(skinData, i * SKIN_DATA_CHUNK_SIZE, Math.min((i + 1) * SKIN_DATA_CHUNK_SIZE, skinData.length)));
             }
             pluginMessage.scheduleSend(BedrockProtocol.class);
         }
@@ -166,7 +172,7 @@ public class ViaBedrockUtilityInterface {
                 if (anim.image() == null) continue;
 
                 final byte[] animData = ImageType.getImageData(anim.image());
-                final int animChunkCount = (int) Math.ceil(animData.length / (double) maxPayloadSize);
+                final int animChunkCount = (int) Math.ceil(animData.length / (double) SKIN_ANIMATION_DATA_CHUNK_SIZE);
 
                 {
                     final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
@@ -192,7 +198,7 @@ public class ViaBedrockUtilityInterface {
                     if (animChunkCount == 1) {
                         pluginMessage.write(Types.REMAINING_BYTES, animData);
                     } else {
-                        pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(animData, i * maxPayloadSize, Math.min((i + 1) * maxPayloadSize, animData.length)));
+                        pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(animData, i * SKIN_ANIMATION_DATA_CHUNK_SIZE, Math.min((i + 1) * SKIN_ANIMATION_DATA_CHUNK_SIZE, animData.length)));
                     }
                     pluginMessage.scheduleSend(BedrockProtocol.class);
                 }
@@ -212,11 +218,38 @@ public class ViaBedrockUtilityInterface {
         wrapper.write(Types.REMAINING_BYTES, bytes);
     }
 
-    private enum PayloadType {
+    enum PayloadType {
         CONFIRM, MODEL_REQUEST, ANIMATE,
         CAPE, SKIN_INFORMATION, SKIN_DATA,
         SKIN_ANIMATION_INFO, SKIN_ANIMATION_DATA,
-        SPAWN_PARTICLE, SPAWN_PARTICLE_V2
+        SPAWN_PARTICLE, SPAWN_PARTICLE_V2, SPECTATOR_NOCLIP
+    }
+
+    public static boolean hasSpectatorNoclip(final UserConnection user) {
+        if (user == null) {
+            return false;
+        }
+        final ChannelStorage channelStorage = user.get(ChannelStorage.class);
+        return channelStorage != null && channelStorage.hasChannel(SPECTATOR_NOCLIP_CAPABILITY);
+    }
+
+    public static void syncSpectatorNoclip(final UserConnection user, final boolean enabled) {
+        if (!hasSpectatorNoclip(user)) {
+            return;
+        }
+        final State clientState = user.getProtocolInfo() != null ? user.getProtocolInfo().getClientState() : null;
+        final PacketWrapper pluginMessage;
+        if (clientState == State.PLAY) {
+            pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        } else if (clientState == State.CONFIGURATION) {
+            pluginMessage = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
+        } else {
+            return;
+        }
+        pluginMessage.write(Types.STRING, CHANNEL);
+        pluginMessage.write(Types.INT, PayloadType.SPECTATOR_NOCLIP.ordinal());
+        pluginMessage.write(Types.BOOLEAN, enabled);
+        pluginMessage.send(BedrockProtocol.class);
     }
 
     public static void spawnParticle(final UserConnection user, final String identifier, final float x, final float y, final float z) {

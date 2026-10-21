@@ -106,6 +106,14 @@ public interface FeatureModule {
     }
 
     /**
+     * Resolves an alternate Java custom payload channel for a Bedrock PY_RPC payload.
+     * The first non-null result is used; otherwise the shared PY_RPC channel is used.
+     */
+    default String resolveClientboundPyRpcChannel(byte[] data) {
+        return null;
+    }
+
+    /**
      * Resolves whether a player list entry is visible in the Java tab list.
      */
     default boolean isPlayerListEntryListed(UserConnection user, UUID uuid, long entityUniqueId, String name) {

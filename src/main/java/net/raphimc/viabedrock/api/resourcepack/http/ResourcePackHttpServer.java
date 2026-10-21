@@ -25,6 +25,9 @@ import io.netty.handler.codec.http.*;
 import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
+import com.viaversion.viaversion.libs.gson.JsonArray;
+import com.viaversion.viaversion.libs.gson.JsonObject;
+import com.viaversion.viaversion.util.GsonUtil;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
 import net.raphimc.viabedrock.api.resourcepack.cache.ArtifactKey;
@@ -47,6 +50,7 @@ import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -80,6 +84,7 @@ import java.util.zip.ZipOutputStream;
 
 public class ResourcePackHttpServer {
 
+    public static final String BEDROCK_PACK_STACK_PATH = "bedrock/pack_stack.json";
     private static final Pattern ARTIFACT_PATH = Pattern.compile("^/packs/([0-9a-f]{40})\\.zip$");
     private static final Pattern BYTE_RANGE = Pattern.compile("^bytes=(\\d*)-(\\d*)$");
     private static final ArtifactFileOpener ARTIFACT_FILE_OPENER = file -> new RandomAccessFile(file, "r");
@@ -796,19 +801,30 @@ public class ResourcePackHttpServer {
             final ResourcePackStorage resourcePackStorage, final Path outputDirectory,
             final Path target) throws IOException {
         final Map<String, Path> embeddedPacks = new HashMap<>();
+        final Map<String, byte[]> generatedEntries = new HashMap<>();
         final Content javaContent = ResourcePackRewriter.bedrockToJava(
                 resourcePackStorage, new DirectoryContent(outputDirectory));
         final List<String> outputPaths = new ArrayList<>(javaContent.getFilesDeep("", ""));
         final Set<String> uniquePaths = new HashSet<>(outputPaths);
+        if (!uniquePaths.add(BEDROCK_PACK_STACK_PATH)) {
+            throw new IOException("Converted resource pack already contains reserved path "
+                    + BEDROCK_PACK_STACK_PATH);
+        }
+        final List<ResourcePack> embeddedPackStack = embeddedPackStackBottomToTop(resourcePackStorage);
+        generatedEntries.put(BEDROCK_PACK_STACK_PATH,
+                buildBedrockPackStackManifest(embeddedPackStack));
+        outputPaths.add(BEDROCK_PACK_STACK_PATH);
         final Path embeddedDirectory = Files.createDirectory(outputDirectory.resolve(".embedded-packs"));
-        for (ResourcePack pack : resourcePackStorage.getPackStackTopToBottom()) {
+        for (ResourcePack pack : embeddedPackStack) {
             final String mcpackPath = "bedrock/" + pack.id() + ".mcpack";
-            if (uniquePaths.add(mcpackPath)) {
-                final Path packTemp = Files.createTempFile(embeddedDirectory, pack.id() + "-", ".mcpack.tmp");
-                embeddedPacks.put(mcpackPath, packTemp);
-                pack.content().writeZip(packTemp);
-                outputPaths.add(mcpackPath);
+            if (!uniquePaths.add(mcpackPath)) {
+                throw new IOException("Converted resource pack already contains reserved path "
+                        + mcpackPath);
             }
+            final Path packTemp = Files.createTempFile(embeddedDirectory, pack.id() + "-", ".mcpack.tmp");
+            embeddedPacks.put(mcpackPath, packTemp);
+            pack.content().writeZip(packTemp);
+            outputPaths.add(mcpackPath);
         }
 
         outputPaths.sort(String::compareTo);
@@ -823,6 +839,8 @@ public class ResourcePackHttpServer {
                 final Path embeddedPack = embeddedPacks.get(path);
                 if (embeddedPack != null) {
                     Files.copy(embeddedPack, output);
+                } else if (generatedEntries.containsKey(path)) {
+                    output.write(generatedEntries.get(path));
                 } else {
                     final Path contentPath = outputDirectory.resolve(path).normalize();
                     if (!contentPath.startsWith(outputDirectory) || !Files.isRegularFile(contentPath)) {
@@ -835,6 +853,39 @@ public class ResourcePackHttpServer {
         }
         return new JavaPackCache.ArtifactBuildResult(
                 HexFormat.of().formatHex(digest.digest()), Files.size(target));
+    }
+
+    static byte[] buildBedrockPackStackManifest(ResourcePackStorage resourcePackStorage) {
+        return buildBedrockPackStackManifest(embeddedPackStackBottomToTop(resourcePackStorage));
+    }
+
+    private static byte[] buildBedrockPackStackManifest(List<ResourcePack> embeddedPackStack) {
+        final JsonObject root = new JsonObject();
+        root.addProperty("format_version", 1);
+        root.addProperty("order", "bottom_to_top");
+        final JsonArray packs = new JsonArray();
+        for (ResourcePack pack : embeddedPackStack) {
+            final JsonObject entry = new JsonObject();
+            entry.addProperty("path", "bedrock/" + pack.id() + ".mcpack");
+            entry.addProperty("uuid", pack.id().toString());
+            entry.addProperty("version", pack.version());
+            entry.addProperty("name", pack.name());
+            packs.add(entry);
+        }
+        root.add("packs", packs);
+        return GsonUtil.getGson().toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** Mirrors the UUID-based archive paths: the topmost occurrence of one pack identity wins. */
+    static List<ResourcePack> embeddedPackStackBottomToTop(ResourcePackStorage resourcePackStorage) {
+        final List<ResourcePack> selectedTopToBottom = new ArrayList<>();
+        final Set<UUID> selectedIds = new HashSet<>();
+        for (ResourcePack pack : resourcePackStorage.getPackStackTopToBottom()) {
+            if (selectedIds.add(pack.id())) {
+                selectedTopToBottom.add(pack);
+            }
+        }
+        return List.copyOf(selectedTopToBottom.reversed());
     }
 
     private static MessageDigest sha1Digest() {

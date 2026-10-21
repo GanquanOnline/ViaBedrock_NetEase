@@ -287,6 +287,23 @@ class EntityPacketsTest {
         assertEquals(0F, entity(EntityTypes1_21_11.ITEM).eyeOffset(), 1.0E-6F);
     }
 
+    @Test
+    void minecartEyeOffsetMatchesMotBaseOffset() {
+        assertAll(
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.CHEST_MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.HOPPER_MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.TNT_MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.FURNACE_MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.COMMAND_BLOCK_MINECART).eyeOffset(), 1.0E-6F),
+                () -> assertEquals(0.35F, minecart(EntityTypes1_21_11.SPAWNER_MINECART).eyeOffset(), 1.0E-6F)
+        );
+    }
+
+    private static Entity minecart(final EntityTypes1_21_11 javaType) {
+        return new Entity(null, 1L, 2L, "minecraft:minecart", 3, UUID.randomUUID(), javaType);
+    }
+
     private static LivingEntity livingEntity(final EntityTypes1_21_11 javaType) {
         return livingEntity(javaType, 2L);
     }
