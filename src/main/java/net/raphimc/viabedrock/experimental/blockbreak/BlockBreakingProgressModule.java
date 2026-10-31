@@ -147,9 +147,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         final BlockBreakingProgressTracker tracker = user.get(BlockBreakingProgressTracker.class);
 
         if (gameSession.isImmutableWorld() || !clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Mine)) {
-            final int rawBlockState = chunkTracker.getJavaBlockState(position);
-            final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
-            final int fixedBlockState = BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, rawBlockState).getOrDefault(position, rawBlockState);
+            final int fixedBlockState = chunkTracker.getResolvedJavaBlockState(position);
             PacketFactory.sendJavaBlockUpdate(user, position, fixedBlockState);
             PacketFactory.sendJavaBlockChangedAck(user, sequence);
             return;
@@ -204,7 +202,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.PredictDestroyBlock, position, direction.ordinal()));
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.AbortDestroyBlock, position, 0));
         }
-        tracker.finishMining(position, sequence, chunkTracker.getJavaBlockState(position));
+        tracker.finishMining(position, sequence, chunkTracker.getResolvedJavaBlockState(position));
     }
 
     private void handleSwing(final PacketWrapper wrapper) {

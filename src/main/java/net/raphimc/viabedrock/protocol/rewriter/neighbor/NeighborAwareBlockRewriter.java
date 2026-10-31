@@ -51,11 +51,11 @@ public final class NeighborAwareBlockRewriter {
     };
 
     private final List<NeighborAwareBlockRule> rules;
+    private final SharedBlockProjection shared;
 
     public NeighborAwareBlockRewriter(final BiMap<BlockState, Integer> javaBlockStates) {
+        this.shared = new SharedBlockProjection(javaBlockStates);
         this.rules = List.of(
-                new StairShapeRule(javaBlockStates),
-                new BlockConnectionRule(javaBlockStates),
                 new NetherPortalAxisRule(javaBlockStates),
                 new LinkedBlockRule(javaBlockStates),
                 new GrowingPlantRule(javaBlockStates),
@@ -168,6 +168,7 @@ public final class NeighborAwareBlockRewriter {
     }
 
     private boolean isCrossChunkSensitive(final int javaBlockStateId) {
+        if (this.shared.handles(javaBlockStateId)) return true;
         for (NeighborAwareBlockRule rule : this.rules) {
             if (rule.isCrossChunkSensitive(javaBlockStateId)) {
                 return true;
@@ -179,8 +180,12 @@ public final class NeighborAwareBlockRewriter {
     /**
      * Corrects a single position by running every rule that owns it, chained in order.
      */
+    public int resolveState(final BlockNeighborView view, final BlockPosition pos, final int javaBlockStateId) {
+        return this.fixState(view, pos, javaBlockStateId);
+    }
+
     private int fixState(final BlockNeighborView view, final BlockPosition pos, final int javaBlockStateId) {
-        int state = javaBlockStateId;
+        int state = this.shared.resolve(view, pos, javaBlockStateId);
         for (NeighborAwareBlockRule rule : this.rules) {
             if (rule.handles(state)) {
                 state = rule.recompute(view, pos, state);
@@ -190,6 +195,7 @@ public final class NeighborAwareBlockRewriter {
     }
 
     private boolean isHandled(final int javaBlockStateId) {
+        if (this.shared.handles(javaBlockStateId)) return true;
         for (NeighborAwareBlockRule rule : this.rules) {
             if (rule.handles(javaBlockStateId)) {
                 return true;

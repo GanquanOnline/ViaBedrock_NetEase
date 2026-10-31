@@ -34,6 +34,10 @@ public final class TrackerNeighborView implements BlockNeighborView {
         this.tracker = tracker;
     }
 
+    @Override public net.easecation.blockstates.SharedBlockStates.State getBedrockState(final BlockPosition pos) {
+        return this.tracker.getKnownSharedBlockState(pos);
+    }
+
     @Override
     public int getJavaBlockState(final BlockPosition pos) {
         final BedrockChunkSection section = this.tracker.getChunkSection(pos);

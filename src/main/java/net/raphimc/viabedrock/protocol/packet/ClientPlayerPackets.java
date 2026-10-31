@@ -163,6 +163,12 @@ public class ClientPlayerPackets {
 
         chunkTracker.handleBlockChange(position, 0, chunkTracker.bedrockAirId());
         PacketFactory.sendJavaBlockUpdate(user, position, ProtocolConstants.JAVA_AIR_ID);
+        // 本地预测清空缓存后，邻居同样需要更新参数，不能等服务端恰好再发一次。
+        final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
+        for (var entry : BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, ProtocolConstants.JAVA_AIR_ID).entrySet()) {
+            chunkTracker.onJavaBlockChange(entry.getKey(), entry.getValue());
+            if (!entry.getKey().equals(position)) PacketFactory.sendJavaBlockUpdate(user, entry.getKey(), entry.getValue());
+        }
     }
 
     public static void register(final BedrockProtocol protocol) {
@@ -411,9 +417,7 @@ public class ClientPlayerPackets {
             final boolean isMining = action == PlayerActionAction.START_DESTROY_BLOCK || action == PlayerActionAction.ABORT_DESTROY_BLOCK || action == PlayerActionAction.STOP_DESTROY_BLOCK;
             if (isMining && (gameSession.isImmutableWorld() || !clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Mine))) {
                 // TODO: Prevent breaking and cancel any packets that would be sent (swing, player action)
-                final int rawBlockState = chunkTracker.getJavaBlockState(position);
-                final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
-                final int fixedBlockState = BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, rawBlockState).getOrDefault(position, rawBlockState);
+                final int fixedBlockState = chunkTracker.getResolvedJavaBlockState(position);
                 PacketFactory.sendJavaBlockUpdate(wrapper.user(), position, fixedBlockState);
                 PacketFactory.sendJavaBlockChangedAck(wrapper.user(), sequence);
                 return;

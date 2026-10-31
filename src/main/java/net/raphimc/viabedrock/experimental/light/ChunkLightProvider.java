@@ -17,6 +17,7 @@
  */
 package net.raphimc.viabedrock.experimental.light;
 
+import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
@@ -36,6 +37,9 @@ public interface ChunkLightProvider {
      * @return true if this provider handled sending the chunk, false if it no longer owns the mode
      */
     boolean processAndSendChunk(ChunkTracker tracker, int chunkX, int chunkZ, Chunk chunk);
+
+    /** 方块更新使用 ViaBedrock 源版本的最终 JE 状态，不能传入已被后续协议改写的 ID。 */
+    void onBlockChange(BlockPosition position, int javaBlockStateId);
 
     /**
      * Called when a chunk is unloaded. Implementations should clean up any cached state.

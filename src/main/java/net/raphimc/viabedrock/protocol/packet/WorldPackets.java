@@ -108,6 +108,7 @@ public class WorldPackets {
         wrapper.cancel();
 
         for (Map.Entry<BlockPosition, Integer> entry : updates.entrySet()) {
+            chunkTracker.onJavaBlockChange(entry.getKey(), entry.getValue());
             if (entry.getKey().equals(position)) {
                 continue;
             }
@@ -551,6 +552,7 @@ public class WorldPackets {
 
             for (Map.Entry<BlockPosition, Integer> entry : finalBlockStates.entrySet()) {
                 final BlockPosition position = entry.getKey();
+                chunkTracker.onJavaBlockChange(position, entry.getValue());
                 final BlockPosition chunkPosition = new BlockPosition(position.x() >> 4, position.y() >> 4, position.z() >> 4);
                 final BlockPosition relative = new BlockPosition(position.x() & 0xF, position.y() & 0xF, position.z() & 0xF);
                 blockChanges.computeIfAbsent(chunkPosition, k -> new ArrayList<>()).add(new BlockChangeRecord1_16_2(relative.x(), relative.y(), relative.z(), entry.getValue()));

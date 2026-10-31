@@ -144,7 +144,9 @@ public final class BlockBreakingProgressTracker extends StoredObject {
 
     public void expectJavaAckAfterBlockUpdate(final BlockPosition position, final int sequence, final int javaBlockStateId) {
         if (sequence > 0) {
-            this.pendingBreakAcks.put(position, new PendingBreakAck(sequence, javaBlockStateId, System.currentTimeMillis()));
+            final var chunks = this.user().get(net.raphimc.viabedrock.protocol.storage.ChunkTracker.class);
+            final var original = chunks == null ? null : chunks.getKnownSharedBlockState(position);
+            this.pendingBreakAcks.put(position, new PendingBreakAck(sequence, javaBlockStateId, System.currentTimeMillis(), original));
         }
     }
 
@@ -192,7 +194,20 @@ public final class BlockBreakingProgressTracker extends StoredObject {
         }
 
         for (TimedOutBreakAck timedOut : this.collectTimedOutBreakAcks(now)) {
-            PacketFactory.sendJavaBlockUpdate(this.user(), timedOut.position(), timedOut.javaBlockStateId());
+            final var chunks = this.user().get(net.raphimc.viabedrock.protocol.storage.ChunkTracker.class);
+            final var current = new net.raphimc.viabedrock.protocol.rewriter.neighbor.TrackerNeighborView(chunks);
+            final var view = new net.raphimc.viabedrock.protocol.rewriter.neighbor.BlockNeighborView() {
+                @Override public int getJavaBlockState(BlockPosition pos) { return current.getJavaBlockState(pos); }
+                @Override public net.raphimc.viabedrock.api.chunk.BedrockBlockEntity getBlockEntity(BlockPosition pos) { return current.getBlockEntity(pos); }
+                @Override public net.easecation.blockstates.SharedBlockStates.State getBedrockState(BlockPosition pos) {
+                    return pos.equals(timedOut.position()) && timedOut.original() != null ? timedOut.original() : current.getBedrockState(pos);
+                }
+            };
+            // 恢复使用保存的 BE 身份和当前邻居，不反推旧 JE ID；全部状态必须先于 ACK。
+            for (var update : BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, timedOut.position(), timedOut.javaBlockStateId()).entrySet()) {
+                PacketFactory.sendJavaBlockUpdate(this.user(), update.getKey(), update.getValue());
+                chunks.onJavaBlockChange(update.getKey(), update.getValue());
+            }
             PacketFactory.sendJavaBlockChangedAck(this.user(), timedOut.sequence());
         }
     }
@@ -205,7 +220,7 @@ public final class BlockBreakingProgressTracker extends StoredObject {
             final PendingBreakAck ack = entry.getValue();
             if (now - ack.timestamp > BREAK_ACK_TIMEOUT_MS) {
                 if (ack.ackPending) {
-                    timedOut.add(new TimedOutBreakAck(entry.getKey(), ack.sequence, ack.javaBlockStateId));
+                    timedOut.add(new TimedOutBreakAck(entry.getKey(), ack.sequence, ack.javaBlockStateId, ack.original));
                 }
                 it.remove();
             }
@@ -272,17 +287,21 @@ public final class BlockBreakingProgressTracker extends StoredObject {
         private final int sequence;
         private final int javaBlockStateId;
         private final long timestamp;
+        private final net.easecation.blockstates.SharedBlockStates.State original;
         private boolean ackPending = true;
         private boolean effectPending = true;
 
-        private PendingBreakAck(final int sequence, final int javaBlockStateId, final long timestamp) {
+        private PendingBreakAck(final int sequence, final int javaBlockStateId, final long timestamp,
+                                final net.easecation.blockstates.SharedBlockStates.State original) {
             this.sequence = sequence;
             this.javaBlockStateId = javaBlockStateId;
             this.timestamp = timestamp;
+            this.original = original;
         }
     }
 
-    record TimedOutBreakAck(BlockPosition position, int sequence, int javaBlockStateId) {
+    record TimedOutBreakAck(BlockPosition position, int sequence, int javaBlockStateId,
+                           net.easecation.blockstates.SharedBlockStates.State original) {
     }
 
     public enum MiningPhase {
