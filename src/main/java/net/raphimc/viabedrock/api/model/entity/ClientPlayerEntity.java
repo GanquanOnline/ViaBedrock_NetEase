@@ -78,6 +78,8 @@ public class ClientPlayerEntity extends PlayerEntity {
     private int positionSyncTeleportId;
     private boolean serverSideTeleportConfirmed;
     private final JavaMovementPositionCache javaMovementPositionCache = new JavaMovementPositionCache();
+    // 放置求交保留 Java 原始脚底坐标，不能靠增大容差掩盖 Bedrock float 坐标的舍入误差。
+    private JavaPosition javaPosition;
 
     // Movement watchdog (fail-safe for a backend that never sends the unlock packet after a switch).
     // -1 = inactive; ages are compared against Entity.age (incremented once per client tick).
@@ -166,6 +168,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public void writePlayerPositionPacketToClient(final PacketWrapper wrapper, final Set<Relative> relatives, final boolean fakeTeleport) {
+        this.javaPosition = null;
         this.pendingTeleportId = TELEPORT_ID.getAndIncrement();
 
         if (this.prepareJavaMovementPositionCache()) {
@@ -219,6 +222,19 @@ public class ClientPlayerEntity extends PlayerEntity {
         animate.sendToServer(BedrockProtocol.class);
     }
 
+    /** Java 位置包的原始脚底坐标，仅用于放置几何，不作为运动预测结果。 */
+    public record JavaPosition(double x, double y, double z) {
+    }
+
+    public JavaPosition javaPosition() {
+        final JavaPosition feet = this.javaPosition;
+        // 服务端直接改写位置、换维度或传送后，旧的 Java 精确坐标不再属于当前实体位置。
+        if (feet == null || !Double.isFinite(feet.x()) || !Double.isFinite(feet.y()) || !Double.isFinite(feet.z())
+                || this.position.x() != (float) feet.x() || this.position.y() != (float) feet.y() + this.eyeOffset()
+                || this.position.z() != (float) feet.z()) return null;
+        return feet;
+    }
+
     public void updatePlayerPosition(final short flags) {
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
         final Position3f omittedPosition = this.prepareJavaMovementPositionCache()
@@ -231,17 +247,24 @@ public class ClientPlayerEntity extends PlayerEntity {
             return;
         }
 
-        if (omittedPosition != null) this.position = omittedPosition;
+        if (omittedPosition != null) {
+            this.javaPosition = null;
+            this.position = omittedPosition;
+        }
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
     }
 
     public void updatePlayerPosition(final double x, final double y, final double z, final short flags) {
+        this.javaPosition = null;
         final Position3f newPosition = new Position3f((float) x, (float) y + this.eyeOffset(), (float) z);
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
         final boolean cachePosition = this.prepareJavaMovementPositionCache();
         // 坐标报告是协议观测；即使实体无需移动，也已更新 Java 的普通位置缓存。
-        if (cachePosition) this.javaMovementPositionCache.recordPosition(newPosition);
+        if (cachePosition) {
+            this.javaMovementPositionCache.recordPosition(newPosition);
+            if (this.position.equals(newPosition)) this.javaPosition = new JavaPosition(x, y, z);
+        }
 
         if (this.rejectImmobilePosition(newPosition, null)) {
             return;
@@ -251,16 +274,21 @@ public class ClientPlayerEntity extends PlayerEntity {
         }
 
         this.position = newPosition;
+        this.javaPosition = new JavaPosition(x, y, z);
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
     }
 
     public void updatePlayerPosition(final double x, final double y, final double z, final float yaw, final float pitch, final short flags) {
+        this.javaPosition = null;
         final Position3f newPosition = new Position3f((float) x, (float) y + this.eyeOffset(), (float) z);
         final Position3f newRotation = new Position3f(pitch, yaw, yaw);
         final boolean newOnGround = (flags & MovePlayerFlag.ON_GROUND.getBit()) != 0;
         final boolean cachePosition = this.prepareJavaMovementPositionCache();
-        if (cachePosition) this.javaMovementPositionCache.recordPositionWithRotation(newPosition, x, y, z, yaw, pitch, flags);
+        if (cachePosition) {
+            this.javaMovementPositionCache.recordPositionWithRotation(newPosition, x, y, z, yaw, pitch, flags);
+            if (this.position.equals(newPosition)) this.javaPosition = new JavaPosition(x, y, z);
+        }
 
         if (this.rejectImmobilePosition(newPosition, newRotation)) {
             return;
@@ -270,6 +298,7 @@ public class ClientPlayerEntity extends PlayerEntity {
         }
 
         this.position = newPosition;
+        this.javaPosition = new JavaPosition(x, y, z);
         this.rotation = newRotation;
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
@@ -288,7 +317,10 @@ public class ClientPlayerEntity extends PlayerEntity {
             return;
         }
 
-        if (omittedPosition != null) this.position = omittedPosition;
+        if (omittedPosition != null) {
+            this.javaPosition = null;
+            this.position = omittedPosition;
+        }
         this.rotation = newRotation;
         this.onGround = newOnGround;
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
@@ -383,6 +415,7 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     @Override
     public void setPosition(final Position3f position) {
+        this.javaPosition = null;
         super.setPosition(position);
         this.prevPosition = position;
     }
@@ -471,6 +504,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public void resetJavaMovementPosition() {
+        this.javaPosition = null;
         this.javaMovementPositionCache.reset();
     }
 
@@ -478,7 +512,7 @@ public class ClientPlayerEntity extends PlayerEntity {
         final RidingTracker riding = this.user.get(RidingTracker.class);
         if (!this.initiallySpawned || this.isDead() || this.isImmobile() || this.dimensionChangeInfo != null
                 || this.waitingForPositionSync || riding != null && riding.isLocalRiding()) {
-            this.javaMovementPositionCache.reset();
+            this.resetJavaMovementPosition();
             return false;
         }
         return true;

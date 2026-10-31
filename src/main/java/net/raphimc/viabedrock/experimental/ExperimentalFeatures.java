@@ -579,7 +579,13 @@ public class ExperimentalFeatures {
     private static void sendItemUseOnBlock(final UserConnection user, final ClientPlayerEntity clientPlayer, final ItemUseHandContext handContext, final InventoryTransactionRewriter inventoryTransactionRewriter, final ChunkTracker chunkTracker, final BlockPosition position, final int faceInt, final BlockFace face, final Position3f clickPosition, final boolean insideBlock, final int sequence) {
         clientPlayer.swingSourceTracker().recordUse(handContext.hand(),
                 handContext.item().blockRuntimeId() != 0 ? ActorSwingSource.Build : ActorSwingSource.Interact);
-        final BlockPosition expectedPos = insideBlock ? position : position.getRelative(face);
+        // insideBlock 仅表示射线起点在方块内，不决定替换点击格还是在相邻格放置。
+        // 半砖合并的目标、真实形状的自碰撞结果、物品预测与 ACK 必须使用同一次计算。
+        final PlacementPrediction.Result placement = handContext.item().blockRuntimeId() != 0
+                ? PlacementPrediction.predict(user, clientPlayer, handContext.item(), chunkTracker, position, face, clickPosition)
+                : new PlacementPrediction.Result(insideBlock ? position : position.getRelative(face), true);
+        final BlockPosition expectedPos = placement.target();
+        final boolean predictedSuccess = placement.success();
         // sequence 0 means there is no Java block-change to acknowledge (e.g. item frame entity interaction). Registering
         // a pending ack for it would leave a phantom sequence-0 ack that flushExpired emits after the timeout.
         if (sequence > 0) {
@@ -592,22 +598,12 @@ public class ExperimentalFeatures {
                 clientPlayer.runtimeId(),
                 PlayerActionType.StartItemUseOn,
                 position,
-                insideBlock ? position : position.getRelative(face),
+                expectedPos,
                 faceInt
         );
 
         // This is the main packet that the bedrock client use to interact with block.
         final PacketWrapper transactionPacket = PacketWrapper.create(ServerboundBedrockPackets.INVENTORY_TRANSACTION, user);
-
-        // Java 本地预测失败时仍会发送 USE_ITEM_ON，所以这里按原版自碰撞规则重建预测结果：
-        // 目标格与玩家盒相交时不消费物品，并告知服务端该次放置未成功。
-        final boolean placeBlock = handContext.item().blockRuntimeId() != 0 && !insideBlock;
-        final boolean predictedSuccess = !placeBlock || !PlacementPrediction.intersectsPlayer(
-                expectedPos,
-                clientPlayer.position().x(),
-                clientPlayer.position().y() - clientPlayer.eyeOffset(),
-                clientPlayer.position().z(),
-                clientPlayer.isSneaking());
 
         BedrockItem predictedToItem = handContext.item().copy();
         // This is not entirely correct, but at least it's more accurate than not sending actions or sending the original item data.
