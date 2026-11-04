@@ -133,7 +133,7 @@ public class ServerEntityTicker implements AnimationEventListener {
                     .getControllers().get(animId);
             if (controller != null) {
                 final AnimationControllerInstance instance = new AnimationControllerInstance(
-                        controller, entityAnimations, animDefs, this);
+                        controller, entityAnimations, animDefs, packManager.getAnimationControllerDefinitions(), this);
                 controllerInstances.add(instance);
             }
         }
