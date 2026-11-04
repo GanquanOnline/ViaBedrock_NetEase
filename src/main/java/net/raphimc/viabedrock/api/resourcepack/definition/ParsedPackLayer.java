@@ -12,10 +12,12 @@ package net.raphimc.viabedrock.api.resourcepack.definition;
 import net.easecation.bedrockmotion.pack.ServerAnimationLayer;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
 import net.raphimc.viabedrock.api.resourcepack.content.SelectedSubpackContent;
+import net.raphimc.viabedrock.api.resourcepack.content.PackContentView;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 
 /**
@@ -62,6 +64,23 @@ public record ParsedPackLayer(
         return parse(pack, "");
     }
 
+    /** Only these sources become retained definition graphs. Other files remain opaque pack data. */
+    public static List<String> definitionSourcePaths(final PackContentView content) {
+        final LinkedHashSet<String> paths = new LinkedHashSet<>();
+        for (DefinitionSource source : DefinitionSource.values()) paths.addAll(source.files(content));
+        paths.addAll(ServerAnimationLayer.sourcePaths(motionContent(content)));
+        return List.copyOf(paths);
+    }
+
+    private static ServerAnimationLayer.ContentView motionContent(final PackContentView content) {
+        return new ServerAnimationLayer.ContentView() {
+            @Override public List<String> getFilesDeep(String path, String extension) {
+                return content.getFilesDeep(path, extension);
+            }
+            @Override public String getString(String path) { return content.getString(path); }
+        };
+    }
+
     public static ParsedPackLayer parse(final ResourcePack pack, final String selectedSubpack) {
         Objects.requireNonNull(pack, "pack");
         final String subpack = Objects.requireNonNullElse(selectedSubpack, "");
@@ -88,17 +107,8 @@ public record ParsedPackLayer(
                     FogDefinitions.fromPack(effectivePack),
                     BiomeDefinitions.fromPack(effectivePack),
                     renderControllers,
-                    ServerAnimationLayer.parseWithFrozenRenderControllers(new ServerAnimationLayer.ContentView() {
-                        @Override
-                        public List<String> getFilesDeep(final String path, final String extension) {
-                            return effectivePack.content().getFilesDeep(path, extension);
-                        }
-
-                        @Override
-                        public String getString(final String path) {
-                            return effectivePack.content().getString(path);
-                        }
-                    }, renderControllers.renderControllers())
+                    ServerAnimationLayer.parseWithFrozenRenderControllers(
+                            motionContent(effectivePack.content()), renderControllers.renderControllers())
                 );
             });
         } finally {

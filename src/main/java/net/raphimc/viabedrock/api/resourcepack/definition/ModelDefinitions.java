@@ -75,11 +75,11 @@ public class ModelDefinitions {
     }
 
     private static void loadModels(final ResourcePack pack, final Map<String, BedrockGeometryModel> entityModels) {
-        for (String modelPath : pack.content().getFilesDeep("models/", ".json")) {
+        for (String modelPath : DefinitionSource.MODELS.files(pack.content())) {
             loadModel(pack, modelPath, modelPath.startsWith("models/entity/"), entityModels);
         }
-        if (pack.content().contains("geometry.json")) {
-            loadModel(pack, "geometry.json", true, entityModels);
+        if (pack.content().contains(DefinitionSource.LEGACY_MODEL.path())) {
+            loadModel(pack, DefinitionSource.LEGACY_MODEL.path(), true, entityModels);
         }
     }
 

@@ -41,7 +41,7 @@ public class ParticleDefinitions {
 
     static ParticleDefinitions fromPack(final ResourcePack pack) {
         final Map<String, ParticleDefinition> particles = new LinkedHashMap<>();
-        for (String particlePath : pack.content().getFilesDeep("particles/", ".json")) {
+        for (String particlePath : DefinitionSource.PARTICLES.files(pack.content())) {
             try {
                 final JsonObject particleEffect = pack.content().getJson(particlePath).getAsJsonObject("particle_effect");
                 final String identifier = Key.namespaced(particleEffect.getAsJsonObject("description").get("identifier").getAsString());

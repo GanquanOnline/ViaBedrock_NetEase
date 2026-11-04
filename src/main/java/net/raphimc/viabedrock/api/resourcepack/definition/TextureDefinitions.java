@@ -40,9 +40,9 @@ public class TextureDefinitions {
 
     static TextureDefinitions fromPack(final ResourcePack pack) {
         final Map<String, List<ItemTextureDefinition>> itemTextures = new LinkedHashMap<>();
-        if (pack.content().contains("textures/item_texture.json")) {
+        if (pack.content().contains(DefinitionSource.TEXTURES.path())) {
             try {
-                final JsonObject itemTexture = pack.content().getJson("textures/item_texture.json");
+                final JsonObject itemTexture = pack.content().getJson(DefinitionSource.TEXTURES.path());
                 final String textureName = itemTexture.has("texture_name") ? itemTexture.get("texture_name").getAsString() : "atlas.items";
                 if (textureName.equals("atlas.items")) {
                     final JsonObject textureData = itemTexture.getAsJsonObject("texture_data");

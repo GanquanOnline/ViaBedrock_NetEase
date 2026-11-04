@@ -43,9 +43,9 @@ public class BlockDefinitions {
 
     static BlockDefinitions fromPack(final ResourcePack pack) {
         final Map<String, BlockDefinition> blocks = new LinkedHashMap<>();
-        if (pack.content().contains("blocks.json")) {
+        if (pack.content().contains(DefinitionSource.BLOCKS.path())) {
             try {
-                final JsonObject blocksJson = pack.content().getJson("blocks.json");
+                final JsonObject blocksJson = pack.content().getJson(DefinitionSource.BLOCKS.path());
                 for (Map.Entry<String, JsonElement> entry : blocksJson.entrySet()) {
                     if (entry.getKey().equals("format_version")) continue;
                     final JsonObject block = entry.getValue().getAsJsonObject();

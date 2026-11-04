@@ -42,7 +42,7 @@ public class RenderControllerDefinitions {
 
     static RenderControllerDefinitions fromPack(final ResourcePack pack) {
         final Map<String, BedrockRenderController> renderControllers = new LinkedHashMap<>();
-        for (String controllerPath : pack.content().getFilesDeep("render_controllers/", ".json")) {
+        for (String controllerPath : DefinitionSource.RENDER_CONTROLLERS.files(pack.content())) {
             try {
                 for (BedrockRenderController parsed : BedrockControllerParser.parse(pack.content().getString(controllerPath))) {
                     final BedrockRenderController renderController = DefinitionImmutability.renderController(parsed);

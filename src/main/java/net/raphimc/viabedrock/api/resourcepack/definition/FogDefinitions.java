@@ -41,7 +41,7 @@ public class FogDefinitions {
 
     static FogDefinitions fromPack(final ResourcePack pack) {
         final Map<String, FogDefinition> fogs = new LinkedHashMap<>();
-        for (String fogPath : pack.content().getFilesDeep("fogs/", ".json")) {
+        for (String fogPath : DefinitionSource.FOGS.files(pack.content())) {
             try {
                 final JsonObject fog = pack.content().getJson(fogPath).getAsJsonObject("minecraft:fog_settings");
                 final String identifier = Key.namespaced(fog.getAsJsonObject("description").get("identifier").getAsString());

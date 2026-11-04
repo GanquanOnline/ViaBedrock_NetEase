@@ -43,7 +43,7 @@ public class EntityDefinitions {
 
     static EntityDefinitions fromPack(final ResourcePack pack) {
         final Map<String, EntityDefinition> entities = new LinkedHashMap<>();
-        for (String entityPath : pack.content().getFilesDeep("entity/", ".json")) {
+        for (String entityPath : DefinitionSource.ENTITIES.files(pack.content())) {
             try {
                 final BedrockEntityData parsed = BedrockEntityParser.parse(pack.content().getString(entityPath));
                 final BedrockEntityData entityData = DefinitionImmutability.entityData(parsed);

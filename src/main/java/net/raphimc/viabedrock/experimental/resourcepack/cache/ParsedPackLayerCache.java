@@ -221,8 +221,9 @@ final class ParsedPackLayerCache {
         final Content content = selectedSubpack == null || selectedSubpack.isEmpty()
                 ? pack.content() : new SelectedSubpackContent(pack.content(), selectedSubpack);
         long bytes = 64L * 1024L;
-        for (String path : content.getFilesDeep("", "")) {
-            if (!path.endsWith(".json") && !path.endsWith(".lang")) continue;
+        // Use the parser's own source inventory. Opaque client JSON is carried by the archive
+        // tier, but is neither parsed nor retained by this definition layer.
+        for (String path : ParsedPackLayer.definitionSourcePaths(content)) {
             try {
                 final long size = content.size(path);
                 if (size > 0L) {
