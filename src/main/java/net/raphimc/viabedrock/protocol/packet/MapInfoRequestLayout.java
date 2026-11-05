@@ -25,10 +25,10 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * 基岩 MAP_INFO_REQUEST（68 号包）的线路布局。
  * <p>
  * MOT {@code MapInfoRequestPacket.decode()} 读取 {@code varlong mapId}，并在
- * 协议 &gt;= 544 时读取一个**小端 int32** 像素数量，随后读取该数量的
- * {@code int + lshort} 像素。官方 Java 客户端从不发送像素，该数量恒为 0。
- * 写成无符号 varint 会让线上少 3 个字节，MOT 读数量时越过包尾，
- * 整批解码失败并以 {@code Sent malformed packet} 断连。
+ * 协议 &gt;= 544 时读取一个无符号 varint 像素数量，随后读取该数量的
+ * {@code int + lshort} 像素。官方 Java 客户端从不发送像素；
+ * 该数量必须是 0 的无符号 varint。写成小端 int 0 会留下三个多余的
+ * 零字节，整批解码随之错位。
  */
 public final class MapInfoRequestLayout {
 
@@ -45,7 +45,7 @@ public final class MapInfoRequestLayout {
                              final boolean includePixels, final int protocol) {
         wrapper.write(BedrockTypes.VAR_LONG, mapId);
         if (includePixels && protocol >= PIXELS_PROTOCOL) {
-            wrapper.write(BedrockTypes.INT_LE, 0);
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, 0);
         }
     }
 
@@ -53,7 +53,7 @@ public final class MapInfoRequestLayout {
                              final boolean includePixels, final int protocol) {
         BedrockTypes.VAR_LONG.write(buffer, mapId);
         if (includePixels && protocol >= PIXELS_PROTOCOL) {
-            BedrockTypes.INT_LE.write(buffer, 0);
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0);
         }
     }
 }
