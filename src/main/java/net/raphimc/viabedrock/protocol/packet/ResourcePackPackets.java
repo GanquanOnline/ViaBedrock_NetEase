@@ -642,6 +642,8 @@ public class ResourcePackPackets {
 
     private static void failPackDelivery(final ResourcePackLoadStateTracker loadStateTracker,
                                          final Throwable error) {
+        ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
+                "Resource pack delivery failed (token=" + loadStateTracker.httpToken() + ")", error);
         if (ViaBedrock.getResourcePackServer() != null && loadStateTracker.httpToken() != null) {
             ViaBedrock.getResourcePackServer().failConnection(loadStateTracker.httpToken(), error);
         } else if (ViaBedrock.getRemotePackServiceClient() != null) {
