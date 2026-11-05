@@ -18,6 +18,7 @@
 package net.raphimc.viabedrock.experimental.pyrpc;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import net.raphimc.viabedrock.ViaBedrock;
@@ -54,6 +55,9 @@ public class PyRpcDispatcherModule implements FeatureModule {
     // NukkitMaster 的 PyRpcMessageListener 只接受这个魔法 msgId（网易客户端
     // 总是发送它）。服务端→客户端方向则改用 PyRpcPacket.DEFAULT_MSG_ID = 9753608。
     static final int MSG_ID = 98247598;
+    /** ModUIClient 负载类型序号：0=CONFIRM，1=PY_RPC_DATA（对应 ModUIPayload.PayloadType）。 */
+    static final int CONFIRM_PAYLOAD_TYPE = 0;
+    static final int PY_RPC_DATA_PAYLOAD_TYPE = 1;
     /** NukkitMaster {@code ClientEventListener} 中 HUD / 玩家信息的引擎调用开关。 */
     public static final String CLIENT_LOAD_ADDONS_FINISHED = "ClientLoadAddonsFinishedFromGac";
     /** SET_LOCAL_PLAYER_AS_INITIALIZED 之后的延迟，好让 MOT 先处理完 PlayerJoinEvent。 */
@@ -277,8 +281,8 @@ public class PyRpcDispatcherModule implements FeatureModule {
     public void onPacketRegistration(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PY_RPC, null, wrapper -> {
             wrapper.cancel();
-            // 服务端→客户端方向的布局是 [payload][int32 LE msgId]（负载在前），与客户端→服务端相反。
-            // 按 msgId 在前解码会剥掉 4 个字节，使 isModEventS2C() 失效。
+            // 与 MOT PyRpcPacket.encode() 一致：服务端→客户端同样是 [payload][int32 LE msgId]。
+            // 先读 msgId 会把负载削掉 4 个字节，使 isModEventS2C() 失效。
             final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // MsgPack 数据
             final int msgId = wrapper.read(BedrockTypes.INT_LE); // msgId（转发服务端→客户端时不需要）
             if (ViaBedrock.getConfig().shouldEmulateNetEaseClient() && isModEventS2C(data)) {
@@ -315,29 +319,45 @@ public class PyRpcDispatcherModule implements FeatureModule {
             final PacketWrapper msg = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, wrapper.user());
             msg.write(Types.STRING, targetChannel);
             if (DATA_CHANNEL.equals(targetChannel)) {
-                msg.write(Types.INT, 1); // PayloadType.PY_RPC_DATA
+                msg.write(Types.INT, PY_RPC_DATA_PAYLOAD_TYPE);
             }
             msg.write(Types.REMAINING_BYTES, data);
             msg.scheduleSend(BedrockProtocol.class);
         });
     }
 
+    /**
+     * 回应 ModUIClient 握手：一个 type=0 的空负载。客户端收到后才会
+     * {@code UIManager.setConnected(true)} 并开始请求 HUD。
+     *
+     * @return 仅在 PLAY 状态实际发出时返回 true
+     */
+    static boolean sendConfirm(final com.viaversion.viaversion.api.connection.UserConnection user) {
+        // minecraft:register 在 CONFIGURATION 阶段也会到达；客户端只在 PLAY 注册接收器，
+        // 在错误的状态发 CONFIRM 会让客户端因未知负载断线。
+        if (user.getProtocolInfo().getClientState() != State.PLAY) {
+            return false;
+        }
+        final PacketWrapper confirm = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        confirm.write(Types.STRING, DATA_CHANNEL);
+        confirm.write(Types.INT, CONFIRM_PAYLOAD_TYPE);
+        confirm.write(Types.REMAINING_BYTES, new byte[0]);
+        confirm.scheduleSend(BedrockProtocol.class);
+        return true;
+    }
+
     @Override
     public void onChannelRegistered(final com.viaversion.viaversion.api.connection.UserConnection user, final java.util.Set<String> channels) {
-        // ModUIClient 只注册 "moduiclient:confirm"（minecraft:register）。Fabric 的
-        // 负载注册随后使 "moduiclient:data" 可用，因此把 confirm 当作能力信号，
-        // 用一个空的 CONFIRM 负载回应握手 —— 没有它客户端的
-        // UIManager.setConnected(true) 不会执行。
-        if (!channels.contains(CONFIRM_CHANNEL) || user.get(ChannelStorage.class).hasChannel(DATA_CHANNEL)) {
+        // ModUIClient 在 JOIN 时用 minecraft:register 宣告 "moduiclient:confirm"，
+        // Fabric 随后再宣告真正接收数据的 "moduiclient:data"。这里只认 confirm，
+        // 不再看 data 是否已知 —— 两个注册包的先后由 Fabric 决定，不能当状态用。
+        if (!channels.contains(CONFIRM_CHANNEL)) {
             return;
         }
 
-        final PacketWrapper confirm = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-        confirm.write(Types.STRING, DATA_CHANNEL);
-        confirm.write(Types.INT, 0); // PayloadType.CONFIRM
-        confirm.write(Types.REMAINING_BYTES, new byte[0]);
-        confirm.scheduleSend(BedrockProtocol.class);
-        ViaBedrock.getPlatform().getLogger().info("[PY_RPC] ModUIClient confirm channel seen; sent CONFIRM handshake");
+        if (sendConfirm(user)) {
+            ViaBedrock.getPlatform().getLogger().info("[PY_RPC] ModUIClient confirm channel seen; sent CONFIRM handshake");
+        }
     }
 
     @Override
@@ -348,7 +368,17 @@ public class PyRpcDispatcherModule implements FeatureModule {
 
         try {
             final int payloadType = wrapper.read(Types.INT); // PayloadType 序号
-            if (payloadType != 1) { // PY_RPC_DATA；CONFIRM/ENTITY_MAPPING 属客户端内部使用
+            if (payloadType == CONFIRM_PAYLOAD_TYPE) {
+                // 客户端主动问候：握手不再依赖 minecraft:register 的到达顺序。
+                // 同时补上能力标记，否则 S2C 转发门槛仍会把 HUD 响应丢掉。
+                final ChannelStorage channels = wrapper.user().get(ChannelStorage.class);
+                if (channels != null) {
+                    channels.addChannels(java.util.List.of(CONFIRM_CHANNEL, DATA_CHANNEL));
+                }
+                sendConfirm(wrapper.user());
+                return true;
+            }
+            if (payloadType != PY_RPC_DATA_PAYLOAD_TYPE) {
                 return true;
             }
             final byte[] msgpackData = wrapper.read(Types.REMAINING_BYTES);
