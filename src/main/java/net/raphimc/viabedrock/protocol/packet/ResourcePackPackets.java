@@ -182,9 +182,13 @@ public class ResourcePackPackets {
             }
 
             final boolean resourcePackRequired = wrapper.read(Types.BOOLEAN);
-            if (ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
-                // 网易 / 协议 860 仍然先序列化行为包栈。
-                skipPackStackEntries(wrapper);
+            if (ResourcePackStackLayout.sendsNetEaseBehaviourPackStack()) {
+                // 网易 860 仍然先序列化行为包栈；网易 898 起服务端已移除这一段。
+                final int skippedBehaviourPacks = ResourcePackStackLayout.skipBehaviourPackStack(wrapper);
+                if (skippedBehaviourPacks > 0) {
+                    ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                            "Skipped " + skippedBehaviourPacks + " NetEase behaviour pack stack entries");
+                }
             }
             final ResourcePack.Key[] keys = new ResourcePack.Key[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 资源包数量
             final String[] subpacks = new String[keys.length];
@@ -607,19 +611,6 @@ public class ResourcePackPackets {
 
     static boolean isCountedTransferPack(final PackType type) {
         return type == PackType.Resources || type == PackType.Behavior;
-    }
-
-    private static void skipPackStackEntries(final PacketWrapper wrapper) {
-        final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
-        for (int i = 0; i < count; i++) {
-            wrapper.read(BedrockTypes.STRING); // ID
-            wrapper.read(BedrockTypes.STRING); // 版本
-            wrapper.read(BedrockTypes.STRING); // 子包名称
-        }
-        if (count > 0) {
-            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
-                    "Skipped " + count + " NetEase behaviour pack stack entries");
-        }
     }
 
     static <T> CompletableFuture<T> detachedCancellation(final CompletionStage<T> source,
