@@ -32,17 +32,22 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Wire-layout helpers for AVAILABLE_COMMANDS / COMMAND_REQUEST / COMMAND_OUTPUT.
+ * AVAILABLE_COMMANDS / COMMAND_REQUEST / COMMAND_OUTPUT 的线格式布局辅助。
  * <p>
- * Official Bedrock and Nukkit-MOT protocol 897+ switched several command fields
- * from compact integers to strings (origin type, permission, output type, command
- * version) and widened enum / subcommand indices. NetEase 860 still uses the
- * pre-897 integer layout. Reading that payload as strings turns the player origin
- * 0 into an empty CommandOriginType and aborts the Java session as SYSTEM_CHAT.
+ * 官方基岩和 Nukkit-MOT 的协议 897+ 把若干命令字段
+ * 从紧凑整数改成字符串（来源类型、权限、输出类型、命令
+ * 版本），并加宽了枚举 / 子命令索引。网易 860 仍使用
+ * 897 之前的整数布局。把这些载荷按字符串读取会把玩家来源
+ * 0 变成一个空的 CommandOriginType，并以 SYSTEM_CHAT 中止 Java 会话。
  */
 public final class CommandPacketLayout {
 
     public static final int STRING_LAYOUT_PROTOCOL = 897;
+    /**
+     * Nukkit-MOT 898 把网易的 {@code unlimit} 标志从包尾移到了
+     * {@code internal} 之后。860 仍在命令版本之后发送它。
+     */
+    public static final int NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL = 898;
 
     private CommandPacketLayout() {
     }
@@ -109,6 +114,12 @@ public final class CommandPacketLayout {
 
     public static void writeRequestVersion(final PacketWrapper wrapper) {
         writeRequestVersion(wrapper, usesStringLayout());
+    }
+
+    public static void writeNetEaseUnlimit(final PacketWrapper wrapper) {
+        if (emulateNetEase() && netEaseProtocol() >= NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL) {
+            wrapper.write(Types.BOOLEAN, false); // unlimit
+        }
     }
 
     public static void writeRequestVersion(final PacketWrapper wrapper, final boolean stringLayout) {
@@ -275,11 +286,11 @@ public final class CommandPacketLayout {
     }
 
     /**
-     * MOT {@code AvailableCommandsPacket.encode()} always ends with
-     * {@code putUnsignedVarInt(0)} and never writes constraint records.
-     * Live NetEase 860 still appends 3 leftover bytes after that empty count.
-     * Reading them as official {@code {int32, int32, byte[]}} is the historical
-     * {@code 55592 of 55595 bytes} parse failure that dropped the command tree.
+     * MOT 的 {@code AvailableCommandsPacket.encode()} 总是以
+     * {@code putUnsignedVarInt(0)} 结尾，从不写约束记录。
+     * 实际运行的网易 860 在空计数之后还会多出 3 个遗留字节。
+     * 把它们按官方 {@code {int32, int32, byte[]}} 读取，就是历史上那次
+     * {@code 55592 of 55595 bytes} 解析失败，导致命令树被丢弃。
      */
     public static void skipNetEaseEnumConstraintTrailer(final ByteBuf buffer) {
         if (buffer.isReadable()) {

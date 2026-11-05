@@ -20,6 +20,7 @@ package net.raphimc.viabedrock;
 import com.viaversion.viaversion.util.Config;
 import com.viaversion.viaversion.util.ConfigSection;
 import net.raphimc.viabedrock.platform.ResourcePackDeliveryMode;
+import net.raphimc.viabedrock.protocol.data.NetEaseProtocolProfile;
 
 import java.io.File;
 import java.net.URL;
@@ -32,9 +33,6 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
 
     private static final String DEFAULT_TAB_LIST_HEADER = "%level_name%\n";
     private static final String DEFAULT_TAB_LIST_FOOTER = "\u00A7aViaBedrock \u00A73v%version%\n\u00A77https://github.com/RaphiMC/ViaBedrock";
-    private static final int NETEASE_PROTOCOL_VERSION = 860;
-    private static final String NETEASE_GAME_VERSION = "1.21.124_NetEase";
-    private static final int NETEASE_RAKNET_PROTOCOL_VERSION = 8;
 
     private boolean enableExperimentalFeatures;
     private boolean enableSwordBlockingAnimation;
@@ -162,22 +160,32 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
         this.viaProxyAuthSecret = this.getString("viaproxy-auth-secret", "");
         final ConfigSection netease = this.getSection("netease");
         this.emulateNetEaseClient = getBoolean(netease, "enabled", false);
-        final int configuredNetEaseProtocol = getInt(netease, "protocol-version", NETEASE_PROTOCOL_VERSION);
-        final String configuredNetEaseGameVersion = getString(netease, "game-version", NETEASE_GAME_VERSION);
-        final int configuredNetEaseRakNetProtocol = getInt(netease, "raknet-protocol-version", NETEASE_RAKNET_PROTOCOL_VERSION);
+        final int configuredNetEaseProtocol = getInt(netease, "protocol-version", NetEaseProtocolProfile.newest().protocolVersion());
+        final String configuredNetEaseGameVersion = getString(netease, "game-version", "");
+        final int configuredNetEaseRakNetProtocol = getInt(netease, "raknet-protocol-version", NetEaseProtocolProfile.NETEASE_RAKNET_PROTOCOL_VERSION);
         if (this.emulateNetEaseClient) {
-            if (configuredNetEaseProtocol != NETEASE_PROTOCOL_VERSION
-                    || !NETEASE_GAME_VERSION.equals(configuredNetEaseGameVersion)
-                    || configuredNetEaseRakNetProtocol != NETEASE_RAKNET_PROTOCOL_VERSION) {
-                this.logger.warning("NetEase emulation is pinned to protocol 860, GameVersion 1.21.124_NetEase and RakNet 8; ignoring incompatible netease settings");
+            if (!NetEaseProtocolProfile.isSelectable(configuredNetEaseProtocol)) {
+                this.logger.warning("Unsupported netease.protocol-version " + configuredNetEaseProtocol
+                        + "; falling back to " + NetEaseProtocolProfile.newest().protocolVersion()
+                        + " (supported: 860, 898, 0 = auto)");
             }
-            this.netEaseProtocolVersion = NETEASE_PROTOCOL_VERSION;
-            this.netEaseGameVersion = NETEASE_GAME_VERSION;
-            this.netEaseRakNetProtocolVersion = NETEASE_RAKNET_PROTOCOL_VERSION;
+            final NetEaseProtocolProfile profile = NetEaseProtocolProfile.resolve(configuredNetEaseProtocol);
+            if (!configuredNetEaseGameVersion.isEmpty() && !profile.gameVersion().equals(configuredNetEaseGameVersion)) {
+                this.logger.warning("netease.game-version " + configuredNetEaseGameVersion
+                        + " does not belong to protocol " + profile.protocolVersion()
+                        + "; using " + profile.gameVersion());
+            }
+            this.netEaseProtocolVersion = profile.protocolVersion();
+            this.netEaseGameVersion = profile.gameVersion();
+            this.netEaseRakNetProtocolVersion = NetEaseProtocolProfile.resolveRakNetProtocolVersion(configuredNetEaseRakNetProtocol);
+            this.logger.info("Emulating NetEase client " + profile.gameVersion()
+                    + " (protocol " + profile.protocolVersion()
+                    + ", RakNet " + this.netEaseRakNetProtocolVersion + ")");
         } else {
             this.netEaseProtocolVersion = configuredNetEaseProtocol;
-            this.netEaseGameVersion = configuredNetEaseGameVersion;
-            this.netEaseRakNetProtocolVersion = configuredNetEaseRakNetProtocol;
+            this.netEaseGameVersion = configuredNetEaseGameVersion.isEmpty()
+                    ? NetEaseProtocolProfile.newest().gameVersion() : configuredNetEaseGameVersion;
+            this.netEaseRakNetProtocolVersion = NetEaseProtocolProfile.resolveRakNetProtocolVersion(configuredNetEaseRakNetProtocol);
         }
         this.enableServerEntityAnimation = this.getBoolean("enable-server-entity-animation", true);
         this.javaSkinFetchTimeout = this.getInt("java-skin-fetch-timeout", 1000);

@@ -23,6 +23,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class Netease860BlockRuntimeOverlayTest {
 
     @Test
+    void overlayOnlyAppliesToThe860SequentialPalette() {
+        assertTrue(Netease860BlockRuntimeOverlay.applies(true, 860, false));
+        assertFalse(Netease860BlockRuntimeOverlay.applies(true, 860, true));
+        assertFalse(Netease860BlockRuntimeOverlay.applies(false, 860, false));
+        assertFalse(Netease860BlockRuntimeOverlay.applies(true, 898, false));
+        assertFalse(Netease860BlockRuntimeOverlay.applies(true, 0, false));
+    }
+
+    @Test
     void bundledMot860OverlayMapsHashedIdsAndAddsMicroBlock() throws Exception {
         try (InputStreamReader reader = new InputStreamReader(
                 Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(

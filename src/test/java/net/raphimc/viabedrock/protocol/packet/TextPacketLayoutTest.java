@@ -75,7 +75,7 @@ class TextPacketLayoutTest {
     void parsesOfficial924RawMessage() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            TextPacketLayout.writeHeader(buffer, false, TextPacketType.raw, false);
+            TextPacketLayout.writeHeader(buffer, false, TextPacketType.raw, false, false);
             BedrockTypes.STRING.write(buffer, WELCOME);
             TextPacketLayout.writeTrailer(buffer, TextPacketType.raw, "", false, 975);
             final TextPacketLayout.DecodedText decoded = TextPacketLayout.readPacket(buffer, false, 975);
@@ -91,7 +91,7 @@ class TextPacketLayoutTest {
     void parsesLegacyChatWithSourceAndUnknownNeTail() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            TextPacketLayout.writeHeader(buffer, false, TextPacketType.chat, true);
+            TextPacketLayout.writeHeader(buffer, false, TextPacketType.chat, true, false);
             BedrockTypes.STRING.write(buffer, "Steve");
             BedrockTypes.STRING.write(buffer, "hello");
             TextPacketLayout.writeTrailer(buffer, TextPacketType.chat, "123", true, 860);
@@ -100,6 +100,73 @@ class TextPacketLayoutTest {
             assertEquals("Steve", decoded.sourceName());
             assertEquals("hello", decoded.message());
             assertEquals("123", decoded.xuid());
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    void netease898UsesCategoryNameStrings() {
+        assertTrue(TextPacketLayout.usesCategoryNameStrings(true, 898));
+        assertTrue(TextPacketLayout.usesInlineNetEaseChatParameters(true, 898));
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(true, 860));
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(true, 924));
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(false, 975));
+        assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(true, 898));
+        assertFalse(TextPacketLayout.usesRequiredFilteredString(true, 898));
+    }
+
+    /**
+     * Nukkit-MOT 898 的 TextPacket（v898 格式）：localize、category、三个占位符名称、
+     * type、source、message、网易参数列表、xuid、平台 id、可选过滤后文本。
+     */
+    @Test
+    void parsesNetease898ChatWithCategoryNames() {
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            buffer.writeBoolean(false); // localize
+            buffer.writeByte(1); // 作者 + 消息
+            BedrockTypes.STRING.write(buffer, "chat");
+            BedrockTypes.STRING.write(buffer, "whisper");
+            BedrockTypes.STRING.write(buffer, "announcement");
+            buffer.writeByte(TextPacketType.chat.getValue());
+            BedrockTypes.STRING.write(buffer, "Steve");
+            BedrockTypes.STRING.write(buffer, "hello");
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 网易参数
+            BedrockTypes.STRING.write(buffer, "123");
+            BedrockTypes.STRING.write(buffer, "");
+            BedrockTypes.OPTIONAL_STRING.write(buffer, null);
+
+            final TextPacketLayout.DecodedText decoded = TextPacketLayout.readPacket(buffer, true, 898);
+            assertEquals(TextPacketType.chat, decoded.type());
+            assertEquals("Steve", decoded.sourceName());
+            assertEquals("hello", decoded.message());
+            assertEquals("123", decoded.xuid());
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    void parsesNetease898RawMessageWithSixNames() {
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            buffer.writeBoolean(false);
+            buffer.writeByte(0); // 仅消息
+            for (final String name : new String[]{"raw", "tip", "systemMessage", "textObjectWhisper", "textObjectAnnouncement", "textObject"}) {
+                BedrockTypes.STRING.write(buffer, name);
+            }
+            buffer.writeByte(TextPacketType.raw.getValue());
+            BedrockTypes.STRING.write(buffer, WELCOME);
+            BedrockTypes.STRING.write(buffer, "");
+            BedrockTypes.STRING.write(buffer, "");
+            BedrockTypes.OPTIONAL_STRING.write(buffer, null);
+
+            final TextPacketLayout.DecodedText decoded = TextPacketLayout.readPacket(buffer, true, 898);
+            assertEquals(TextPacketType.raw, decoded.type());
+            assertEquals(WELCOME, decoded.message());
             assertFalse(buffer.isReadable());
         } finally {
             buffer.release();

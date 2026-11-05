@@ -24,24 +24,26 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Trailer helpers for a few entity packets that grew extra official-Bedrock fields
- * after NetEase 860.
+ * 少数实体数据包的尾部辅助方法——这些包在网易 860 之后
+ * 增加了额外的官方 Bedrock 字段。
  * <p>
- * {@code MOB_EFFECT} (0x1C) gained {@code ambient} at protocol 897. NetEase 860 still
- * ends after the tick varlong (16 bytes for a typical join-time effect). Reading the
- * extra boolean past that payload aborts the Java connection as {@code UPDATE_MOB_EFFECT}.
- * {@code ANIMATE} gained optional {@code swingSource} at 897, and {@code ENTITY_EVENT}
- * gained optional {@code fireAtPosition} at 974.
+ * {@code MOB_EFFECT}（0x1C）在协议 897 增加了 {@code ambient}。网易 860 仍然
+ * 在 tick varlong 之后结束（典型的入服效果为 16 字节）。越过该载荷
+ * 多读一个布尔值，会以 {@code UPDATE_MOB_EFFECT} 为由中止 Java 连接。
+ * {@code ANIMATE} 在 897 增加了可选的 {@code swingSource}，{@code ENTITY_EVENT}
+ * 在 974 增加了可选的 {@code fireAtPosition}。
  */
 public final class EntityPacketLayout {
 
     public static final int AMBIENT_PROTOCOL = 897;
     public static final int SWING_SOURCE_PROTOCOL = 897;
     public static final int ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL = 974;
+    /** 网易 898 在 ANIMATE 载荷之后追加攻击者的 {@code attackId} varlong。 */
+    public static final int NETEASE_ATTACK_ID_PROTOCOL = 898;
     /**
-     * MOT {@code AnimatePacket.Action.ROW_RIGHT}/{@code ROW_LEFT}. Official ViaBedrock enums
-     * stop at {@code MagicCriticalHit(5)}; 860 still uses these row ids plus a trailing
-     * {@code rowingTime} float ({@code protocol < 897}).
+     * MOT 的 {@code AnimatePacket.Action.ROW_RIGHT}/{@code ROW_LEFT}。官方 ViaBedrock 枚举
+     * 止于 {@code MagicCriticalHit(5)}；860 仍然使用这些划船 ID，外加一个
+     * {@code rowingTime} 浮点数（{@code protocol < 897}）。
      */
     public static final int ROW_RIGHT_ACTION = 128;
     public static final int ROW_LEFT_ACTION = 129;
@@ -135,6 +137,20 @@ public final class EntityPacketLayout {
     public static void skipSwingSource(final PacketWrapper wrapper) {
         if (usesSwingSource()) {
             wrapper.read(BedrockTypes.OPTIONAL_STRING);
+        }
+    }
+
+    public static boolean usesNetEaseAttackId() {
+        return usesNetEaseAttackId(emulateNetEase(), netEaseProtocol());
+    }
+
+    public static boolean usesNetEaseAttackId(final boolean emulateNetEase, final int protocol) {
+        return emulateNetEase && protocol >= NETEASE_ATTACK_ID_PROTOCOL;
+    }
+
+    public static void skipNetEaseAttackId(final PacketWrapper wrapper) {
+        if (usesNetEaseAttackId()) {
+            wrapper.read(BedrockTypes.VAR_LONG); // 攻击 ID
         }
     }
 

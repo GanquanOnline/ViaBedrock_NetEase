@@ -59,10 +59,11 @@ public class ChatPackets {
     private static final PacketHandler CHAT_COMMAND_HANDLER = new PacketHandlers() {
         @Override
         protected void register() {
-            map(Types.STRING, BedrockTypes.STRING, c -> '/' + c); // command
-            handler(wrapper -> wrapper.write(BedrockTypes.COMMAND_ORIGIN_DATA, new CommandOriginData(CommandOriginType.Player, UUID.randomUUID(), ""))); // origin
-            create(Types.BOOLEAN, false); // is internal
-            handler(wrapper -> CommandPacketLayout.writeRequestVersion(wrapper)); // version
+            map(Types.STRING, BedrockTypes.STRING, c -> '/' + c); // 命令
+            handler(wrapper -> wrapper.write(BedrockTypes.COMMAND_ORIGIN_DATA, new CommandOriginData(CommandOriginType.Player, UUID.randomUUID(), ""))); // 来源
+            create(Types.BOOLEAN, false); // 是否为内部
+            handler(wrapper -> CommandPacketLayout.writeNetEaseUnlimit(wrapper)); // unlimit（网易 898+）
+            handler(wrapper -> CommandPacketLayout.writeRequestVersion(wrapper)); // 版本
             handler(PacketWrapper::clearInputBuffer);
             handler(wrapper -> {
                 final CommandsStorage commandsStorage = wrapper.user().get(CommandsStorage.class);
@@ -90,25 +91,25 @@ public class ChatPackets {
             try {
                 rewriteClientboundText(wrapper);
             } catch (Throwable e) {
-                // A malformed TEXT packet must never close the session. Official Bedrock
-                // drops the message; PacketHandlers.read() after cancel() used to rethrow.
+                // 格式错误的 TEXT 包绝不能关闭会话。原版基岩
+                // 会丢弃该消息；此前在 cancel() 之后调用 PacketHandlers.read() 会重新抛出异常。
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Skipping TEXT packet due to parse error: " + e);
                 wrapper.cancel();
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.COMMAND_OUTPUT, ClientboundPackets26_1.SYSTEM_CHAT, wrapper -> {
-            final CommandOriginData originData = wrapper.read(BedrockTypes.COMMAND_ORIGIN_DATA); // origin
-            final CommandOutputType type = CommandPacketLayout.readOutputType(wrapper); // type
-            CommandPacketLayout.readSuccessCount(wrapper); // success count
+            final CommandOriginData originData = wrapper.read(BedrockTypes.COMMAND_ORIGIN_DATA); // 来源
+            final CommandOutputType type = CommandPacketLayout.readOutputType(wrapper); // 类型
+            CommandPacketLayout.readSuccessCount(wrapper); // 成功次数
 
-            if (originData.type() != CommandOriginType.Player) { // Bedrock client ignores non player origins
+            if (originData.type() != CommandOriginType.Player) { // 基岩客户端会忽略非玩家来源
                 wrapper.cancel();
                 return;
             }
 
             final Function<String, String> translator = wrapper.user().get(ResourcePackStorage.class).getTexts().lookup();
             final StringBuilder message = new StringBuilder();
-            final int messageCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // message count
+            final int messageCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 消息数量
             for (int i = 0; i < messageCount; i++) {
                 final CommandPacketLayout.CommandOutputMessage outputMessage = CommandPacketLayout.readOutputMessage(wrapper);
                 final String messageId = outputMessage.messageId();
@@ -121,29 +122,29 @@ public class ChatPackets {
                     message.append("\n");
                 }
             }
-            CommandPacketLayout.skipOutputData(wrapper, type); // data set
+            CommandPacketLayout.skipOutputData(wrapper, type); // 数据集
 
             wrapper.write(Types.TAG, TextUtil.stringToNbt(message.toString()));
-            wrapper.write(Types.BOOLEAN, false); // overlay
+            wrapper.write(Types.BOOLEAN, false); // 叠加层
         });
         protocol.registerClientboundTransition(ClientboundBedrockPackets.AVAILABLE_COMMANDS,
                 State.CONFIGURATION, (PacketHandler) wrapper -> {
                     final CommandData[] commands;
                     try {
-                        commands = wrapper.read(BedrockTypes.COMMAND_DATA_ARRAY); // commands
+                        commands = wrapper.read(BedrockTypes.COMMAND_DATA_ARRAY); // 命令
                     } catch (Throwable t) {
-                        // NetEase tail layout differences must not kill the session; commands are optional
+                        // 网易尾部布局差异不得中断会话；命令是可选的
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
                                 "Skipping AVAILABLE_COMMANDS (configuration) due to parse error: " + t);
                         wrapper.cancel();
                         return;
                     }
                     wrapper.user().put(new CommandsStorage(wrapper.user(), commands));
-                    wrapper.cancel(); // Will be sent when the java player is ready
+                    wrapper.cancel(); // 将在 Java 玩家就绪时发送
                 }, ClientboundPackets26_1.COMMANDS, (PacketHandler) wrapper -> {
                     final CommandData[] commands;
                     try {
-                        commands = wrapper.read(BedrockTypes.COMMAND_DATA_ARRAY); // commands
+                        commands = wrapper.read(BedrockTypes.COMMAND_DATA_ARRAY); // 命令
                     } catch (Throwable t) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
                                 "Skipping AVAILABLE_COMMANDS (play) due to parse error: " + t);
@@ -160,8 +161,8 @@ public class ChatPackets {
             final CommandsStorage commandsStorage = wrapper.user().get(CommandsStorage.class);
             if (commandsStorage == null) return;
 
-            final String name = wrapper.read(BedrockTypes.STRING); // name
-            final Set<String> values = Sets.newHashSet(wrapper.read(BedrockTypes.STRING_ARRAY)); // values
+            final String name = wrapper.read(BedrockTypes.STRING); // 名称
+            final Set<String> values = Sets.newHashSet(wrapper.read(BedrockTypes.STRING_ARRAY)); // 值
 
             final CommandData.EnumData softEnum = commandsStorage.getSoftEnum(name);
             if (softEnum == null) {
@@ -169,7 +170,7 @@ public class ChatPackets {
                 return;
             }
 
-            final byte rawAction = wrapper.read(Types.BYTE); // action
+            final byte rawAction = wrapper.read(Types.BYTE); // 动作
             final SoftEnumUpdateType action = SoftEnumUpdateType.getByValue(rawAction);
             if (action == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SoftEnumUpdateType: " + rawAction);
@@ -189,7 +190,7 @@ public class ChatPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.SET_COMMANDS_ENABLED, null, wrapper -> {
             wrapper.cancel();
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
-            final boolean commandsEnabled = wrapper.read(Types.BOOLEAN); // commands enabled
+            final boolean commandsEnabled = wrapper.read(Types.BOOLEAN); // 命令是否启用
             if (commandsEnabled != gameSession.areCommandsEnabled()) {
                 gameSession.setCommandsEnabled(commandsEnabled);
                 final CommandsStorage commandsStorage = wrapper.user().get(CommandsStorage.class);
@@ -203,8 +204,9 @@ public class ChatPackets {
             @Override
             public void register() {
                 handler(wrapper -> writeServerboundChatHeader(wrapper, TextPacketType.chat));
-                handler(wrapper -> wrapper.write(BedrockTypes.STRING, wrapper.user().get(EntityTracker.class).getClientPlayer().name())); // source name
-                map(Types.STRING, BedrockTypes.STRING); // message
+                handler(wrapper -> wrapper.write(BedrockTypes.STRING, wrapper.user().get(EntityTracker.class).getClientPlayer().name())); // 来源名称
+                map(Types.STRING, BedrockTypes.STRING); // 消息
+                handler(wrapper -> writeServerboundChatParameters(wrapper));
                 handler(wrapper -> writeServerboundChatTrailer(wrapper));
                 handler(PacketWrapper::clearInputBuffer);
                 handler(wrapper -> {
@@ -224,8 +226,8 @@ public class ChatPackets {
             final CommandsStorage commandsStorage = wrapper.user().get(CommandsStorage.class);
             if (commandsStorage == null) return;
 
-            final int id = wrapper.read(Types.VAR_INT); // transaction id
-            final String command = wrapper.read(Types.STRING); // command
+            final int id = wrapper.read(Types.VAR_INT); // 事务 ID
+            final String command = wrapper.read(Types.STRING); // 命令
             if (!command.startsWith("/")) {
                 return;
             }
@@ -233,16 +235,16 @@ public class ChatPackets {
             final Suggestions suggestions = commandsStorage.complete(command);
 
             final PacketWrapper tabComplete = PacketWrapper.create(ClientboundPackets26_1.COMMAND_SUGGESTIONS, wrapper.user());
-            tabComplete.write(Types.VAR_INT, id); // transaction id
-            tabComplete.write(Types.VAR_INT, suggestions.getRange().getStart()); // start index
-            tabComplete.write(Types.VAR_INT, suggestions.getRange().getLength()); // length
-            tabComplete.write(Types.VAR_INT, suggestions.getList().size()); // count
+            tabComplete.write(Types.VAR_INT, id); // 事务 ID
+            tabComplete.write(Types.VAR_INT, suggestions.getRange().getStart()); // 起始索引
+            tabComplete.write(Types.VAR_INT, suggestions.getRange().getLength()); // 长度
+            tabComplete.write(Types.VAR_INT, suggestions.getList().size()); // 数量
             for (Suggestion suggestion : suggestions.getList()) {
-                tabComplete.write(Types.STRING, suggestion.getText()); // text
+                tabComplete.write(Types.STRING, suggestion.getText()); // 文本
                 if (suggestion.getTooltip() != null) {
-                    tabComplete.write(Types.OPTIONAL_TAG, TextUtil.stringToNbt(suggestion.getTooltip().getString())); // tooltip
+                    tabComplete.write(Types.OPTIONAL_TAG, TextUtil.stringToNbt(suggestion.getTooltip().getString())); // 提示文本
                 } else {
-                    tabComplete.write(Types.OPTIONAL_TAG, null); // tooltip
+                    tabComplete.write(Types.OPTIONAL_TAG, null); // 提示文本
                 }
             }
             tabComplete.send(BedrockProtocol.class);
@@ -339,20 +341,37 @@ public class ChatPackets {
             return;
         }
         wrapper.write(Types.BOOLEAN, false);
-        wrapper.write(Types.UNSIGNED_BYTE, (short) TextPacketLayout.categoryOf(type));
+        final byte category = TextPacketLayout.categoryOf(type);
+        wrapper.write(Types.UNSIGNED_BYTE, (short) category);
+        if (TextPacketLayout.usesCategoryNameStrings()) {
+            for (final String name : TextPacketLayout.categoryNameStrings(category)) {
+                wrapper.write(BedrockTypes.STRING, name);
+            }
+        }
         wrapper.write(Types.UNSIGNED_BYTE, (short) type.getValue());
+    }
+
+    static void writeServerboundChatParameters(final PacketWrapper wrapper) {
+        final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
+        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        if (TextPacketLayout.usesInlineNetEaseChatParameters(emulateNetEase, protocol)) {
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, 0); // 网易聊天参数列表（897..923）
+        }
     }
 
     static void writeServerboundChatTrailer(final PacketWrapper wrapper) {
         wrapper.write(BedrockTypes.STRING, wrapper.user().get(AuthData.class).getXuid());
         wrapper.write(BedrockTypes.STRING, "");
-        if (TextPacketLayout.usesRequiredFilteredString()) {
+        final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
+        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        if (TextPacketLayout.usesRequiredFilteredString(emulateNetEase, protocol)) {
             wrapper.write(BedrockTypes.STRING, "");
         } else {
             wrapper.write(BedrockTypes.OPTIONAL_STRING, null);
         }
-        if (TextPacketLayout.usesNetEaseUnknownTail(TextPacketType.chat)) {
-            wrapper.write(BedrockTypes.STRING, "");
+        if (TextPacketLayout.usesNetEaseParameterList(emulateNetEase, protocol, TextPacketType.chat)
+                && !TextPacketLayout.usesInlineNetEaseChatParameters(emulateNetEase, protocol)) {
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, 0); // 网易聊天参数列表（897 之前）
         }
     }
 
