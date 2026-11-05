@@ -44,6 +44,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class OtherPlayerCarryPacketsTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
     @BeforeAll
     static void initializeProtocolTypes() throws Exception {
         Class.forName("com.viaversion.viaversion.api.minecraft.data.StructuredDataKey");
@@ -97,6 +102,8 @@ class OtherPlayerCarryPacketsTest {
         final Map<Field, Object> mappings = new LinkedHashMap<>();
         final Field managerField = Via.class.getDeclaredField("manager");
         final Object previousManager;
+        final Field configField = net.raphimc.viabedrock.ViaBedrock.class.getDeclaredField("config");
+        final Object previousConfig;
         final RidingModule module = new RidingModule();
         final Field idField = EntityTypes1_21_11.class.getDeclaredField("id");
         final int oldPlayerId;
@@ -110,6 +117,14 @@ class OtherPlayerCarryPacketsTest {
             Class.forName("com.viaversion.viaversion.api.minecraft.data.StructuredDataKey");
             managerField.setAccessible(true);
             previousManager = managerField.get(null);
+            configField.setAccessible(true);
+            previousConfig = configField.get(null);
+            configField.set(null, Proxy.newProxyInstance(net.raphimc.viabedrock.platform.ViaBedrockConfig.class.getClassLoader(), new Class[]{net.raphimc.viabedrock.platform.ViaBedrockConfig.class}, (proxy, method, args) -> {
+                if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
+                if (method.getName().equals("shouldEnableExperimentalFeatures")) return true;
+                if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                throw new UnsupportedOperationException(method.getName());
+            }));
             idField.setAccessible(true);
             oldPlayerId = idField.getInt(EntityTypes1_21_11.PLAYER);
             oldDisplayId = idField.getInt(EntityTypes1_21_11.TEXT_DISPLAY);
@@ -118,6 +133,9 @@ class OtherPlayerCarryPacketsTest {
             final ProtocolManager protocolManager = (ProtocolManager) Proxy.newProxyInstance(ProtocolManager.class.getClassLoader(), new Class[]{ProtocolManager.class}, (proxy, method, args) -> {
                 if (method.getName().equals("createPacketWrapper")) {
                     return packet((PacketType) args[0]);
+                }
+                if (method.getName().equals("registeredProtocolCount") || method.getReturnType() == int.class) {
+                    return 0;
                 }
                 throw new UnsupportedOperationException(method.getName());
             });
@@ -128,6 +146,9 @@ class OtherPlayerCarryPacketsTest {
             mapping("javaEntityDataFields", Map.of(EntityTypes1_21_11.TEXT_DISPLAY, List.of(EntityDataFields.POS_ROT_INTERPOLATION_DURATION), EntityTypes1_21_11.PLAYER, List.of(EntityDataFields.PLAYER_MODE_CUSTOMISATION)));
             mapping("bedrockEntities", com.google.common.collect.HashBiMap.create());
             mapping("bedrockBlockItems", Set.of());
+            mapping("bedrockToJavaMetaItems", Map.of());
+            mapping("bedrockToJavaEnchantments", Map.of());
+            mapping("javaRegistries", new com.viaversion.nbt.tag.CompoundTag());
             mapping("bedrockEntityDataTypes", Map.of());
             this.protocol = new TestProtocol();
             OtherPlayerPackets.register(protocol);
@@ -226,6 +247,7 @@ class OtherPlayerCarryPacketsTest {
             modulesField.setAccessible(true);
             ((List<?>) modulesField.get(null)).remove(module);
             managerField.set(null, previousManager);
+            configField.set(null, previousConfig);
             idField.setInt(EntityTypes1_21_11.PLAYER, oldPlayerId);
             idField.setInt(EntityTypes1_21_11.TEXT_DISPLAY, oldDisplayId);
             for (var entry : mappings.entrySet()) entry.getKey().set(BedrockProtocol.MAPPINGS, entry.getValue());

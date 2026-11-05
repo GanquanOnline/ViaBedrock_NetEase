@@ -31,6 +31,7 @@ import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -45,6 +46,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlacementSwingPacketsTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     @Test
     void placementUseAndInteractionAnimateWithoutReportingAMissedAttack() throws Exception {
@@ -201,6 +207,8 @@ class PlacementSwingPacketsTest {
             }));
             this.configField.set(null, Proxy.newProxyInstance(ViaBedrockConfig.class.getClassLoader(), new Class[]{ViaBedrockConfig.class}, (proxy, method, args) -> {
                 if (method.getName().equals("getMovementWatchdogMode")) return ViaBedrockConfig.MovementWatchdogMode.OFF;
+                if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
+                if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
                 throw new UnsupportedOperationException(method.getName());
             }));
             this.entitiesField.setAccessible(true);

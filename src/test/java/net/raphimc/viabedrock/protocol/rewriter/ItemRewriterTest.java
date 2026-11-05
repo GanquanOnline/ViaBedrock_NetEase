@@ -709,9 +709,15 @@ class ItemRewriterTest {
 
     private static void ensureViaLoaded() throws InterruptedException {
         try {
+            net.raphimc.viabedrock.test.ViaTestBootstrap.clearManagerUnless(ViaManagerImpl.class);
             if (!Via.isLoaded()) {
-                ViaManagerImpl.initAndLoad(new TestViaPlatform(), new NoopInjector(),
-                        new ViaCommandHandler(false), ViaPlatformLoader.NOOP);
+                try {
+                    ViaManagerImpl.initAndLoad(new TestViaPlatform(), new NoopInjector(),
+                            new ViaCommandHandler(false), ViaPlatformLoader.NOOP);
+                } catch (final IllegalArgumentException e) {
+                    // 同一 JVM 里别的测试已加载过协议时不能重复 initialize，映射本身已就绪。
+                    if (!String.valueOf(e.getMessage()).contains("already been initialized")) throw e;
+                }
             }
             awaitMappingCompletion();
         } catch (final CompletionException e) {

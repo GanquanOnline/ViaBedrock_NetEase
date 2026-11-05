@@ -29,6 +29,7 @@ import net.raphimc.viabedrock.protocol.data.generated.java.RegistryKeys;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 import net.raphimc.viabedrock.protocol.storage.ClientSettingsStorage;
 import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -39,6 +40,11 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlantConnectionRulesTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     private static final BlockPosition POS = new BlockPosition(8, -49, 8);
     private final BiMap<BlockState, Integer> states = HashBiMap.create();

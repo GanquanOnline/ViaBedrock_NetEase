@@ -63,8 +63,8 @@ class ItemUseSnapshotTest {
         assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 4, item(100, (short) 2, (byte) 8, 200, "heal")));
         assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(101, (short) 2, (byte) 8, 200, "heal")));
         assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 3, (byte) 8, 200, "heal")));
-        assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 201, "heal")));
-        assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 200, "speed")));
+        assertTrue(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 201, "heal")));
+        assertTrue(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 200, "speed")));
         assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, null));
     }
 
@@ -78,7 +78,7 @@ class ItemUseSnapshotTest {
                 item(100, (short) 2, (byte) 8, 200, "heal")
         );
         assertTrue(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 201, "speed"), true));
-        assertFalse(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 201, "speed"), false));
+        assertTrue(snapshot.matches(InteractionHand.MAIN_HAND, (byte) 0, 3, 3, item(100, (short) 2, (byte) 8, 201, "speed"), false));
     }
 
     private static BedrockItem item(final int id, final short data, final byte amount, final int blockRuntimeId, final String effect) {

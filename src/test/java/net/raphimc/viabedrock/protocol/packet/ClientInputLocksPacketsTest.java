@@ -46,6 +46,7 @@ import net.raphimc.viabedrock.protocol.storage.JavaPlayerStateStorage;
 import net.raphimc.viabedrock.protocol.storage.PacketSyncStorage;
 import net.raphimc.viabedrock.protocol.storage.SpectatorCameraTracker;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -62,6 +63,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClientInputLocksPacketsTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     @Test
     void v3PreservesJumpAndDismountWithoutTurningThemIntoAMovementLock() throws Exception {
@@ -92,8 +98,8 @@ class ClientInputLocksPacketsTest {
     private static void assertInputLocksV3Wire(final PacketWrapper packet, final int flags, final boolean immobile) throws Exception {
         final ByteBuf encoded = Unpooled.buffer();
         try {
-            packet.setId(-1);
             packet.writeToBuffer(encoded);
+            Types.VAR_INT.readPrimitive(encoded); // 跳过包 ID
             assertEquals(ViaBedrockUtilityInterface.CHANNEL, Types.STRING.read(encoded));
             assertEquals(15, encoded.readInt());
             assertEquals(flags, encoded.readInt());
@@ -159,8 +165,8 @@ class ClientInputLocksPacketsTest {
     private static void assertInputLocksV2Wire(final PacketWrapper packet, final int flags, final boolean immobile) throws Exception {
         final ByteBuf encoded = Unpooled.buffer();
         try {
-            packet.setId(-1);
             packet.writeToBuffer(encoded);
+            Types.VAR_INT.readPrimitive(encoded); // 跳过包 ID
             assertEquals(ViaBedrockUtilityInterface.CHANNEL, Types.STRING.read(encoded));
             assertEquals(14, encoded.readInt());
             assertEquals(flags, encoded.readInt());
@@ -353,6 +359,8 @@ class ClientInputLocksPacketsTest {
             this.entitiesField.set(BedrockProtocol.MAPPINGS, HashBiMap.create());
             this.configField.set(null, Proxy.newProxyInstance(ViaBedrockConfig.class.getClassLoader(), new Class[]{ViaBedrockConfig.class}, (proxy, method, args) -> {
                 if (method.getName().equals("getMovementWatchdogMode")) return ViaBedrockConfig.MovementWatchdogMode.OFF;
+                if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
+                if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
                 throw new UnsupportedOperationException(method.getName());
             }));
             this.user.put(new GameSessionStorage(this.user));
