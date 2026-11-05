@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
-/** Weighted completed cache plus single-flight parsing for immutable per-pack definition layers. */
+/** 带权重的已完成结果缓存，加上针对不可变单包定义层的 single-flight 解析。 */
 final class ParsedPackLayerCache {
 
     private final Cache<LayerKey, RetainedLayer> completed;

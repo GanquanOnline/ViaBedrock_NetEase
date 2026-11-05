@@ -37,153 +37,121 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Interface for modular experimental feature implementations.
- * Each feature module is independently registered and receives lifecycle callbacks
- * from the protocol translation pipeline.
+ * 模块化实验性功能实现的接口。
+ * 每个功能模块独立注册，并接收来自协议转换管道的生命周期回调。
  */
 public interface FeatureModule {
 
     /**
-     * Called during BedrockMappingData.load() at various phases to allow
-     * modules to load custom mappings at the correct point in the initialization sequence.
+     * 在 BedrockMappingData.load() 的各阶段被调用，让模块能在初始化序列中的
+     * 正确时机加载自定义映射。
      */
     default void onMappingsLoad(BedrockMappingData data, MappingLoadPhase phase) {
     }
 
-    /**
-     * Called during BedrockProtocol.registerPackets() to register custom packet translators.
-     */
+    /** 在 BedrockProtocol.registerPackets() 期间被调用，用于注册自定义数据包转换器。 */
     default void onPacketRegistration(BedrockProtocol protocol) {
     }
 
-    /**
-     * Called during BedrockProtocol.init() to register per-connection storages.
-     */
+    /** 在 BedrockProtocol.init() 期间被调用，用于注册按连接划分的存储。 */
     default void onStorageRegistration(UserConnection user) {
     }
 
-    /**
-     * Called after an entity is added to the EntityTracker.
-     */
+    /** 在实体被加入 EntityTracker 之后调用。 */
     default void onEntityAdded(UserConnection user, Entity entity) {
     }
 
-    /**
-     * Called before an entity is removed from the EntityTracker.
-     */
+    /** 在实体从 EntityTracker 移除之前调用。 */
     default void onEntityRemoved(UserConnection user, Entity entity) {
     }
 
-    /**
-     * Called after ADD_ENTITY/ADD_PLAYER has been translated and the Bedrock entity links from
-     * the spawn packet are available.
-     */
+    /** 在 ADD_ENTITY/ADD_PLAYER 完成转换，且生成包中的基岩实体链接可用之后调用。 */
     default void onEntityLinks(UserConnection user, EntityLink[] links) {
     }
 
-    /**
-     * Called after an entity has stored a Bedrock entity data batch.
-     */
+    /** 在实体存储了一批基岩实体数据之后调用。 */
     default void onEntityDataChanged(UserConnection user, Entity entity, EntityData[] entityData) {
     }
 
-    /**
-     * Called after an entity position/rotation update has been applied.
-     */
+    /** 在实体的位置/旋转更新被应用之后调用。 */
     default void onEntityMoved(UserConnection user, Entity entity) {
     }
 
-    /**
-     * Called while writing PLAYER_AUTH_INPUT, after common fields are computed and before serialization.
-     */
+    /** 在写入 PLAYER_AUTH_INPUT 时、公共字段计算完成之后、序列化之前调用。 */
     default void onPlayerAuthInput(UserConnection user, ClientPlayerEntity clientPlayer, PlayerAuthInputContext context) {
     }
 
-    /**
-     * Called when the Java client registers custom payload channels.
-     */
+    /** 在 Java 客户端注册自定义 payload 通道时调用。 */
     default void onChannelRegistered(UserConnection user, Set<String> channels) {
     }
 
     /**
-     * Resolves an alternate Java custom payload channel for a Bedrock PY_RPC payload.
-     * The first non-null result is used; otherwise the shared PY_RPC channel is used.
+     * 为一个基岩 PY_RPC payload 解析备用的 Java 自定义 payload 通道。
+     * 使用第一个非 null 的结果；否则使用共享的 PY_RPC 通道。
      */
     default String resolveClientboundPyRpcChannel(byte[] data) {
         return null;
     }
 
-    /**
-     * Resolves whether a player list entry is visible in the Java tab list.
-     */
+    /** 判断某个玩家列表条目在 Java 玩家列表中是否可见。 */
     default boolean isPlayerListEntryListed(UserConnection user, UUID uuid, long entityUniqueId, String name) {
         return true;
     }
 
-    /**
-     * Allows modules to decorate the Java player list display name.
-     */
+    /** 允许模块装饰 Java 玩家列表的显示名称。 */
     default Tag decoratePlayerListDisplayName(UserConnection user, UUID uuid, long entityUniqueId, String name, int latency, Tag displayName) {
         return displayName;
     }
 
-    /**
-     * Called after latency values for existing Java player list entries are published.
-     */
+    /** 在现有 Java 玩家列表条目的延迟值发布之后调用。 */
     default void onPlayerLatenciesUpdated(UserConnection user, Map<UUID, Integer> latencies) {
     }
 
-    /**
-     * Called after JE/BE identity labels for existing Java player list entries change.
-     */
+    /** 在现有 Java 玩家列表条目的 JE/BE 身份标签变化之后调用。 */
     default void onPlayerIdentitiesUpdated(UserConnection user, Map<UUID, PlayerIdentity> identities) {
     }
 
-    /**
-     * Called before entity trackers are replaced during a dimension change.
-     */
+    /** 在维度切换期间实体跟踪器被替换之前调用。 */
     default void onDimensionChange(UserConnection user) {
     }
 
     /**
-     * Called during dimension change to resolve the dimension key for the Java client.
-     * The first non-null result from any module is used.
+     * 在维度切换期间调用，用于为 Java 客户端解析维度键。
+     * 使用任意模块返回的第一个非 null 结果。
      *
-     * @return the resolved dimension key, or null to use the default
+     * @return 解析出的维度键，返回 null 表示使用默认值
      */
     default String resolveDimensionKey(Dimension dimension, ChunkTracker oldChunkTracker) {
         return null;
     }
 
     /**
-     * Called during ADD_ENTITY processing to resolve custom entity types.
-     * The first non-null result from any module is used.
+     * 在处理 ADD_ENTITY 时调用，用于解析自定义实体类型。
+     * 使用任意模块返回的第一个非 null 结果。
      *
-     * @return a custom Entity instance, or null to fall back to default resolution
+     * @return 自定义 Entity 实例，返回 null 表示回退到默认解析
      */
     default Entity resolveEntity(UserConnection user, long uniqueId, long runtimeId, String type) {
         return null;
     }
 
-    /**
-     * Called after the resource pack stack is set and ready for processing.
-     */
+    /** 在资源包堆叠设置完成并可供处理之后调用。 */
     default void onResourcePackStackSet(UserConnection user) {
     }
 
-    /**
-     * Called after the Java client has finished loading the converted resource pack.
-     */
+    /** 在 Java 客户端加载完转换后的资源包之后调用。 */
     default void onJavaResourcePackLoaded(UserConnection user) {
     }
 
     /**
-     * Called when a custom payload packet is received from the Java client.
-     * The first module that returns true claims the packet.
+     * 在收到来自 Java 客户端的自定义 payload 数据包时调用。
+     * 第一个返回 true 的模块认领该数据包。
      *
-     * @param channel the custom payload channel
-     * @param wrapper the packet wrapper (already cancelled by the caller)
-     * @return true if this module handled the payload, false to pass to next module
+     * @param channel 自定义 payload 通道
+     *
+     * @param wrapper 数据包包装（调用方已将其取消）
+     *
+     * @return 若本模块处理了该 payload 则为 true，返回 false 则传给下一个模块
      */
     default boolean handleCustomPayload(String channel, PacketWrapper wrapper) {
         return false;

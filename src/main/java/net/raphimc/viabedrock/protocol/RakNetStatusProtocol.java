@@ -51,13 +51,13 @@ public class RakNetStatusProtocol extends AbstractSimpleProtocol {
     protected void registerPackets() {
         this.registerClientbound(State.STATUS, ID_UNCONNECTED_PONG, ClientboundStatusPackets.STATUS_RESPONSE.getId(), wrapper -> {
             final long ping = (System.nanoTime() - wrapper.user().get(PingInfoStorage.class).pingStartTime) / 1_000_000L;
-            wrapper.read(Types.LONG); // time (system uptime)
+            wrapper.read(Types.LONG); // 时间（系统运行时间）
             wrapper.read(Types.LONG); // guid
-            final byte[] offlineMessageDataId = wrapper.read(OFFLINE_MESSAGE_DATA_ID_TYPE); // offline message data id
+            final byte[] offlineMessageDataId = wrapper.read(OFFLINE_MESSAGE_DATA_ID_TYPE); // 离线消息数据 id
             if (!Arrays.equals(offlineMessageDataId, OFFLINE_MESSAGE_DATA_ID)) {
                 throw new IllegalStateException("Invalid offline message data id");
             }
-            final byte[] data = wrapper.read(Types.SHORT_BYTE_ARRAY); // ping response data
+            final byte[] data = wrapper.read(Types.SHORT_BYTE_ARRAY); // ping 响应数据
 
             final JsonObject statusResponse = new JsonObject();
             statusResponse.addProperty("description", "");
@@ -79,28 +79,28 @@ public class RakNetStatusProtocol extends AbstractSimpleProtocol {
             final String[] splitData = new String(data, StandardCharsets.UTF_8).split(";");
             switch (splitData.length) {
                 default:
-                case 12: // IPv6 Port
+                case 12: // IPv6 端口
                     samples.add(this.createPlayerSample("IPv6 Port: " + splitData[11]));
-                case 11: // IPv4 Port
+                case 11: // IPv4 端口
                     samples.add(this.createPlayerSample("IPv4 Port: " + splitData[10]));
-                case 10: // Nintendo limited
+                case 10: // Nintendo 限定
                     samples.add(this.createPlayerSample("Nintendo limited: " + !"1".equalsIgnoreCase(splitData[9])));
                 case 9: // GameType
                     samples.add(this.createPlayerSample("GameType: " + splitData[8]));
-                case 8: // Sub MOTD
-                case 7: // Server unique id
-                case 6: // Max player count
+                case 8: // 副 MOTD
+                case 7: // 服务器唯一 id
+                case 6: // 最大玩家数量
                     try {
                         players.addProperty("max", Integer.parseInt(splitData[5]));
                     } catch (NumberFormatException ignored) {
                     }
-                case 5: // Player count
+                case 5: // 玩家数量
                     try {
                         players.addProperty("online", Integer.parseInt(splitData[4]));
                     } catch (NumberFormatException ignored) {
                     }
-                case 4: // Version name
-                case 3: // Protocol version
+                case 4: // 版本名称
+                case 3: // 协议版本
                     samples.add(this.createPlayerSample("Protocol: " + splitData[2]));
                 case 2: // MOTD
                     statusResponse.addProperty("description", splitData[1] + (splitData.length >= 8 ? ("\n§r" + splitData[7]) : ""));
@@ -112,20 +112,20 @@ public class RakNetStatusProtocol extends AbstractSimpleProtocol {
                 case 0:
             }
 
-            wrapper.write(Types.STRING, statusResponse.toString()); // status
+            wrapper.write(Types.STRING, statusResponse.toString()); // 状态
         });
 
         this.registerServerbound(State.STATUS, ServerboundStatusPackets.STATUS_REQUEST.getId(), ID_UNCONNECTED_PING, wrapper -> {
-            wrapper.write(Types.LONG, System.nanoTime() / 1_000_000L); // time (system uptime)
-            wrapper.write(OFFLINE_MESSAGE_DATA_ID_TYPE, OFFLINE_MESSAGE_DATA_ID); // offline message data id
+            wrapper.write(Types.LONG, System.nanoTime() / 1_000_000L); // 时间（系统运行时间）
+            wrapper.write(OFFLINE_MESSAGE_DATA_ID_TYPE, OFFLINE_MESSAGE_DATA_ID); // 离线消息数据 id
             wrapper.write(Types.LONG, ThreadLocalRandom.current().nextLong()); // guid
 
             wrapper.user().put(new PingInfoStorage(System.nanoTime()));
         });
         this.registerServerbound(State.STATUS, ServerboundStatusPackets.PING_REQUEST.getId(), -1, wrapper -> {
-            wrapper.cancel(); // Ping is added as a part of the player sample instead
+            wrapper.cancel(); // Ping 改为作为玩家样本的一部分添加
             final PacketWrapper pongResponse = PacketWrapper.create(ClientboundStatusPackets.PONG_RESPONSE, wrapper.user());
-            pongResponse.write(Types.LONG, wrapper.read(Types.LONG)); // time
+            pongResponse.write(Types.LONG, wrapper.read(Types.LONG)); // 时间
             pongResponse.send(RakNetStatusProtocol.class);
         });
     }

@@ -25,9 +25,9 @@ public final class GlobalLightCache {
 
     private static final GlobalLightCache INSTANCE = new GlobalLightCache();
     private static final int MAX_ENTRIES = 4096;
-    // Shared by every connection. Bumped 2 -> 4 to relieve the light-compute throughput
-    // bottleneck (profiling showed AsyncLightEngine dominating CPU). 4 leaves headroom for
-    // Netty IO / ZGC workers on the 6-core production container.
+    // 所有连接共享。从 2 提升到 4 以缓解光照计算的吞吐瓶颈
+    // （性能分析显示 AsyncLightEngine 占满了 CPU）。4 在 6 核生产容器上
+    // 为 Netty IO / ZGC worker 留出余量。
     private static final int LIGHT_COMPUTE_THREADS = 4;
 
     public static GlobalLightCache getInstance() {

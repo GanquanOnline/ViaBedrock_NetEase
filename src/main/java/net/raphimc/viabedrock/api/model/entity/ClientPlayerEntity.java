@@ -66,31 +66,31 @@ public class ClientPlayerEntity extends PlayerEntity {
     private final AtomicInteger TELEPORT_ID = new AtomicInteger(1);
     private final GameSessionStorage gameSession;
 
-    // Initial spawn and respawning
+    // 初始生成与重生
     private boolean initiallySpawned;
     private DimensionChangeInfo dimensionChangeInfo;
     private boolean wasInsideUnloadedChunk;
 
-    // Position syncing
+    // 位置同步
     private int pendingTeleportId;
     private boolean waitingForPositionSync;
-    // Teleport id of the position-sync packet we are currently waiting a client confirm for (0 = none).
-    // Kept separate from pendingTeleportId, which is overwritten by EVERY outgoing position packet, so the
-    // sync can still be matched/cleared if another server-driven position packet bumps pendingTeleportId
-    // before the sync confirm arrives. See beginPositionSync() / confirmTeleport().
+    // 当前正在等待客户端确认的位置同步包所用的传送 id（0 表示没有）。
+    // 它与 pendingTeleportId 分开保存，后者会被每一个发出的位置包覆写，因此在同步确认到达前
+    // 若有另一个由服务端驱动的位置包抬高了 pendingTeleportId，本次同步仍能被匹配 / 清除。
+    // 见 beginPositionSync() / confirmTeleport()。
     private int positionSyncTeleportId;
     private boolean serverSideTeleportConfirmed;
     private final JavaMovementPositionCache javaMovementPositionCache = new JavaMovementPositionCache();
     // 放置求交保留 Java 原始脚底坐标，不能靠增大容差掩盖 Bedrock float 坐标的舍入误差。
     private JavaPosition javaPosition;
 
-    // Movement watchdog (fail-safe for a backend that never sends the unlock packet after a switch).
-    // -1 = inactive; ages are compared against Entity.age (incremented once per client tick).
+    // 移动看门狗（用于后端在切换后始终不发送解锁包时的失效保护）。
+    // -1 = 未激活；年龄与 Entity.age 比较（每个客户端刻递增一次）。
     private int dimensionChangeStartAge = -1;
     private int chunkStuckStartAge = -1;
     private int lastChunkRadiusRequestAge = -1;
 
-    // Server Authoritative Movement
+    // 服务端权威移动
     private Position3f prevPosition;
     private boolean prevOnGround;
     private final Set<PlayerAuthInputPacket_InputData> authInputData = EnumSet.noneOf(PlayerAuthInputPacket_InputData.class);
@@ -104,27 +104,27 @@ public class ClientPlayerEntity extends PlayerEntity {
     private boolean horizontalCollision;
     private boolean sneaking;
     private boolean sprinting;
-    // Java never sends Bedrock START/STOP_SWIMMING or STOP_GLIDING. swimming
-    // follows MOT ActorFlags.SWIMMING so AuthInput can retry StartSwimming
-    // until the server confirms; optimistic true blocked observers at STANDING.
+    // Java 从不发送基岩的 START/STOP_SWIMMING 或 STOP_GLIDING。swimming
+    // 跟随 MOT 的 ActorFlags.SWIMMING，以便 AuthInput 可以重试 StartSwimming
+    // 直到服务器确认；乐观地置为 true 会让观察者在 STANDING 状态被阻塞。
     private boolean swimming;
-    // Last known MOT-style feet-in-water sample. Missing columns look like air
-    // in ChunkTracker, so keep this independent of swimming for Start retries.
+    // 最近一次已知的 MOT 风格脚部入水采样。缺失的区块列在 ChunkTracker 中表现为空气，
+    // 因此让它独立于 swimming，用于 Start 的重试。
     private boolean lastInsideOfWater;
     private boolean gliding;
-    // Java START_FALL_FLYING can arrive while onGround is still true. MOT/GanAC
-    // ElytraF suppress StartGliding on that tick, so hold it until airborne.
+    // Java 的 START_FALL_FLYING 可能在 onGround 仍为 true 时到达。MOT/GanAC 的
+    // ElytraF 会在该刻抑制 StartGliding，因此先挂起，直到离地再处理。
     private boolean pendingStartGliding;
-    // MOT UPDATE_CLIENT_INPUT_LOCKS bit 4. Protocol 560+ no longer sets ActorFlags.NOAI
-    // for movement locks, so Java would otherwise keep walking while the backend is frozen.
+    // MOT UPDATE_CLIENT_INPUT_LOCKS 的第 4 位。560+ 协议不再为移动锁设置 ActorFlags.NOAI，
+    // 否则后端已冻结时 Java 仍会继续行走。
     private boolean inputMovementLocked;
-    // MOT SAI STOP_SPIN_ATTACK is the only path that clears DATA_FLAG_SPIN_ATTACK.
-    // Java never sends a stop pose; pulse Stop after MOT duration 50+(level<<5).
+    // MOT SAI 的 STOP_SPIN_ATTACK 是唯一会清除 DATA_FLAG_SPIN_ATTACK 的路径。
+    // Java 从不发送停止姿态；在 MOT 的持续时间 50+(level<<5) 之后脉冲一次 Stop。
     private boolean riptideSpinning;
     private int riptideSpinStartAge = -1;
     private int riptideSpinDurationTicks;
 
-    // Misc data
+    // 杂项数据
     private GameType gameType;
     private GameMode javaGameMode;
     private boolean cancelNextSwingPacket;
@@ -145,9 +145,9 @@ public class ClientPlayerEntity extends PlayerEntity {
     private int lastUseOnAge = -1;
     private int crossbowChargeFinishAge = -1;
 
-    // The UUID the Bedrock server assigned to the local player in the player list. It differs from
-    // javaUuid (see HudPackets PLAYER_LIST remap), and is the UUID the server uses to address the
-    // local player in PLAYER_SKIN. Captured in HudPackets so PLAYER_SKIN can remap it to javaUuid.
+    // 基岩服务器在玩家列表中分配给本地玩家的 UUID。它与 javaUuid 不同
+    // （见 HudPackets 的 PLAYER_LIST 重映射），且是服务器在 PLAYER_SKIN 中定位
+    // 本地玩家所用的 UUID。在 HudPackets 中捕获，以便 PLAYER_SKIN 能将其重映射为 javaUuid。
     private UUID bedrockUuid;
 
     public ClientPlayerEntity(final UserConnection user, final long runtimeId, final UUID javaUuid, final PlayerAbilities abilities) {
@@ -207,16 +207,16 @@ public class ClientPlayerEntity extends PlayerEntity {
                     MathUtil.wrapDegrees(this.rotation.y()), this.rotation.x(), relatives.isEmpty());
         }
 
-        wrapper.write(Types.VAR_INT, this.pendingTeleportId * (fakeTeleport ? -1 : 1)); // teleport id
+        wrapper.write(Types.VAR_INT, this.pendingTeleportId * (fakeTeleport ? -1 : 1)); // 传送 id
         wrapper.write(Types.DOUBLE, relatives.contains(Relative.X) ? 0D : (double) this.position.x()); // x
         wrapper.write(Types.DOUBLE, relatives.contains(Relative.Y) ? 0D : (double) (this.position.y() - this.eyeOffset())); // y
         wrapper.write(Types.DOUBLE, relatives.contains(Relative.Z) ? 0D : (double) this.position.z()); // z
-        wrapper.write(Types.DOUBLE, 0D); // velocity x
-        wrapper.write(Types.DOUBLE, 0D); // velocity y
-        wrapper.write(Types.DOUBLE, 0D); // velocity z
-        wrapper.write(Types.FLOAT, relatives.contains(Relative.Y_ROT) ? 0F : this.rotation.y()); // yaw
-        wrapper.write(Types.FLOAT, relatives.contains(Relative.X_ROT) ? 0F : this.rotation.x()); // pitch
-        wrapper.write(Types.INT, EnumUtil.getIntBitmaskFromEnumSet(relatives, Relative::ordinal)); // flags
+        wrapper.write(Types.DOUBLE, 0D); // 速度 x
+        wrapper.write(Types.DOUBLE, 0D); // 速度 y
+        wrapper.write(Types.DOUBLE, 0D); // 速度 z
+        wrapper.write(Types.FLOAT, relatives.contains(Relative.Y_ROT) ? 0F : this.rotation.y()); // 偏航角
+        wrapper.write(Types.FLOAT, relatives.contains(Relative.X_ROT) ? 0F : this.rotation.x()); // 俯仰角
+        wrapper.write(Types.INT, EnumUtil.getIntBitmaskFromEnumSet(relatives, Relative::ordinal)); // 标志位
     }
 
     public void sendPlayerActionPacketToServer(final PlayerActionType action) {
@@ -229,11 +229,11 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void sendPlayerActionPacketToServer(final PlayerActionType action, final BlockPosition blockPosition, final int direction) {
         final PacketWrapper playerAction = PacketWrapper.create(ServerboundBedrockPackets.PLAYER_ACTION, this.user);
-        playerAction.write(BedrockTypes.UNSIGNED_VAR_LONG, this.runtimeId); // entity runtime id
-        playerAction.write(BedrockTypes.VAR_INT, action.getValue()); // action
-        playerAction.write(BedrockTypes.BLOCK_POSITION, blockPosition); // block position
-        playerAction.write(BedrockTypes.BLOCK_POSITION, new BlockPosition(0, 0, 0)); // result position
-        playerAction.write(BedrockTypes.VAR_INT, direction); // facing
+        playerAction.write(BedrockTypes.UNSIGNED_VAR_LONG, this.runtimeId); // 实体运行时 ID
+        playerAction.write(BedrockTypes.VAR_INT, action.getValue()); // 动作
+        playerAction.write(BedrockTypes.BLOCK_POSITION, blockPosition); // 方块位置
+        playerAction.write(BedrockTypes.BLOCK_POSITION, new BlockPosition(0, 0, 0)); // 结果位置
+        playerAction.write(BedrockTypes.VAR_INT, direction); // 朝向
         playerAction.sendToServer(BedrockProtocol.class);
     }
 
@@ -245,10 +245,10 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void sendSwingPacketToServer(final ActorSwingSource source) {
         final PacketWrapper animate = PacketWrapper.create(ServerboundBedrockPackets.ANIMATE, this.user);
-        EntityPacketLayout.writeAnimateAction(animate, AnimatePacketPayload_Action.Swing.getValue()); // action
-        animate.write(BedrockTypes.UNSIGNED_VAR_LONG, this.runtimeId); // entity runtime id
-        animate.write(BedrockTypes.FLOAT_LE, 0F); // data
-        EntityPacketLayout.writeAnimateTrailer(animate, source.name().toLowerCase(Locale.ROOT)); // swing source (897+)
+        EntityPacketLayout.writeAnimateAction(animate, AnimatePacketPayload_Action.Swing.getValue()); // 动作
+        animate.write(BedrockTypes.UNSIGNED_VAR_LONG, this.runtimeId); // 实体运行时 ID
+        animate.write(BedrockTypes.FLOAT_LE, 0F); // 数据
+        EntityPacketLayout.writeAnimateTrailer(animate, source.name().toLowerCase(Locale.ROOT)); // 挥动来源（897+）
         animate.sendToServer(BedrockProtocol.class);
     }
 
@@ -358,10 +358,10 @@ public class ClientPlayerEntity extends PlayerEntity {
         this.horizontalCollision = (flags & MovePlayerFlag.HORIZONTAL_COLLISION.getBit()) != 0;
     }
 
-    // Starts a position sync: gates movement (preMove returns false) and sends a position packet the
-    // client must confirm before its movement is forwarded again. Records the teleport id of THIS sync
-    // (positionSyncTeleportId) so confirmTeleport() can clear the sync even if a later server-driven
-    // position packet overwrites pendingTeleportId before the confirm arrives.
+    // 开始一次位置同步：闸住移动（preMove 返回 false），并发送一个客户端必须确认的位置包，
+    // 确认后其移动才会被再次转发。记录本次同步的传送 id
+    // （positionSyncTeleportId），这样即使之后由服务端驱动的位置包在确认到达前
+    // 覆写了 pendingTeleportId，confirmTeleport() 仍能清除本次同步。
     public void beginPositionSync(final Set<Relative> relatives) {
         this.waitingForPositionSync = true;
         this.sendPlayerPositionPacketToClient(relatives);
@@ -370,19 +370,18 @@ public class ClientPlayerEntity extends PlayerEntity {
 
     public void confirmTeleport(final int teleportId) {
         this.javaMovementPositionCache.confirmTeleport(teleportId);
-        // Clear a pending position sync as soon as the client confirms ANY teleport whose id is at or
-        // beyond the sync's id. Teleport ids increase monotonically and are confirmed in order, so this
-        // is robust against pendingTeleportId being overwritten between sending the sync and the confirm
-        // arriving. Crucially this runs regardless of the fake/real (sign) branch below: a REAL server
-        // teleport (positive id) can land in that window and its confirm takes the else-branch, which on
-        // its own never touches waitingForPositionSync — leaving the sync stuck forever (movement frozen
-        // server-side while the client walks freely). See the deterministic trigger described in preMove().
+        // 只要客户端确认了 id 等于或超过本次同步 id 的任意传送，就清除挂起的位置同步。
+        // 传送 id 单调递增且按顺序确认，因此即使 pendingTeleportId 在发送同步到确认到达之间被覆写，
+        // 这一判断仍然可靠。关键点：此逻辑独立于下面的伪 / 真（符号）分支执行——一个真的服务端
+        // 传送（正 id）也可能落在该窗口内，而它的确认会走 else 分支，该分支自身从不触碰
+        // waitingForPositionSync，从而让同步永久卡住（服务端侧移动被冻结，客户端却能自由行走）。
+        // 见 preMove() 中描述的确定性触发路径。
         if (this.waitingForPositionSync && this.positionSyncTeleportId != 0 && Math.abs(teleportId) >= this.positionSyncTeleportId) {
             this.waitingForPositionSync = false;
             this.positionSyncTeleportId = 0;
         }
 
-        if (teleportId < 0) { // Fake teleport
+        if (teleportId < 0) { // 伪传送
             if (this.pendingTeleportId == -teleportId) {
                 this.pendingTeleportId = 0;
             }
@@ -462,10 +461,10 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     /**
-     * Java 1.21.11 unloads columns outside SET_CHUNK_CACHE_CENTER +/- radius.
-     * If the player walks off a stale MOT publisher window, snap the Java
-     * cache onto the current column before the next LEVEL_CHUNK_WITH_LIGHT.
-     * Ref: MOT Player.orderChunks; ChunkTracker.applyPublisher.
+     * Java 1.21.11 会卸载 SET_CHUNK_CACHE_CENTER +/- radius 之外的区块列。
+     * 若玩家走出了过期的 MOT publisher 窗口，则在下一个 LEVEL_CHUNK_WITH_LIGHT 之前
+     * 把 Java 缓存对齐到当前区块列。
+     * 参考：MOT Player.orderChunks；ChunkTracker.applyPublisher。
      */
     private void snapJavaChunkCacheIfPlayerLeftWindow() {
         final ChunkTracker chunkTracker = this.user.get(ChunkTracker.class);
@@ -532,9 +531,9 @@ public class ClientPlayerEntity extends PlayerEntity {
             PacketFactory.sendJavaEntityEvent(this.user, this, EntityEvent.PERMISSION_LEVEL_ALL);
         }
 
-        // MOT may disguise spectator as creative (useClientSpectator=false) while still
-        // sending a Spectator ability layer / NoClip. Keep Java on ADVENTURE so the
-        // inventory stays movable; VBU forces Entity.noClip separately.
+        // MOT 可能把旁观者伪装成创造模式（useClientSpectator=false），同时仍发送
+        // 旁观者能力层 / NoClip。让 Java 保持在 ADVENTURE，物品栏才能继续操作；
+        // VBU 会单独强制 Entity.noClip。
         final boolean promotedSpectator = abilities.hasSpectatorNoclip() && this.gameType != GameType.Spectator;
         if (promotedSpectator) {
             this.setGameType(GameType.Spectator);
@@ -545,9 +544,9 @@ public class ClientPlayerEntity extends PlayerEntity {
         if (abilities.getBooleanValue(AbilitiesIndex.Flying)) flags |= AbilitiesFlag.FLYING.getBit();
         if (abilities.getBooleanValue(AbilitiesIndex.MayFly)) flags |= AbilitiesFlag.CAN_FLY.getBit();
         if (abilities.getBooleanValue(AbilitiesIndex.Instabuild)) flags |= AbilitiesFlag.INSTABUILD.getBit();
-        javaAbilities.write(Types.BYTE, flags); // flags
-        javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.FlySpeed)); // fly speed
-        javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.WalkSpeed)); // walk speed
+        javaAbilities.write(Types.BYTE, flags); // 标志位
+        javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.FlySpeed)); // 飞行速度
+        javaAbilities.write(Types.FLOAT, abilities.getFloatValue(AbilitiesIndex.WalkSpeed)); // 行走速度
         if (promotedSpectator) {
             final ProtocolInfo protocolInfo = this.user.getProtocolInfo();
             if (this.initiallySpawned || (protocolInfo != null && protocolInfo.getServerState() == State.PLAY)) {
@@ -574,7 +573,7 @@ public class ClientPlayerEntity extends PlayerEntity {
         this.dimensionChangeInfo = dimensionChangeInfo;
         if (dimensionChangeInfo != null) {
             this.resetJavaMovementPosition();
-            this.dimensionChangeStartAge = this.age; // watchdog timeout baseline
+            this.dimensionChangeStartAge = this.age; // 看门狗超时基准
         } else {
             this.resendInputLocks();
         }
@@ -754,7 +753,7 @@ public class ClientPlayerEntity extends PlayerEntity {
             modifiers.add(new EntityAttribute.Modifier("d208fc00-42aa-4aad-9276-d5446530de43", "Sprinting speed boost", 0.3F, AttributeModifierOperation.OPERATION_MULTIPLY_TOTAL, AttributeOperands.OPERAND_CURRENT, false));
         }
         final EntityAttribute newMovementAttribute = oldMovementAttribute.withModifiers(modifiers.toArray(new EntityAttribute.Modifier[0]));
-        // Compute the current value, as the client only updates it when a modifier is changed by itself
+        // 自行计算当前值，因为客户端只在自身更改修饰符时才会更新它
         this.updateAttributes(new EntityAttribute[]{newMovementAttribute.withValue(newMovementAttribute.computeCurrentValue())});
     }
 
@@ -864,7 +863,7 @@ public class ClientPlayerEntity extends PlayerEntity {
         this.usingItem = usingItem;
         this.blockItemUse = false;
         this.usingItemStartAge = -1;
-        // Don't clear snapshot in setUsingItem(false) - keep it for validation
+        // 不要在 setUsingItem(false) 中清除快照——保留它用于校验
         this.crossbowChargeFinishSent = false;
         this.consumableFinishSent = false;
         this.shieldSneakEmulated = false;
@@ -878,7 +877,7 @@ public class ClientPlayerEntity extends PlayerEntity {
         this.crossbowChargeFinishSent = false;
         this.consumableFinishSent = false;
         this.shieldSneakEmulated = false;
-        // Offhand promotion is independent: startUsingItem may follow a silent F-swap.
+        // 副手提升是独立的：startUsingItem 可能紧接着一次静默的 F 键交换发生。
     }
 
     public void prepareBlockItemUse(final InteractionHand hand, final byte containerId, final int containerSlot, final int transactionHotbarSlot, final BedrockItem item) {
@@ -937,18 +936,16 @@ public class ClientPlayerEntity extends PlayerEntity {
         return this.offhandPromotionState.shouldRetryRestore();
     }
 
-    /**
-     * @param hand explicit Java hand, or {@code null} for a handless player action
-     */
+    /** @param hand 显式的 Java 手，或 {@code null} 表示无手的玩家动作 */
     public boolean canProcessHandSensitiveAction(final InteractionHand hand,
                                                  final boolean allowOriginalOffhandUseContinuation) {
         return this.canProcessHandSensitiveAction(hand, allowOriginalOffhandUseContinuation, false);
     }
 
     /**
-     * The reuse flag is deliberately reserved for USE_ITEM and USE_ITEM_ON. Entity interaction,
-     * swing, and inventory actions must prove a continuation instead of treating OFF_HAND as a
-     * generic escape hatch while the tracker is physically promoted.
+     * 复用标志刻意只留给 USE_ITEM 和 USE_ITEM_ON。实体交互、
+     * 挥动和物品栏动作必须证明是延续操作，而不能在追踪器实际已提升时
+     * 把 OFF_HAND 当作通用的逃生口。
      */
     public boolean canProcessHandSensitiveAction(final InteractionHand hand,
                                                  final boolean allowOriginalOffhandUseContinuation,
@@ -1093,12 +1090,12 @@ public class ClientPlayerEntity extends PlayerEntity {
                 final EntityAttribute hunger = attribute.name().equals("minecraft:player.hunger") ? attribute : this.attributes.get("minecraft:player.hunger");
                 final EntityAttribute saturation = attribute.name().equals("minecraft:player.saturation") ? attribute : this.attributes.get("minecraft:player.saturation");
                 final PacketWrapper setHealth = PacketWrapper.create(ClientboundPackets26_1.SET_HEALTH, this.user);
-                setHealth.write(Types.FLOAT, health.computeClampedValue()); // health
-                setHealth.write(Types.VAR_INT, (int) hunger.computeClampedValue()); // food
-                setHealth.write(Types.FLOAT, saturation.computeClampedValue()); // saturation
+                setHealth.write(Types.FLOAT, health.computeClampedValue()); // 生命值
+                setHealth.write(Types.VAR_INT, (int) hunger.computeClampedValue()); // 饥饿值
+                setHealth.write(Types.FLOAT, saturation.computeClampedValue()); // 饱和度
                 setHealth.send(BedrockProtocol.class);
 
-                if (attribute.name().equals("minecraft:health")) { // Call super to translate max health
+                if (attribute.name().equals("minecraft:health")) { // 调用父类以转换最大生命值
                     yield super.translateAttribute(attribute, javaAttributes, attributeCount, javaEntityData);
                 } else {
                     yield true;
@@ -1108,13 +1105,13 @@ public class ClientPlayerEntity extends PlayerEntity {
                 final EntityAttribute experience = attribute.name().equals("minecraft:player.experience") ? attribute : this.attributes.get("minecraft:player.experience");
                 final EntityAttribute level = attribute.name().equals("minecraft:player.level") ? attribute : this.attributes.get("minecraft:player.level");
                 final PacketWrapper setExperience = PacketWrapper.create(ClientboundPackets26_1.SET_EXPERIENCE, this.user);
-                setExperience.write(Types.FLOAT, experience.computeClampedValue()); // bar progress
-                setExperience.write(Types.VAR_INT, (int) level.computeClampedValue()); // experience level
-                setExperience.write(Types.VAR_INT, 0); // total experience
+                setExperience.write(Types.FLOAT, experience.computeClampedValue()); // 进度条进度
+                setExperience.write(Types.VAR_INT, (int) level.computeClampedValue()); // 经验等级
+                setExperience.write(Types.VAR_INT, 0); // 总经验
                 setExperience.send(BedrockProtocol.class);
                 yield true;
             }
-            case "minecraft:player.exhaustion" -> true; // Ignore exhaustion
+            case "minecraft:player.exhaustion" -> true; // 忽略消耗度
             default -> super.translateAttribute(attribute, javaAttributes, attributeCount, javaEntityData);
         };
     }
@@ -1122,41 +1119,41 @@ public class ClientPlayerEntity extends PlayerEntity {
     private boolean preMove(final Position3f newPosition, final Position3f newRotation, final boolean newOnGround) {
         final ChunkTracker chunkTracker = this.user.get(ChunkTracker.class);
 
-        // Waiting for position sync. Silently drops movement (no rubber-band) until the client confirms
-        // the sync teleport. Deterministic deadlock this used to cause, and how it is now prevented:
-        //   1. Player switches world / cross-server; their position momentarily lands in a not-yet-loaded
-        //      chunk section -> the unloaded-chunk branch below calls beginPositionSync(), which sends a
-        //      FAKE teleport (negative id N) and sets waitingForPositionSync = true.
-        //   2. BEFORE the client's ACCEPT_TELEPORTATION(N) returns, the Bedrock backend sends a server
-        //      teleport for the local player: MOVE_PLAYER with mode = Teleport (OtherPlayerPackets:160-170,
-        //      very common right after a world/server switch to place the player). Because fakeTeleport is
-        //      only true for mode = Respawn, this writes a REAL teleport (positive id M > N) and overwrites
-        //      pendingTeleportId from N to M.
-        //   3. The client confirms N then M. Old code cleared the sync only in the fake branch when
-        //      pendingTeleportId == -teleportId: confirm(N) failed (pendingTeleportId == M != N) and
-        //      confirm(M) took the real/else branch which never cleared the sync. waitingForPositionSync
-        //      stayed true forever -> preMove permanently returns false here -> PLAYER_AUTH_INPUT keeps
-        //      sending the frozen old position (server-side player + footstep sound stuck at the origin)
-        //      while the client keeps predicting movement locally (walks freely). Matches the observed
-        //      "client walks, footstep stays put and fades with distance" symptom.
-        // Fix: confirmTeleport() now clears the sync on ANY confirm with |id| >= positionSyncTeleportId,
-        // so the real teleport in step 2 (or the fake confirm in step 3) resolves it. See confirmTeleport().
+        // 等待位置同步。在客户端确认同步传送之前静默丢弃移动（不做拉回）。
+        // 这曾导致确定性死锁，以及现在的避免方式：
+        // 1. 玩家切换世界 / 跨服；其位置短暂落在尚未加载的区块段
+        // -> 下面的未加载区块分支调用 beginPositionSync()，它发送一个
+        // 伪传送（负 id N）并置 waitingForPositionSync = true。
+        // 2. 在客户端的 ACCEPT_TELEPORTATION(N) 返回之前，基岩后端为本地玩家发送了一个服务端
+        // 传送：mode = Teleport 的 MOVE_PLAYER（OtherPlayerPackets:160-170，
+        // 在世界 / 服务器切换后放置玩家时非常常见）。由于 fakeTeleport 仅在
+        // mode = Respawn 时为 true，这会写入一个真传送（正 id M > N），并把
+        // pendingTeleportId 从 N 覆写为 M。
+        // 3. 客户端先确认 N 再确认 M。旧代码只在伪分支中、且
+        // pendingTeleportId == -teleportId 时才清除同步：confirm(N) 失败（pendingTeleportId == M != N），
+        // 而 confirm(M) 走了真 / else 分支，该分支从不清除同步。waitingForPositionSync
+        // 永远为 true -> preMove 在此处永久返回 false -> PLAYER_AUTH_INPUT 持续
+        // 发送冻结的旧位置（服务端侧玩家与脚步声停在原点），
+        // 而客户端仍在本地预测移动（可自由行走）。这与观测到的
+        // 「客户端在走、脚步声原地不动并随距离衰减」症状一致。
+        // 修复：confirmTeleport() 现在会在任意 |id| >= positionSyncTeleportId 的确认时清除同步，
+        // 因此第 2 步的真传送（或第 3 步的伪确认）都能解除它。见 confirmTeleport()。
         if (this.waitingForPositionSync) {
             return false;
         }
-        // An older teleport acknowledgement must not bypass a newer position sync.
+        // 较旧的传送确认不得绕过较新的位置同步。
         if (this.serverSideTeleportConfirmed) {
             this.serverSideTeleportConfirmed = false;
             return true;
         }
-        // Not spawned yet or respawning
+        // 尚未生成或正在重生
         if (!this.initiallySpawned || this.dimensionChangeInfo != null) {
             if (!this.position.equals(newPosition)) {
                 this.sendPlayerPositionPacketToClient(Relative.NONE);
             }
             return false;
         }
-        // Is in unloaded chunk
+        // 处于未加载的区块中
         if (chunkTracker.isInUnloadedChunkSection(this.position, this.eyeOffset())) {
             this.wasInsideUnloadedChunk = true;
             if (!this.position.equals(newPosition)) {
@@ -1168,7 +1165,7 @@ public class ClientPlayerEntity extends PlayerEntity {
             this.beginPositionSync(Relative.ROTATION);
             return false;
         }
-        // Loaded -> Unloaded chunk
+        // 已加载 -> 未加载的区块
         if (newPosition != null && chunkTracker.isInUnloadedChunkSection(newPosition, this.eyeOffset())) {
             this.beginPositionSync(Relative.ROTATION);
             return false;
@@ -1204,15 +1201,15 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     /**
-     * Fail-safe net for the rare case where the backend never sends the packet that would unlock movement after a
-     * world/dimension/server switch, leaving the server-side player frozen while the client keeps moving (see the
-     * deterministic analysis in the ViaBedrock movement notes). Runs once per client tick after super.tick().
+     * 失效保护网，用于后端在世界 / 维度 / 服务器切换后始终不发送解锁移动的包的罕见情况，
+     * 此时服务端侧玩家被冻结而客户端仍在移动（见 ViaBedrock 移动说明中的
+     * 确定性分析）。在 super.tick() 之后每个客户端刻运行一次。
      * <p>
-     * Controlled by the {@code movementWatchdog} config section: OFF = no-op (upstream behaviour), OBSERVE = log
-     * only when a lock stays stuck past the timeout, ACTIVE = additionally perform the conservative, idempotent
-     * recovery (re-send the standard handshake finalization the backend omitted; for stuck chunks, re-request the
-     * chunk radius — it never lets the player phase through unloaded terrain). The timeouts are far above any normal
-     * handshake, so normal players never trigger it. Never throws into the tick loop.
+     * 由 {@code movementWatchdog} 配置段控制：OFF = 空操作（上游行为），OBSERVE = 仅在
+     * 某个锁超过超时仍卡住时记录日志，ACTIVE = 额外执行保守且幂等的
+     * 恢复（重新发送后端遗漏的标准握手收尾；对于卡住的区块，重新请求
+     * 区块半径——它绝不会让玩家穿过未加载的地形）。超时值远高于任何正常
+     * 握手，因此正常玩家不会触发它。从不向刻循环抛出异常。
      */
     private void movementWatchdog() {
         final ViaBedrockConfig.MovementWatchdogMode mode = ViaBedrock.getConfig().getMovementWatchdogMode();
@@ -1226,16 +1223,16 @@ public class ClientPlayerEntity extends PlayerEntity {
             }
             final boolean active = mode == ViaBedrockConfig.MovementWatchdogMode.ACTIVE;
 
-            // Link A: dimension lock (dimensionChangeInfo) never cleared by the backend -> preMove rubber-bands forever.
+            // 环节 A：后端从不清除维度锁（dimensionChangeInfo）-> preMove 永久拉回。
             if (this.dimensionChangeInfo != null) {
                 final int elapsed = this.age - this.dimensionChangeStartAge;
                 if (this.dimensionChangeStartAge >= 0
                         && elapsed > ViaBedrock.getConfig().getMovementWatchdogDimensionChangeTimeoutTicks()
-                        && !chunkTracker.isInUnloadedChunkSection(this.position, this.eyeOffset())) { // only once the new world is actually ready
+                        && !chunkTracker.isInUnloadedChunkSection(this.position, this.eyeOffset())) { // 仅在新世界真正就绪后
                     if (active) {
                         final Long loadingScreenId = this.dimensionChangeInfo.loadingScreenId();
-                        // Replicates the standard ChangeDimensionAck finalization (ClientPlayerPackets). Idempotent:
-                        // if the backend later sends the real ack, its dimensionChangeInfo != null guard skips it.
+                        // 复刻标准 ChangeDimensionAck 的收尾逻辑（ClientPlayerPackets）。幂等：
+                        // 若后端之后发送真实的 ack，其 dimensionChangeInfo != null 守卫会跳过它。
                         this.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
                         PacketFactory.sendBedrockLoadingScreen(this.user, ServerboundLoadingScreenPacketType.EndLoadingScreen, loadingScreenId);
                         this.sendPlayerPositionPacketToClient(Relative.NONE);
@@ -1243,13 +1240,13 @@ public class ClientPlayerEntity extends PlayerEntity {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "[movement-watchdog] A: dimension change not finalized by backend after " + elapsed + " ticks; finalized client-side");
                     } else {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "[movement-watchdog] A(observe): dimension lock stuck " + elapsed + " ticks (would finalize in active mode)");
-                        this.dimensionChangeStartAge = this.age; // re-baseline so observe logs at most once per timeout window
+                        this.dimensionChangeStartAge = this.age; // 重新设定基准，使 OBSERVE 每个超时窗口最多记录一次
                     }
                 }
-                return; // during a dimension change, do not also run the chunk watchdog
+                return; // 维度切换期间不再同时运行区块看门狗
             }
 
-            // Link B: stuck in an unloaded chunk section (chunks never delivered) -> preMove rubber-bands forever.
+            // 环节 B：卡在未加载的区块段（区块从未下发）-> preMove 永久拉回。
             if (chunkTracker.isInUnloadedChunkSection(this.position, this.eyeOffset())) {
                 if (this.chunkStuckStartAge < 0) {
                     this.chunkStuckStartAge = this.age;
@@ -1260,7 +1257,7 @@ public class ClientPlayerEntity extends PlayerEntity {
                             || this.age - this.lastChunkRadiusRequestAge > ViaBedrock.getConfig().getMovementWatchdogChunkRadiusRequestIntervalTicks())) {
                     this.lastChunkRadiusRequestAge = this.age;
                     if (active) {
-                        // Only re-request chunks; never relax the movement gate (relaxing would let the player phase).
+                        // 只重新请求区块；绝不放松移动闸门（放松会让玩家穿墙）。
                         final PacketWrapper requestChunkRadius = PacketWrapper.create(ServerboundBedrockPackets.REQUEST_CHUNK_RADIUS, this.user);
                         requestChunkRadius.write(BedrockTypes.VAR_INT, this.user.get(ClientSettingsStorage.class).viewDistance());
                         requestChunkRadius.write(Types.BYTE, ProtocolConstants.BEDROCK_REQUEST_CHUNK_RADIUS_MAX_RADIUS);
@@ -1275,7 +1272,7 @@ public class ClientPlayerEntity extends PlayerEntity {
                 this.lastChunkRadiusRequestAge = -1;
             }
         } catch (final Throwable t) {
-            // Never let the watchdog break the tick loop.
+            // 绝不让看门狗破坏刻循环。
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "[movement-watchdog] internal error (ignored): " + t.getMessage());
         }
     }

@@ -65,9 +65,9 @@ class RidingTrackerTest {
 
     @BeforeAll
     static void initializeProtocolTypes() throws Exception {
-        // Initialize component keys before VersionedTypes, as in the standalone metadata tests.
+        // 在 VersionedTypes 之前初始化组件键，与独立的元数据测试一致。
         Class.forName("com.viaversion.viaversion.api.minecraft.data.StructuredDataKey");
-        // Via 5.12 UserConnectionImpl requires a platform before the fixture can install its own manager.
+        // Via 5.12 的 UserConnectionImpl 需要先有平台，测试夹具才能安装自己的管理器。
         final Field managerField = Via.class.getDeclaredField("manager");
         managerField.setAccessible(true);
         if (managerField.get(null) != null) {
@@ -131,7 +131,7 @@ class RidingTrackerTest {
 
     @Test
     void preservesExistingVanillaPassengerModes() {
-        // This fork steers MOT horses, pigs and striders with virtual input so SAI keeps the seat offset.
+        // 此分支用虚拟输入操控 MOT 的马、猪和炽足兽，以便 SAI 保持座位偏移。
         assertAll(
                 () -> assertEquals(VIRTUAL_INPUT_ONLY, RidingTracker.localRidingMode(EntityTypes1_21_11.HORSE, true)),
                 () -> assertEquals(VIRTUAL_INPUT_ONLY, RidingTracker.localRidingMode(EntityTypes1_21_11.PIG, true)),
@@ -460,7 +460,7 @@ class RidingTrackerTest {
     @Test
     void eggSeatFromNativeCaptureStaysAtTheSameHeightForTheJavaCarrier() throws Exception {
         try (AnchorFixture fixture = new AnchorFixture()) {
-            // Native acceptance: feet Y=65, eye/network Y=66.62, seat Y=0.48, egg bottom Y=67.10.
+            // 原生验收：脚部 Y=65，眼睛/网络 Y=66.62，座位 Y=0.48，蛋底 Y=67.10。
             fixture.clientPlayer.setPosition(new Position3f(12.5F, 66.62F, -4.5F));
             final Entity egg = fixture.addDisplay(84L, 3, new Position3f(0F, 0.48F, 0F));
             fixture.link(fixture.clientPlayer, egg);
@@ -486,15 +486,15 @@ class RidingTrackerTest {
             final int anchorId = fixture.last(ClientboundPackets26_1.ADD_ENTITY).get(Types.VAR_INT, 0);
             final PacketWrapper rotate = fixture.last(ClientboundPackets26_1.MOVE_ENTITY_ROT);
             assertEquals(egg.javaId(), rotate.get(Types.VAR_INT, 0));
-            assertEquals((byte) 85, rotate.get(Types.BYTE, 0)); // 120 degrees in Java's byte-angle format.
-            assertEquals((byte) 10, rotate.get(Types.BYTE, 1)); // The display keeps its 15-degree pitch.
+            assertEquals((byte) 85, rotate.get(Types.BYTE, 0)); // 120 度，Java 的字节角度格式。
+            assertEquals((byte) 10, rotate.get(Types.BYTE, 1)); // 显示保持其 15 度俯仰角。
             assertEquals(new Position3f(15F, 120F, 120F), egg.rotation());
             assertPacketPosition(fixture.last(ClientboundPackets26_1.ENTITY_POSITION_SYNC), 11.25D, 66.25D, -4.5D);
             fixture.packets.clear();
 
             carrier.setRotation(new Position3f(0F, 180F, 270F));
             fixture.tracker.onEntityMoved(carrier);
-            assertEquals((byte) -107, fixture.last(ClientboundPackets26_1.MOVE_ENTITY_ROT).get(Types.BYTE, 0)); // 210 degrees.
+            assertEquals((byte) -107, fixture.last(ClientboundPackets26_1.MOVE_ENTITY_ROT).get(Types.BYTE, 0)); // 210 度。
             final PacketWrapper move = fixture.last(ClientboundPackets26_1.ENTITY_POSITION_SYNC);
             assertEquals(anchorId, move.get(Types.VAR_INT, 0));
             assertPacketPosition(move, 12.5D, 66.25D, -5.75D);
@@ -554,7 +554,7 @@ class RidingTrackerTest {
             this.previousDisplayId = this.displayIdField.getInt(EntityTypes1_21_11.TEXT_DISPLAY);
             this.previousManager = this.managerField.get(null);
             this.previousFields = this.fieldsField.get(BedrockProtocol.MAPPINGS);
-            // Only the packet transport and metadata registry are fixtures; the riding and packet writers run normally.
+            // 只有数据包传输和元数据注册表是测试夹具；骑乘与数据包写入器按正常逻辑运行。
             final ProtocolManager protocolManager = (ProtocolManager) Proxy.newProxyInstance(
                     ProtocolManager.class.getClassLoader(), new Class[]{ProtocolManager.class}, (proxy, method, args) -> {
                         if (method.getName().equals("registeredProtocolCount") || method.getReturnType() == int.class) {

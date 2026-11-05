@@ -12,7 +12,7 @@ package net.raphimc.viabedrock.protocol.model;
 import java.util.List;
 import java.util.Objects;
 
-/** The dynamically registered MOT definition for one synced entity property. */
+/** 单个已同步实体属性的动态注册 MOT 定义。 */
 public record EntityPropertyDefinition(String name, int type, List<String> enumValues) {
 
     public static final int INTEGER = 0;

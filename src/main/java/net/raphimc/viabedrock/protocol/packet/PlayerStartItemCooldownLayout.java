@@ -22,14 +22,14 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock PLAYER_START_ITEM_COOLDOWN (packet 176).
+ * 基岩 PLAYER_START_ITEM_COOLDOWN（176 号包）的线路布局辅助方法。
  * <p>
- * Nukkit-MOT {@code PlayerStartItemCoolDownPacket.encode()} writes
- * {@code string itemCategory + varint coolDownDuration} with no protocol-version fork.
- * MOT currently emits {@code goat_horn} ({@code ItemGoatHorn}) and {@code shield}
- * ({@code Player.onBlock} when a shield is broken). Java 1.21.2+ cooldown packets
- * take an item Identifier plus remaining ticks; MOT categories without a
- * {@code :} are namespaced as {@code minecraft:<category>}.
+ * Nukkit-MOT {@code PlayerStartItemCoolDownPacket.encode()} 写入
+ * {@code string itemCategory + varint coolDownDuration}，不按协议版本分支。
+ * MOT 目前会发出 {@code goat_horn}（{@code ItemGoatHorn}）和 {@code shield}
+ * （{@code Player.onBlock} 中盾牌被打破时）。Java 1.21.2+ 的冷却数据包
+ * 接受物品 Identifier 加剩余刻数；MOT 中不含
+ * {@code :} 的类别会被加上 {@code minecraft:<category>} 命名空间。
  */
 public final class PlayerStartItemCooldownLayout {
 
@@ -54,8 +54,8 @@ public final class PlayerStartItemCooldownLayout {
     }
 
     /**
-     * Maps MOT's cooldown category onto a Java 1.21.2+ cooldown Identifier.
-     * Empty categories have no Java counterpart and should be dropped.
+     * 把 MOT 的冷却类别映射为 Java 1.21.2+ 的冷却 Identifier。
+     * 空类别在 Java 中没有对应物，应被丢弃。
      */
     public static String javaCooldownIdentifier(final String itemCategory) {
         if (itemCategory == null) {

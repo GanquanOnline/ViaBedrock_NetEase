@@ -64,7 +64,7 @@ public class LivingEntity extends Entity {
                 effectsToRemove.add(effect.identifier());
             }
         }
-        // Bedrock client removes effects clientside, but Java Edition doesn't, so we need to send a remove packet for each effect
+        // 基岩客户端在客户端侧移除效果，但 Java 版不会，因此需要为每个效果发送移除包
         if (effectsToRemove != null) {
             for (String identifier : effectsToRemove) {
                 this.removeExpiredEffect(identifier);
@@ -92,8 +92,8 @@ public class LivingEntity extends Entity {
     }
 
     public final void updateAttributes(final EntityAttribute[] attributes, final PacketWrapper javaAttributes) {
-        javaAttributes.write(Types.VAR_INT, this.javaId); // entity id
-        javaAttributes.write(Types.VAR_INT, 0); // attribute count
+        javaAttributes.write(Types.VAR_INT, this.javaId); // 实体 id
+        javaAttributes.write(Types.VAR_INT, 0); // 属性数量
         final AtomicInteger attributeCount = new AtomicInteger(0);
         final List<EntityData> javaEntityData = new ArrayList<>();
         for (EntityAttribute attribute : attributes) {
@@ -111,8 +111,8 @@ public class LivingEntity extends Entity {
         }
         if (!javaEntityData.isEmpty()) {
             final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user);
-            setEntityData.write(Types.VAR_INT, this.javaId); // entity id
-            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
+            setEntityData.write(Types.VAR_INT, this.javaId); // 实体 id
+            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // 实体数据
             setEntityData.send(BedrockProtocol.class);
         }
     }
@@ -127,20 +127,20 @@ public class LivingEntity extends Entity {
 
     public final void updateEffect(final EntityEffect effect, final PacketWrapper javaEffect) {
         this.effects.put(effect.identifier(), effect);
-        javaEffect.write(Types.VAR_INT, this.javaId); // entity id
-        javaEffect.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEffects().get(BedrockProtocol.MAPPINGS.getBedrockToJavaEffects().get(effect.identifier()))); // effect id
-        javaEffect.write(Types.VAR_INT, effect.amplifier()); // amplifier
-        javaEffect.write(Types.VAR_INT, effect.duration().get() != -1 ? Math.max(effect.duration().get(), 0) : -1); // duration
+        javaEffect.write(Types.VAR_INT, this.javaId); // 实体 id
+        javaEffect.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEffects().get(BedrockProtocol.MAPPINGS.getBedrockToJavaEffects().get(effect.identifier()))); // 效果 id
+        javaEffect.write(Types.VAR_INT, effect.amplifier()); // 倍率
+        javaEffect.write(Types.VAR_INT, effect.duration().get() != -1 ? Math.max(effect.duration().get(), 0) : -1); // 持续时间
         byte flags = 0;
         if (effect.ambient()) flags |= UpdateMobEffectFlag.AMBIENT.getBit();
         if (effect.showParticles()) flags |= UpdateMobEffectFlag.VISIBLE.getBit();
-        javaEffect.write(Types.BYTE, flags); // flags
+        javaEffect.write(Types.BYTE, flags); // 标志位
     }
 
     public final void removeEffect(final String identifier, final PacketWrapper javaEffect) {
         this.effects.remove(identifier);
-        javaEffect.write(Types.VAR_INT, this.javaId); // entity id
-        javaEffect.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEffects().get(BedrockProtocol.MAPPINGS.getBedrockToJavaEffects().get(identifier))); // effect id
+        javaEffect.write(Types.VAR_INT, this.javaId); // 实体 id
+        javaEffect.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEffects().get(BedrockProtocol.MAPPINGS.getBedrockToJavaEffects().get(identifier))); // 效果 id
     }
 
     public final void clearEffects() {
@@ -170,35 +170,35 @@ public class LivingEntity extends Entity {
                     case "minecraft:attack_damage" -> Attributes.ATTACK_DAMAGE;
                     case "minecraft:knockback_resistance" -> Attributes.KNOCKBACK_RESISTANCE;
                     default -> throw new IllegalStateException("Unhandled entity attribute: " + attribute.name());
-                })); // attribute id
-                javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // base value
-                javaAttributes.write(Types.VAR_INT, 0); // modifier count
+                })); // 属性 id
+                javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // 基础值
+                javaAttributes.write(Types.VAR_INT, 0); // 修饰符数量
                 attributeCount.incrementAndGet();
                 yield true;
             }
             case "minecraft:movement" -> {
                 final JavaMovementAttribute movement = javaMovementAttribute(attribute);
-                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MOVEMENT_SPEED)); // attribute id
-                javaAttributes.write(Types.DOUBLE, (double) movement.baseValue()); // base value
-                javaAttributes.write(Types.VAR_INT, movement.sprinting() ? 1 : 0); // modifier count
+                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MOVEMENT_SPEED)); // 属性 id
+                javaAttributes.write(Types.DOUBLE, (double) movement.baseValue()); // 基础值
+                javaAttributes.write(Types.VAR_INT, movement.sprinting() ? 1 : 0); // 修饰符数量
                 if (movement.sprinting()) {
-                    javaAttributes.write(Types.STRING, "minecraft:sprinting"); // modifier id
-                    javaAttributes.write(Types.DOUBLE, 0.3D); // amount
-                    javaAttributes.write(Types.BYTE, (byte) 2); // add multiplied total
+                    javaAttributes.write(Types.STRING, "minecraft:sprinting"); // 修饰符 id
+                    javaAttributes.write(Types.DOUBLE, 0.3D); // 数量
+                    javaAttributes.write(Types.BYTE, (byte) 2); // 加法、乘法、总计
                 }
                 attributeCount.incrementAndGet();
                 yield true;
             }
             case "minecraft:health" -> {
                 javaEntityData.add(new EntityData(this.getJavaEntityDataIndex(EntityDataFields.HEALTH), VersionedTypes.V26_1.entityDataTypes.floatType, attribute.computeClampedValue()));
-                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MAX_HEALTH)); // attribute id
-                javaAttributes.write(Types.DOUBLE, (double) attribute.maxValue()); // base value
-                javaAttributes.write(Types.VAR_INT, 0); // modifier count
+                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MAX_HEALTH)); // 属性 id
+                javaAttributes.write(Types.DOUBLE, (double) attribute.maxValue()); // 基础值
+                javaAttributes.write(Types.VAR_INT, 0); // 修饰符数量
                 attributeCount.incrementAndGet();
                 yield true;
             }
-            case "minecraft:absorption", "minecraft:follow_range", "minecraft:luck" -> true; // Ignore for generic entities
-            case "minecraft:lava_movement", "minecraft:underwater_movement" -> true; // Ignore for now because Java Edition doesn't have these attributes
+            case "minecraft:absorption", "minecraft:follow_range", "minecraft:luck" -> true; // 对通用实体忽略
+            case "minecraft:lava_movement", "minecraft:underwater_movement" -> true; // 暂时忽略，因为 Java 版没有这些属性
             default -> false;
         };
     }

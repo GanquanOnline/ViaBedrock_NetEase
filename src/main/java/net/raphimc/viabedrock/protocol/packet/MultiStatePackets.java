@@ -68,13 +68,13 @@ import java.util.logging.Level;
 public class MultiStatePackets {
 
     private static final PacketHandler DISCONNECT_HANDLER = wrapper -> {
-        final Connection_DisconnectFailReason disconnectReason = Connection_DisconnectFailReason.getByValue(wrapper.read(BedrockTypes.VAR_INT), Connection_DisconnectFailReason.Unknown); // reason
-        final boolean hasMessage = DisconnectPacketLayout.readHasMessage(wrapper); // has message
+        final Connection_DisconnectFailReason disconnectReason = Connection_DisconnectFailReason.getByValue(wrapper.read(BedrockTypes.VAR_INT), Connection_DisconnectFailReason.Unknown); // 原因
+        final boolean hasMessage = DisconnectPacketLayout.readHasMessage(wrapper); // 是否有消息
         if (hasMessage) {
             final Map<String, String> translations = BedrockProtocol.MAPPINGS.getBedrockResourcePacks().get(DataValues.VANILLA_RESOURCE_PACK_KEY).content().getLang("texts/en_US.lang");
             final Function<String, String> translator = k -> translations.getOrDefault(k, k);
-            final String rawMessage = wrapper.read(BedrockTypes.STRING); // message
-            wrapper.read(BedrockTypes.STRING); // filtered message
+            final String rawMessage = wrapper.read(BedrockTypes.STRING); // 消息
+            wrapper.read(BedrockTypes.STRING); // 过滤后的消息
             wrapper.clearInputBuffer();
             final String translatedMessage = BedrockTranslator.translate(rawMessage, translator, new Object[0]);
             PacketFactory.writeJavaDisconnect(wrapper, translatedMessage + " §r(Reason: " + disconnectReason + ")");
@@ -85,10 +85,10 @@ public class MultiStatePackets {
     };
 
     private static final PacketHandler PACKET_VIOLATION_WARNING_HANDLER = wrapper -> {
-        final PacketViolationType type = PacketViolationType.getByValue(wrapper.read(BedrockTypes.VAR_INT), PacketViolationType.Unknown); // type
-        final PacketViolationSeverity severity = PacketViolationSeverity.getByValue(wrapper.read(BedrockTypes.VAR_INT), PacketViolationSeverity.Unknown); // severity
-        final int packetIdCause = wrapper.read(BedrockTypes.VAR_INT); // cause packet id
-        final String context = wrapper.read(BedrockTypes.STRING); // context
+        final PacketViolationType type = PacketViolationType.getByValue(wrapper.read(BedrockTypes.VAR_INT), PacketViolationType.Unknown); // 类型
+        final PacketViolationSeverity severity = PacketViolationSeverity.getByValue(wrapper.read(BedrockTypes.VAR_INT), PacketViolationSeverity.Unknown); // 严重程度
+        final int packetIdCause = wrapper.read(BedrockTypes.VAR_INT); // 引发问题的数据包 ID
+        final String context = wrapper.read(BedrockTypes.STRING); // 上下文
 
         final MinecraftPacketIds packet = MinecraftPacketIds.getByValue(packetIdCause);
 
@@ -102,15 +102,15 @@ public class MultiStatePackets {
     };
 
     private static final PacketHandler NETWORK_STACK_LATENCY_HANDLER = wrapper -> {
-        final long timestamp = wrapper.read(BedrockTypes.LONG_LE); // timestamp
-        final boolean fromServer = wrapper.read(Types.BOOLEAN); // from server
+        final long timestamp = wrapper.read(BedrockTypes.LONG_LE); // 时间戳
+        final boolean fromServer = wrapper.read(Types.BOOLEAN); // 来自服务端
         if (ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
-            // MOT 860 keepalive is new NetworkStackLatencyPacket() (timestamp=0,
-            // fromServer=false). Mapping that onto Java PING lets GanAC queue id 0
-            // and releaseThrough(0) drain every in-flight GanAC ping.
-            // Real GanAC ids are 1..999_999_999 and must still round-trip Java PING
-            // so compensation is not 0ms. Echo MOT 0 locally; wait for Java PONG
-            // only when timestamp != 0. PONG_HANDLER writes timestamp * 1_000_000.
+            // MOT 860 的保活是 new NetworkStackLatencyPacket()（timestamp=0、
+            // fromServer=false）。把它映射到 Java PING 会让 GanAC 排队 id 0，
+            // 并被 releaseThrough(0) 排空所有在途的 GanAC ping。
+            // 真实的 GanAC id 是 1..999_999_999，必须仍然往返 Java PING，
+            // 这样补偿才不是 0ms。本地回显 MOT 0；只有 timestamp != 0 时才
+            // 等待 Java PONG。PONG_HANDLER 写入 timestamp * 1_000_000。
             if (PacketSyncStorage.isMotKeepaliveTimestamp(timestamp)) {
                 wrapper.cancel();
                 final PacketWrapper echo = PacketWrapper.create(ServerboundBedrockPackets.NETWORK_STACK_LATENCY, wrapper.user());
@@ -120,7 +120,7 @@ public class MultiStatePackets {
                 return;
             }
             final int id = wrapper.user().get(PacketSyncStorage.class).addNetworkStackLatencyResponse(timestamp);
-            wrapper.write(Types.INT, id); // parameter
+            wrapper.write(Types.INT, id); // 参数
             return;
         }
         if (!fromServer) {
@@ -142,12 +142,12 @@ public class MultiStatePackets {
             wrapper.cancel();
             return;
         }
-        wrapper.write(Types.INT, id); // parameter
+        wrapper.write(Types.INT, id); // 参数
     };
 
     private static final PacketHandler PONG_HANDLER = wrapper -> {
         final PacketSyncStorage packetSyncStorage = wrapper.user().get(PacketSyncStorage.class);
-        final int id = wrapper.read(Types.INT); // parameter
+        final int id = wrapper.read(Types.INT); // 参数
         final PacketSyncStorage.NetworkStackLatencyResponse response = packetSyncStorage.getNetworkStackLatencyResponse(id);
         if (response != null) {
             if (response.cancelled()) {
@@ -170,7 +170,7 @@ public class MultiStatePackets {
             }
 
             if (PacketSyncStorage.isJavaOnlyLatencyProbe(response)) {
-                // HUD / tab-list probe. Must never be written back as Bedrock NSL.
+                // HUD / 玩家列表探测。绝不可写回为基岩 NSL。
                 wrapper.cancel();
                 return;
             }
@@ -186,8 +186,8 @@ public class MultiStatePackets {
 
     static void writeNetworkStackLatencyResponse(final PacketWrapper wrapper,
                                                 final PacketSyncStorage.NetworkStackLatencyResponse response) {
-        wrapper.write(BedrockTypes.LONG_LE, response.timestamp() * 1_000_000L); // timestamp
-        wrapper.write(Types.BOOLEAN, true); // from server
+        wrapper.write(BedrockTypes.LONG_LE, response.timestamp() * 1_000_000L); // 时间戳
+        wrapper.write(Types.BOOLEAN, true); // 来自服务端
         if (response.boundaryIdentifier() != null) {
             wrapper.write(BedrockTypes.LONG_LE, response.boundaryIdentifier().getMostSignificantBits());
             wrapper.write(BedrockTypes.LONG_LE, response.boundaryIdentifier().getLeastSignificantBits());
@@ -210,24 +210,24 @@ public class MultiStatePackets {
     }
 
     public static final PacketHandler CLIENT_SETTINGS_HANDLER = wrapper -> {
-        final String locale = wrapper.read(Types.STRING); // locale
-        final byte viewDistance = wrapper.read(Types.BYTE); // view distance
-        final int chatVisibility = wrapper.read(Types.VAR_INT); // chat visibility
-        final boolean chatColors = wrapper.read(Types.BOOLEAN); // chat colors
-        final short skinParts = wrapper.read(Types.UNSIGNED_BYTE); // skin parts
-        final int mainHand = wrapper.read(Types.VAR_INT); // main hand
-        final boolean textFiltering = wrapper.read(Types.BOOLEAN); // text filtering
-        final boolean allowsListing = wrapper.read(Types.BOOLEAN); // allows listing
-        final int particleStatus = wrapper.read(Types.VAR_INT); // particle status
+        final String locale = wrapper.read(Types.STRING); // 语言环境
+        final byte viewDistance = wrapper.read(Types.BYTE); // 视距
+        final int chatVisibility = wrapper.read(Types.VAR_INT); // 聊天可见性
+        final boolean chatColors = wrapper.read(Types.BOOLEAN); // 聊天颜色
+        final short skinParts = wrapper.read(Types.UNSIGNED_BYTE); // 皮肤部件
+        final int mainHand = wrapper.read(Types.VAR_INT); // 主手
+        final boolean textFiltering = wrapper.read(Types.BOOLEAN); // 文本过滤
+        final boolean allowsListing = wrapper.read(Types.BOOLEAN); // 允许列出
+        final int particleStatus = wrapper.read(Types.VAR_INT); // 粒子状态
         wrapper.user().put(new ClientSettingsStorage(locale, viewDistance, chatVisibility, chatColors, skinParts, mainHand, textFiltering, allowsListing, particleStatus));
 
-        wrapper.write(BedrockTypes.VAR_INT, (int) viewDistance); // radius
-        wrapper.write(Types.BYTE, ProtocolConstants.BEDROCK_REQUEST_CHUNK_RADIUS_MAX_RADIUS); // max radius
+        wrapper.write(BedrockTypes.VAR_INT, (int) viewDistance); // 半径
+        wrapper.write(Types.BYTE, ProtocolConstants.BEDROCK_REQUEST_CHUNK_RADIUS_MAX_RADIUS); // 最大半径
     };
 
     public static final PacketHandler CUSTOM_PAYLOAD_HANDLER = wrapper -> {
         wrapper.cancel();
-        final String channel = Key.namespaced(wrapper.read(Types.STRING)); // channel
+        final String channel = Key.namespaced(wrapper.read(Types.STRING)); // 通道
         if (channel.equals(ViaBedrockUtilityInterface.PLAYER_STATE_CHANNEL)) {
             ViaBedrockUtilityInterface.handlePlayerState(
                     wrapper.user(), wrapper.read(Types.SERVERBOUND_CUSTOM_PAYLOAD_DATA)
@@ -241,7 +241,7 @@ public class MultiStatePackets {
             wrapper.user().get(ChannelStorage.class).addChannels(channels);
 
             if (channels.contains(ViaBedrockUtilityInterface.CONFIRM_CHANNEL)) {
-                // Also add the data channel early so setSkin() works before the client's PLAY-phase register
+                // 同时提前加入数据通道，使 setSkin() 在客户端 PLAY 阶段注册之前就能工作
                 wrapper.user().get(ChannelStorage.class).addChannels(List.of(ViaBedrockUtilityInterface.CHANNEL));
                 ViaBedrockUtilityInterface.confirmPresence(wrapper.user());
             }

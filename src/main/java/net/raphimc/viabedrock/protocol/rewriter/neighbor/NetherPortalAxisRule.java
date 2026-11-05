@@ -25,9 +25,9 @@ import net.raphimc.viabedrock.api.model.BlockState;
 import java.util.Map;
 
 /**
- * Java's nether portal orientation comes only from {@code axis}, while Bedrock's default {@code portal_axis=unknown}
- * (used by nearly every Bedrock map) carries no orientation; the static {@code unknown -> axis=x} mapping then gets
- * the plane wrong for the half of the portals that open along Z. Derive the axis from the portal's own neighbors.
+ * Java 下界传送门的朝向只来自 {@code axis}，而基岩默认的 {@code portal_axis=unknown}
+ * （几乎所有基岩地图都用它）不带朝向；于是静态的 {@code unknown -> axis=x} 映射
+ * 会让一半沿 Z 轴开启的传送门平面错位。改为根据传送门自身的邻居推导轴向。
  */
 public final class NetherPortalAxisRule implements NeighborAwareBlockRule {
 
@@ -54,8 +54,8 @@ public final class NetherPortalAxisRule implements NeighborAwareBlockRule {
 
     @Override
     public boolean affectsNeighborChunks() {
-        // A portal plane routinely straddles a chunk border; the column in the earlier chunk would otherwise keep the
-        // static unknown -> axis=x guess and render as a plane perpendicular to the frame.
+        // 传送门平面经常横跨区块边界；否则较早区块中的那一列会保留
+        // static unknown -> axis=x 的猜测，并渲染成与框架垂直的平面。
         return true;
     }
 

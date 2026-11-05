@@ -42,10 +42,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Turns the existing client-auth {@link InventoryActionData} simulation into a
- * Bedrock ITEM_STACK_REQUEST payload. NetEase 860 SAI servers reject legacy
- * InventoryTransaction UI clicks, so the same predicted slot deltas have to
- * travel as Take/Place/Swap/Drop actions instead.
+ * 把现有的客户端权威 {@link InventoryActionData} 模拟转换成基岩 ITEM_STACK_REQUEST 载荷。
+ * 网易 860 的 SAI 服务器会拒绝旧版 InventoryTransaction 的 UI 点击，因此同一组预测的槽位增量必须以 Take/Place/Swap/Drop 动作发送。
  */
 public final class ItemStackRequestEncoder {
 
@@ -75,9 +73,8 @@ public final class ItemStackRequestEncoder {
             return EncodedRequest.notSupported();
         }
         stackActions.add(Action.craft(recipeNetworkId));
-        // MOT still runs ConsumeActionProcessor in creative. Emptying the input first
-        // lets the following Take land on EnchantingInput instead of stacking onto the
-        // unenchanted original.
+        // MOT 在创造模式下仍会运行 ConsumeActionProcessor。先清空输入，后续的 Take 才能落到 EnchantingInput 上，
+        // 而不是堆叠到尚未附魔的原物品上。
         stackActions.add(Action.consume(inputCount, input));
         if (!creative && reagentCount > 0) {
             final ItemStackRequestLayout.SlotInfo reagent = slotWithNetId(tracker, 1);
@@ -897,9 +894,8 @@ public final class ItemStackRequestEncoder {
     }
 
     /**
-     * MOT {@code CraftRecipeAutoProcessor} counts one Consume per non-empty auto-craft
-     * ingredient and matches those descriptors against the later Consume actions.
-     * Emit one DEFAULT descriptor per occupied grid slot, never TAG type 3.
+     * MOT {@code CraftRecipeAutoProcessor} 为每个非空的自动合成材料计一次 Consume，并把这些描述符与后续的 Consume 动作匹配。
+     * 为每个被占用的合成网格槽位发出一个 DEFAULT 描述符，绝不要用 TAG 类型 3。
      */
     static List<BedrockItem> autoCraftIngredients(final BedrockItem[] gridItems, final int timesCrafted) {
         final List<BedrockItem> ingredients = new ArrayList<>();

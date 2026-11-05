@@ -22,13 +22,13 @@ import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import io.netty.buffer.ByteBuf;
 
 /**
- * PacketWrapper copies any unread Bedrock bytes onto the rewritten Java packet.
- * NetEase 860 trailers (and any under-read official payload) then kick 1.21.11
- * as extra data on mapped S2C such as OPEN_SCREEN / CONTAINER_SET_CONTENT.
+ * PacketWrapper 会把所有未读的基岩字节复制到重写后的 Java 数据包上。
+ * 网易 860 的尾部（以及任何读取不足的官方载荷）随后会以 extra data 形式
+ * 踢掉 1.21.11，例如在已映射的 S2C 包 OPEN_SCREEN / CONTAINER_SET_CONTENT 上。
  * <p>
- * Skip only the remaining input bytes. {@link PacketWrapper#clearInputBuffer()}
- * also wipes mapped {@code readableObjects}, which breaks PacketHandlers that
- * used {@code map()} before the leftover discard.
+ * 只跳过剩余输入字节。{@link PacketWrapper#clearInputBuffer()}
+ * 还会清空已映射的 {@code readableObjects}，这会破坏那些
+ * 在丢弃剩余字节之前用过 {@code map()} 的 PacketHandler。
  */
 public final class PacketLeftoverLayout {
 

@@ -84,25 +84,25 @@ public class EntityPackets {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
 
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final String type = Key.namespaced(wrapper.read(BedrockTypes.STRING)); // type
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // motion
-            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // rotation
-            wrapper.read(BedrockTypes.FLOAT_LE); // body rotation
-            final EntityAttribute[] attributes = new EntityAttribute[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // attribute count
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final String type = Key.namespaced(wrapper.read(BedrockTypes.STRING)); // 类型
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // 运动向量
+            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // 旋转
+            wrapper.read(BedrockTypes.FLOAT_LE); // 身体旋转
+            final EntityAttribute[] attributes = new EntityAttribute[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 属性数量
             for (int i = 0; i < attributes.length; i++) {
-                final String name = wrapper.read(BedrockTypes.STRING); // name
-                final float minValue = wrapper.read(BedrockTypes.FLOAT_LE); // min
-                final float currentValue = wrapper.read(BedrockTypes.FLOAT_LE); // current
-                final float maxValue = wrapper.read(BedrockTypes.FLOAT_LE); // max
+                final String name = wrapper.read(BedrockTypes.STRING); // 名称
+                final float minValue = wrapper.read(BedrockTypes.FLOAT_LE); // 最小值
+                final float currentValue = wrapper.read(BedrockTypes.FLOAT_LE); // 当前值
+                final float maxValue = wrapper.read(BedrockTypes.FLOAT_LE); // 最大值
                 attributes[i] = new EntityAttribute(name, currentValue, minValue, maxValue);
             }
-            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // entity data
+            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // 实体数据
             final EntityProperties entityProperties = EntityPropertyStorage.getOrCreate(wrapper.user())
-                    .resolve(type, wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // entity properties
-            final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // entity links
+                    .resolve(type, wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // 实体属性
+            final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // 实体链接
 
             final int javaSpawnData;
             if (type.equals(FISHING_HOOK_IDENTIFIER)) {
@@ -165,17 +165,17 @@ public class EntityPackets {
             entity.setRotation(rotation);
             entity.setEntityProperties(entityProperties);
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.UUID, entity.javaUuid()); // uuid
-            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // type id
+            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // 类型 ID
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y()); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
-            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // velocity
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // pitch
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.y())); // yaw
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.z())); // head yaw
-            wrapper.write(Types.VAR_INT, javaSpawnData); // data
+            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // 速度
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // 俯仰角
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.y())); // 偏航角
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.z())); // 头部偏航角
+            wrapper.write(Types.VAR_INT, javaSpawnData); // 数据
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
@@ -190,13 +190,13 @@ public class EntityPackets {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
 
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final BedrockItem item = wrapper.read(itemRewriter.itemType()); // item
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // motion
-            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // entity data
-            wrapper.read(Types.BOOLEAN); // from fishing
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final BedrockItem item = wrapper.read(itemRewriter.itemType()); // 物品
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // 运动向量
+            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // 实体数据
+            wrapper.read(Types.BOOLEAN); // 来自钓鱼
 
             final DroppedItemEntity entity = (DroppedItemEntity) entityTracker.addEntity(entityUniqueId, entityRuntimeId, "minecraft:item", EntityTypes1_21_11.ITEM);
             entity.setPosition(position);
@@ -204,17 +204,17 @@ public class EntityPackets {
             final Item javaItem = itemRewriter.javaItem(item);
             entity.setItem(javaItem);
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.UUID, entity.javaUuid()); // uuid
-            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // type id
+            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // 类型 ID
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y()); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
-            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // velocity
-            wrapper.write(Types.BYTE, (byte) 0); // pitch
-            wrapper.write(Types.BYTE, (byte) 0); // yaw
-            wrapper.write(Types.BYTE, (byte) 0); // head yaw
-            wrapper.write(Types.VAR_INT, 0); // data
+            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // 速度
+            wrapper.write(Types.BYTE, (byte) 0); // 俯仰角
+            wrapper.write(Types.BYTE, (byte) 0); // 偏航角
+            wrapper.write(Types.BYTE, (byte) 0); // 头部偏航角
+            wrapper.write(Types.VAR_INT, 0); // 数据
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
@@ -223,21 +223,21 @@ public class EntityPackets {
             entity.updateEntityData(entityData, javaEntityData);
             javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.ITEM), VersionedTypes.V26_1.entityDataTypes.itemType, javaItem));
             final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, wrapper.user());
-            setEntityData.write(Types.VAR_INT, entity.javaId()); // entity id
-            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
+            setEntityData.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // 实体数据
             setEntityData.send(BedrockProtocol.class);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_ENTITY_ABSOLUTE, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final short flags = wrapper.read(Types.UNSIGNED_BYTE); // flags
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final float pitch = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // pitch
-            final float yaw = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // yaw
-            final float headYaw = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // head yaw
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final short flags = wrapper.read(Types.UNSIGNED_BYTE); // 标志位
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final float pitch = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // 俯仰角
+            final float yaw = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // 偏航角
+            final float headYaw = MathUtil.byte2Float(wrapper.read(Types.BYTE)); // 头部偏航角
             final boolean onGround = (flags & 1) != 0;
-            final boolean teleported = (flags & 2) != 0; // If the position shouldn't be interpolated
+            final boolean teleported = (flags & 2) != 0; // 位置是否不应插值
             final boolean forceMoveLocalEntity = (flags & 4) != 0;
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
@@ -257,17 +257,17 @@ public class EntityPackets {
                 if (teleported) {
                     wrapper.setPacketType(ClientboundPackets26_1.PLAYER_POSITION);
                     entityTracker.getClientPlayer().writePlayerPositionPacketToClient(wrapper, Relative.union(Relative.ROTATION, Relative.VELOCITY), true);
-                } else { // force move local entity
-                    wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+                } else { // 强制移动本地实体
+                    wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
                     wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
                     wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
                     wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
-                    wrapper.write(Types.DOUBLE, 0D); // velocity x
-                    wrapper.write(Types.DOUBLE, 0D); // velocity y
-                    wrapper.write(Types.DOUBLE, 0D); // velocity z
-                    wrapper.write(Types.FLOAT, entity.rotation().y()); // yaw
-                    wrapper.write(Types.FLOAT, entity.rotation().x()); // pitch
-                    wrapper.write(Types.BOOLEAN, entity.isOnGround()); // on ground
+                    wrapper.write(Types.DOUBLE, 0D); // x 方向速度
+                    wrapper.write(Types.DOUBLE, 0D); // y 方向速度
+                    wrapper.write(Types.DOUBLE, 0D); // z 方向速度
+                    wrapper.write(Types.FLOAT, entity.rotation().y()); // 偏航角
+                    wrapper.write(Types.FLOAT, entity.rotation().x()); // 俯仰角
+                    wrapper.write(Types.BOOLEAN, entity.isOnGround()); // 是否在地面
                 }
                 return;
             }
@@ -282,24 +282,24 @@ public class EntityPackets {
                 PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
                 return;
             }
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y() - entity.eyeOffset()); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
-            wrapper.write(Types.DOUBLE, 0D); // velocity x
-            wrapper.write(Types.DOUBLE, 0D); // velocity y
-            wrapper.write(Types.DOUBLE, 0D); // velocity z
-            wrapper.write(Types.FLOAT, yaw); // yaw
-            wrapper.write(Types.FLOAT, pitch); // pitch
-            wrapper.write(Types.BOOLEAN, onGround); // on ground
+            wrapper.write(Types.DOUBLE, 0D); // x 方向速度
+            wrapper.write(Types.DOUBLE, 0D); // y 方向速度
+            wrapper.write(Types.DOUBLE, 0D); // z 方向速度
+            wrapper.write(Types.FLOAT, yaw); // 偏航角
+            wrapper.write(Types.FLOAT, pitch); // 俯仰角
+            wrapper.write(Types.BOOLEAN, onGround); // 是否在地面
 
             PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_ENTITY_DELTA, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final int flags = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // flags
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final int flags = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 标志位
             final boolean hasX = (flags & 1) != 0;
             final boolean hasY = (flags & 2) != 0;
             final boolean hasZ = (flags & 4) != 0;
@@ -307,7 +307,7 @@ public class EntityPackets {
             final boolean hasYaw = (flags & 16) != 0;
             final boolean hasHeadYaw = (flags & 32) != 0;
             final boolean onGround = (flags & 64) != 0;
-            final boolean teleported = (flags & 128) != 0; // If the position shouldn't be interpolated
+            final boolean teleported = (flags & 128) != 0; // 位置是否不应插值
             final boolean forceMoveLocalEntity = (flags & 256) != 0;
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
@@ -341,17 +341,17 @@ public class EntityPackets {
                 if (teleported) {
                     wrapper.setPacketType(ClientboundPackets26_1.PLAYER_POSITION);
                     entityTracker.getClientPlayer().writePlayerPositionPacketToClient(wrapper, Relative.union(Relative.ROTATION, Relative.VELOCITY), true);
-                } else { // force move local entity
-                    wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+                } else { // 强制移动本地实体
+                    wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
                     wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
                     wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
                     wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
-                    wrapper.write(Types.DOUBLE, 0D); // velocity x
-                    wrapper.write(Types.DOUBLE, 0D); // velocity y
-                    wrapper.write(Types.DOUBLE, 0D); // velocity z
-                    wrapper.write(Types.FLOAT, entity.rotation().y()); // yaw
-                    wrapper.write(Types.FLOAT, entity.rotation().x()); // pitch
-                    wrapper.write(Types.BOOLEAN, entity.isOnGround()); // on ground
+                    wrapper.write(Types.DOUBLE, 0D); // x 方向速度
+                    wrapper.write(Types.DOUBLE, 0D); // y 方向速度
+                    wrapper.write(Types.DOUBLE, 0D); // z 方向速度
+                    wrapper.write(Types.FLOAT, entity.rotation().y()); // 偏航角
+                    wrapper.write(Types.FLOAT, entity.rotation().x()); // 俯仰角
+                    wrapper.write(Types.BOOLEAN, entity.isOnGround()); // 是否在地面
                 }
                 return;
             }
@@ -382,23 +382,23 @@ public class EntityPackets {
                     || ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
                 return;
             }
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.DOUBLE, (double) entity.position().x()); // x
             wrapper.write(Types.DOUBLE, (double) entity.position().y() - entity.eyeOffset()); // y
             wrapper.write(Types.DOUBLE, (double) entity.position().z()); // z
-            wrapper.write(Types.DOUBLE, 0D); // velocity x
-            wrapper.write(Types.DOUBLE, 0D); // velocity y
-            wrapper.write(Types.DOUBLE, 0D); // velocity z
-            wrapper.write(Types.FLOAT, entity.rotation().y()); // yaw
-            wrapper.write(Types.FLOAT, entity.rotation().x()); // pitch
-            wrapper.write(Types.BOOLEAN, entity.isOnGround()); // on ground
+            wrapper.write(Types.DOUBLE, 0D); // x 方向速度
+            wrapper.write(Types.DOUBLE, 0D); // y 方向速度
+            wrapper.write(Types.DOUBLE, 0D); // z 方向速度
+            wrapper.write(Types.FLOAT, entity.rotation().y()); // 偏航角
+            wrapper.write(Types.FLOAT, entity.rotation().x()); // 俯仰角
+            wrapper.write(Types.BOOLEAN, entity.isOnGround()); // 是否在地面
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SET_ENTITY_MOTION, ClientboundPackets26_1.SET_ENTITY_MOTION, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // motion
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // 运动向量
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
             if (entity == null) {
@@ -406,12 +406,12 @@ public class EntityPackets {
                 return;
             }
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // velocity
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // 速度
         });
         protocol.registerClientbound(ClientboundBedrockPackets.REMOVE_ENTITY, ClientboundPackets26_1.REMOVE_ENTITIES, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
 
             final Entity entity = entityTracker.getEntityByUid(entityUniqueId);
             if (entity == null) {
@@ -420,18 +420,18 @@ public class EntityPackets {
             }
             entityTracker.removeEntity(entity);
 
-            wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{entity.javaId()}); // entity ids
+            wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{entity.javaId()}); // 实体 ID 列表
         });
         protocol.registerClientbound(ClientboundBedrockPackets.ADD_PAINTING, ClientboundPackets26_1.ADD_ENTITY, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
             final CompoundTag paintingRegistry = gameSession.getJavaRegistries().getCompoundTag(RegistryKeys.PAINTING_VARIANT);
 
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final Direction direction = Direction.getFromHorizontalId(wrapper.read(BedrockTypes.VAR_INT), Direction.NORTH); // direction
-            final String motive = wrapper.read(BedrockTypes.STRING); // motive
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final Direction direction = Direction.getFromHorizontalId(wrapper.read(BedrockTypes.VAR_INT), Direction.NORTH); // 方向
+            final String motive = wrapper.read(BedrockTypes.STRING); // 图案
 
             String javaIdentifier = BedrockProtocol.MAPPINGS.getBedrockToJavaPaintings().get(motive);
             if (javaIdentifier == null) {
@@ -456,39 +456,39 @@ public class EntityPackets {
             final Entity entity = entityTracker.addEntity(entityUniqueId, entityRuntimeId, "minecraft:painting", EntityTypes1_21_11.PAINTING);
             entity.setPosition(position);
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.UUID, entity.javaUuid()); // uuid
-            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // type id
+            wrapper.write(Types.VAR_INT, entity.javaTypeId()); // 类型 ID
             wrapper.write(Types.DOUBLE, (double) position.x() + positionOffset.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y() + positionOffset.y()); // y
             wrapper.write(Types.DOUBLE, (double) position.z() + positionOffset.z()); // z
-            wrapper.write(Types.LOW_PRECISION_VECTOR, Vector3d.ZERO); // velocity
-            wrapper.write(Types.BYTE, (byte) 0); // pitch
-            wrapper.write(Types.BYTE, (byte) 0); // yaw
-            wrapper.write(Types.BYTE, (byte) 0); // head yaw
-            wrapper.write(Types.VAR_INT, direction.verticalId()); // data
+            wrapper.write(Types.LOW_PRECISION_VECTOR, Vector3d.ZERO); // 速度
+            wrapper.write(Types.BYTE, (byte) 0); // 俯仰角
+            wrapper.write(Types.BYTE, (byte) 0); // 偏航角
+            wrapper.write(Types.BYTE, (byte) 0); // 头部偏航角
+            wrapper.write(Types.VAR_INT, direction.verticalId()); // 数据
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
 
             final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, wrapper.user());
-            setEntityData.write(Types.VAR_INT, entity.javaId()); // entity id
-            setEntityData.write(VersionedTypes.V26_1.entityDataList, Lists.newArrayList(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.PAINTING_VARIANT), VersionedTypes.V26_1.entityDataTypes.paintingVariantType, paintingHolder))); // entity data
+            setEntityData.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            setEntityData.write(VersionedTypes.V26_1.entityDataList, Lists.newArrayList(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.PAINTING_VARIANT), VersionedTypes.V26_1.entityDataTypes.paintingVariantType, paintingHolder))); // 实体数据
             setEntityData.send(BedrockProtocol.class);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.ENTITY_EVENT, ClientboundPackets26_1.ENTITY_EVENT, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final short rawEvent = wrapper.read(Types.UNSIGNED_BYTE); // event
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final short rawEvent = wrapper.read(Types.UNSIGNED_BYTE); // 事件
             final ActorEvent event = ActorEvent.getByValue(rawEvent);
             if (event == null) {
                 wrapper.cancel();
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown ActorEvent: " + rawEvent);
                 return;
             }
-            final int data = wrapper.read(BedrockTypes.VAR_INT); // data
+            final int data = wrapper.read(BedrockTypes.VAR_INT); // 数据
             EntityPacketLayout.skipEntityEventFireAtPosition(wrapper);
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
@@ -503,11 +503,11 @@ public class EntityPackets {
                     final CompoundTag damageTypeEntry = damageTypeRegistry.getCompoundTag(BedrockProtocol.MAPPINGS.getBedrockToJavaDamageCauses().get(damageCause));
 
                     wrapper.setPacketType(ClientboundPackets26_1.DAMAGE_EVENT);
-                    wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-                    wrapper.write(Types.VAR_INT, RegistryUtil.getRegistryIndex(damageTypeRegistry, damageTypeEntry)); // source type
-                    wrapper.write(Types.VAR_INT, 0); // source cause id
-                    wrapper.write(Types.VAR_INT, 0); // source direct id
-                    wrapper.write(Types.BOOLEAN, false); // has source position
+                    wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+                    wrapper.write(Types.VAR_INT, RegistryUtil.getRegistryIndex(damageTypeRegistry, damageTypeEntry)); // 来源类型
+                    wrapper.write(Types.VAR_INT, 0); // 来源原因 ID
+                    wrapper.write(Types.VAR_INT, 0); // 来源直接 ID
+                    wrapper.write(Types.BOOLEAN, false); // 是否包含来源位置
                     if (entity != entityTracker.getClientPlayer()) {
                         entity.playSound(SharedTypes_Legacy_LevelSoundEvent.Hurt);
                     }
@@ -515,8 +515,8 @@ public class EntityPackets {
                 case DEATH -> {
                     if (entity instanceof CustomEntity) {
                         // 自定义实体使用 Interaction 载体，需独立转发死亡状态供客户端渲染。
-                        wrapper.write(Types.INT, entity.javaId()); // entity id
-                        wrapper.write(Types.BYTE, net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.DEATH.getValue()); // event
+                        wrapper.write(Types.INT, entity.javaId()); // 实体 ID
+                        wrapper.write(Types.BYTE, net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.DEATH.getValue()); // 事件
                     } else {
                         wrapper.cancel();
                     }
@@ -526,8 +526,8 @@ public class EntityPackets {
                     }
                     if (entity == entityTracker.getClientPlayer() && entityTracker.getClientPlayer().isDead() && gameSession.getDeathMessage() != null) {
                         final PacketWrapper playerCombatKill = PacketWrapper.create(ClientboundPackets26_1.PLAYER_COMBAT_KILL, wrapper.user());
-                        playerCombatKill.write(Types.VAR_INT, entityTracker.getClientPlayer().javaId()); // entity id
-                        playerCombatKill.write(Types.TAG, TextUtil.textComponentToNbt(gameSession.getDeathMessage())); // message
+                        playerCombatKill.write(Types.VAR_INT, entityTracker.getClientPlayer().javaId()); // 实体 ID
+                        playerCombatKill.write(Types.TAG, TextUtil.textComponentToNbt(gameSession.getDeathMessage())); // 消息
                         playerCombatKill.send(BedrockProtocol.class);
                     }
                     if (entity != entityTracker.getClientPlayer()) {
@@ -542,26 +542,26 @@ public class EntityPackets {
 
                     final Item updatedItem = droppedItemEntity.updateItemAmount(data);
                     final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, wrapper.user());
-                    setEntityData.write(Types.VAR_INT, entity.javaId()); // entity id
-                    setEntityData.write(VersionedTypes.V26_1.entityDataList, Lists.newArrayList(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.ITEM), VersionedTypes.V26_1.entityDataTypes.itemType, updatedItem))); // entity data
+                    setEntityData.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+                    setEntityData.write(VersionedTypes.V26_1.entityDataList, Lists.newArrayList(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.ITEM), VersionedTypes.V26_1.entityDataTypes.itemType, updatedItem))); // 实体数据
                     setEntityData.send(BedrockProtocol.class);
                 }
                 default -> {
                     final net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent javaEvent = javaEntityEvent(event, entity.javaType());
                     if (javaEvent != null) {
-                        wrapper.write(Types.INT, entity.javaId()); // entity id
-                        wrapper.write(Types.BYTE, javaEvent.getValue()); // event
+                        wrapper.write(Types.INT, entity.javaId()); // 实体 ID
+                        wrapper.write(Types.BYTE, javaEvent.getValue()); // 事件
                     } else {
                         final AnimateAction javaAnimateAction = javaAnimateAction(event, entity);
                         if (javaAnimateAction == null) {
                             wrapper.cancel();
                             return;
                         }
-                        // Nukkit uses ActorEvent 4 as a generic mob arm swing, while Java reserves entity
-                        // status 4 for a few entity types. Other living entities need an Animate packet.
+                        // Nukkit 把 ActorEvent 4 当作通用的生物挥臂，而 Java 把实体
+                        // 状态 4 保留给少数实体类型。其他生物需要用 Animate 数据包。
                         wrapper.setPacketType(ClientboundPackets26_1.ANIMATE);
-                        wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) javaAnimateAction.ordinal()); // action
+                        wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) javaAnimateAction.ordinal()); // 动作
                     }
                 }
             }
@@ -569,29 +569,29 @@ public class EntityPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_ATTRIBUTES, ClientboundPackets26_1.UPDATE_ATTRIBUTES, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final EntityAttribute[] attributes = new EntityAttribute[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // attribute count
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final EntityAttribute[] attributes = new EntityAttribute[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 属性数量
             for (int i = 0; i < attributes.length; i++) {
-                final float minValue = wrapper.read(BedrockTypes.FLOAT_LE); // min value
-                final float maxValue = wrapper.read(BedrockTypes.FLOAT_LE); // max value
-                final float currentValue = wrapper.read(BedrockTypes.FLOAT_LE); // current value
-                final float defaultMinValue = wrapper.read(BedrockTypes.FLOAT_LE); // default min value
-                final float defaultMaxValue = wrapper.read(BedrockTypes.FLOAT_LE); // default max value
-                final float defaultValue = wrapper.read(BedrockTypes.FLOAT_LE); // default value
-                final String name = wrapper.read(BedrockTypes.STRING); // name
-                final EntityAttribute.Modifier[] modifiers = new EntityAttribute.Modifier[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // modifier count
+                final float minValue = wrapper.read(BedrockTypes.FLOAT_LE); // 最小值
+                final float maxValue = wrapper.read(BedrockTypes.FLOAT_LE); // 最大值
+                final float currentValue = wrapper.read(BedrockTypes.FLOAT_LE); // 当前值
+                final float defaultMinValue = wrapper.read(BedrockTypes.FLOAT_LE); // 默认最小值
+                final float defaultMaxValue = wrapper.read(BedrockTypes.FLOAT_LE); // 默认最大值
+                final float defaultValue = wrapper.read(BedrockTypes.FLOAT_LE); // 默认值
+                final String name = wrapper.read(BedrockTypes.STRING); // 名称
+                final EntityAttribute.Modifier[] modifiers = new EntityAttribute.Modifier[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 修饰符数量
                 for (int j = 0; j < modifiers.length; j++) {
-                    final String id = wrapper.read(BedrockTypes.STRING); // id
-                    final String modifierName = wrapper.read(BedrockTypes.STRING); // name
-                    final float amount = wrapper.read(BedrockTypes.FLOAT_LE); // amount
-                    final AttributeModifierOperation operation = AttributeModifierOperation.getByValue(wrapper.read(BedrockTypes.INT_LE), AttributeModifierOperation.OPERATION_INVALID); // operation
-                    final AttributeOperands operand = AttributeOperands.getByValue(wrapper.read(BedrockTypes.INT_LE), AttributeOperands.OPERAND_INVALID); // operand
-                    final boolean isSerializable = wrapper.read(Types.BOOLEAN); // is serializable
+                    final String id = wrapper.read(BedrockTypes.STRING); // ID
+                    final String modifierName = wrapper.read(BedrockTypes.STRING); // 名称
+                    final float amount = wrapper.read(BedrockTypes.FLOAT_LE); // 数量
+                    final AttributeModifierOperation operation = AttributeModifierOperation.getByValue(wrapper.read(BedrockTypes.INT_LE), AttributeModifierOperation.OPERATION_INVALID); // 运算
+                    final AttributeOperands operand = AttributeOperands.getByValue(wrapper.read(BedrockTypes.INT_LE), AttributeOperands.OPERAND_INVALID); // 操作数
+                    final boolean isSerializable = wrapper.read(Types.BOOLEAN); // 是否可序列化
                     modifiers[j] = new EntityAttribute.Modifier(id, modifierName, amount, operation, operand, isSerializable);
                 }
                 attributes[i] = new EntityAttribute(name, currentValue, minValue, maxValue, defaultValue, defaultMinValue, defaultMaxValue, modifiers);
             }
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
             if (entity instanceof LivingEntity livingEntity) {
@@ -603,10 +603,10 @@ public class EntityPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.SET_ENTITY_DATA, ClientboundPackets26_1.SET_ENTITY_DATA, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // entity data
-            final EntityProperties rawEntityProperties = wrapper.read(BedrockTypes.ENTITY_PROPERTIES); // entity properties
-            final long entityDataFrame = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // 实体数据
+            final EntityProperties rawEntityProperties = wrapper.read(BedrockTypes.ENTITY_PROPERTIES); // 实体属性
+            final long entityDataFrame = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
             if (entity == null) {
@@ -623,17 +623,17 @@ public class EntityPackets {
             if (entity instanceof PlayerEntity playerEntity) {
                 playerEntity.updateEntityProperties(entityProperties);
             }
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // 实体数据
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOB_EFFECT, ClientboundPackets26_1.UPDATE_MOB_EFFECT, wrapper -> {
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final MobEffectPacketPayload_Event event = MobEffectPacketPayload_Event.getByValue(wrapper.read(Types.BYTE), MobEffectPacketPayload_Event.Invalid); // event id
-            final int effectId = wrapper.read(BedrockTypes.VAR_INT); // effect id
-            final int amplifier = wrapper.read(BedrockTypes.VAR_INT); // amplifier
-            final boolean showParticles = wrapper.read(Types.BOOLEAN); // show particles
-            final int duration = wrapper.read(BedrockTypes.VAR_INT); // duration
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final MobEffectPacketPayload_Event event = MobEffectPacketPayload_Event.getByValue(wrapper.read(Types.BYTE), MobEffectPacketPayload_Event.Invalid); // 事件 ID
+            final int effectId = wrapper.read(BedrockTypes.VAR_INT); // 效果 ID
+            final int amplifier = wrapper.read(BedrockTypes.VAR_INT); // 效果强度
+            final boolean showParticles = wrapper.read(Types.BOOLEAN); // 是否显示粒子
+            final int duration = wrapper.read(BedrockTypes.VAR_INT); // 持续时间
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
             final boolean ambient = EntityPacketLayout.readAmbient(wrapper);
 
             final Entity entity = wrapper.user().get(EntityTracker.class).getEntityByRid(entityRuntimeId);
@@ -643,7 +643,7 @@ public class EntityPackets {
             }
 
             final String bedrockIdentifier = BedrockProtocol.MAPPINGS.getBedrockEffects().inverse().get(effectId);
-            if (bedrockIdentifier == null) { // Bedrock client crashes
+            if (bedrockIdentifier == null) { // 基岩客户端会崩溃
                 throw new IllegalStateException("Unknown bedrock effect: " + effectId);
             }
             final EntityEffect effect = new EntityEffect(bedrockIdentifier, amplifier, duration, showParticles, ambient);
@@ -658,13 +658,15 @@ public class EntityPackets {
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.ANIMATE, ClientboundPackets26_1.ANIMATE, wrapper -> {
-            final int rawAction = EntityPacketLayout.readAnimateAction(wrapper); // action
+            final int rawAction = EntityPacketLayout.readAnimateAction(wrapper); // 动作
             final AnimatePacketPayload_Action action = AnimatePacketPayload_Action.getByValue(rawAction, AnimatePacketPayload_Action.NoAction);
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            wrapper.read(BedrockTypes.FLOAT_LE); // data
-            // MOT 860 AnimatePacket.decode(): protocol < 897 && ROW_LEFT/ROW_RIGHT always carry rowingTime.
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            wrapper.read(BedrockTypes.FLOAT_LE); // 数据
+            // MOT 860 的 AnimatePacket.decode()：protocol < 897 && ROW_LEFT/ROW_RIGHT 总会携带 rowingTime。
             EntityPacketLayout.skipRowingTime(wrapper, rawAction);
             EntityPacketLayout.skipSwingSource(wrapper);
+            // MOT 898 的 AnimatePacket.decode()：网易会追加攻击 ID 的 varlong。
+            EntityPacketLayout.skipNetEaseAttackId(wrapper);
 
             final JavaAnimate javaAnimate = resolveJavaAnimate(action, entityRuntimeId, wrapper.user().get(EntityTracker.class)::getEntityByRid);
             if (javaAnimate == null) {
@@ -673,33 +675,33 @@ public class EntityPackets {
             }
 
             final Entity entity = javaAnimate.entity();
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(Types.UNSIGNED_BYTE, (short) javaAnimate.action().ordinal()); // action
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(Types.UNSIGNED_BYTE, (short) javaAnimate.action().ordinal()); // 动作
             if (javaAnimate.action() == AnimateAction.WAKE_UP && entity instanceof ClientPlayerEntity clientPlayer) {
                 clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.StopSleeping);
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.ANIMATE_ENTITY, null, wrapper -> {
-            // Java has no MoLang animation system; a server-triggered named animation only makes sense for entities
-            // rendered by the ViaBedrockUtility mod: custom entities, and humanoids on the player render path (real
-            // players and player-type NPCs such as leaderboard NPCs). Capable player renderers receive the
-            // complete runtime-controller request; custom entities and older clients keep the legacy payload.
-            final String animation = wrapper.read(BedrockTypes.STRING); // animation
-            final String nextState = wrapper.read(BedrockTypes.STRING); // next state
-            final String stopExpression = wrapper.read(BedrockTypes.STRING); // stop expression
-            final int stopExpressionVersion = wrapper.read(Types.INT); // stop expression version (big-endian int)
-            final String controller = wrapper.read(BedrockTypes.STRING); // controller
-            final float blendOutTime = wrapper.read(BedrockTypes.FLOAT_LE); // blend out time
-            final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // runtime entity id count
+            // Java 没有 MoLang 动画系统；服务端触发的具名动画只对
+            // 由 ViaBedrockUtility mod 渲染的实体有意义：自定义实体，以及走玩家渲染路径的人形
+            // （真实玩家和玩家类型 NPC，例如排行榜 NPC）。具备该能力的玩家渲染器会收到
+            // 完整的运行时控制器请求；自定义实体和旧客户端仍保留旧版载荷。
+            final String animation = wrapper.read(BedrockTypes.STRING); // 动画
+            final String nextState = wrapper.read(BedrockTypes.STRING); // 下一状态
+            final String stopExpression = wrapper.read(BedrockTypes.STRING); // 停止表达式
+            final int stopExpressionVersion = wrapper.read(Types.INT); // 停止表达式版本（大端 int）
+            final String controller = wrapper.read(BedrockTypes.STRING); // 控制器
+            final float blendOutTime = wrapper.read(BedrockTypes.FLOAT_LE); // 淡出时间
+            final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 运行时实体 ID 数量
             final long[] runtimeIds = new long[count];
             for (int i = 0; i < count; i++) {
-                runtimeIds[i] = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // runtime entity id
+                runtimeIds[i] = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 运行时实体 ID
             }
             wrapper.cancel();
 
             final ChannelStorage channelStorage = wrapper.user().get(ChannelStorage.class);
             if (channelStorage == null || !channelStorage.hasChannel(ViaBedrockUtilityInterface.CONFIRM_CHANNEL)) {
-                return; // No ViaBedrockUtility mod: nothing can render the animation on this path
+                return; // 没有 ViaBedrockUtility mod：这条路径上无法渲染该动画
             }
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             for (final long runtimeId : runtimeIds) {
@@ -714,12 +716,12 @@ public class EntityPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOB_ARMOR_EQUIPMENT, ClientboundPackets26_1.SET_EQUIPMENT, wrapper -> {
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final BedrockItem head = wrapper.read(itemRewriter.itemType()); // head
-            final BedrockItem chest = wrapper.read(itemRewriter.itemType()); // chest
-            final BedrockItem legs = wrapper.read(itemRewriter.itemType()); // legs
-            final BedrockItem feet = wrapper.read(itemRewriter.itemType()); // feet
-            final BedrockItem body = wrapper.read(itemRewriter.itemType()); // body
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final BedrockItem head = wrapper.read(itemRewriter.itemType()); // 头部
+            final BedrockItem chest = wrapper.read(itemRewriter.itemType()); // 胸部
+            final BedrockItem legs = wrapper.read(itemRewriter.itemType()); // 腿部
+            final BedrockItem feet = wrapper.read(itemRewriter.itemType()); // 脚部
+            final BedrockItem body = wrapper.read(itemRewriter.itemType()); // 身体
 
             final Entity entity = wrapper.user().get(EntityTracker.class).getEntityByRid(entityRuntimeId);
             if (entity == null || entity instanceof ClientPlayerEntity) {
@@ -727,30 +729,30 @@ public class EntityPackets {
                 return;
             }
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.FEET.ordinal() | Byte.MIN_VALUE)); // slot
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.FEET.ordinal() | Byte.MIN_VALUE)); // 槽位
             final Item javaFeet = itemRewriter.javaItem(feet);
-            wrapper.write(VersionedTypes.V26_1.item, javaFeet); // item
-            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.LEGS.ordinal() | Byte.MIN_VALUE)); // slot
+            wrapper.write(VersionedTypes.V26_1.item, javaFeet); // 物品
+            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.LEGS.ordinal() | Byte.MIN_VALUE)); // 槽位
             final Item javaLegs = itemRewriter.javaItem(legs);
-            wrapper.write(VersionedTypes.V26_1.item, javaLegs); // item
-            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.CHEST.ordinal() | Byte.MIN_VALUE)); // slot
+            wrapper.write(VersionedTypes.V26_1.item, javaLegs); // 物品
+            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.CHEST.ordinal() | Byte.MIN_VALUE)); // 槽位
             final Item javaChest = itemRewriter.javaItem(chest);
-            wrapper.write(VersionedTypes.V26_1.item, javaChest); // item
-            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.HEAD.ordinal() | Byte.MIN_VALUE)); // slot
+            wrapper.write(VersionedTypes.V26_1.item, javaChest); // 物品
+            wrapper.write(Types.BYTE, (byte) (EquipmentSlot.HEAD.ordinal() | Byte.MIN_VALUE)); // 槽位
             final Item javaHead = itemRewriter.javaItem(head);
-            wrapper.write(VersionedTypes.V26_1.item, javaHead); // item
-            wrapper.write(Types.BYTE, (byte) EquipmentSlot.BODY.ordinal()); // slot
+            wrapper.write(VersionedTypes.V26_1.item, javaHead); // 物品
+            wrapper.write(Types.BYTE, (byte) EquipmentSlot.BODY.ordinal()); // 槽位
             final Item javaBody = itemRewriter.javaItem(body);
-            wrapper.write(VersionedTypes.V26_1.item, javaBody); // item
+            wrapper.write(VersionedTypes.V26_1.item, javaBody); // 物品
         });
         protocol.registerClientbound(ClientboundBedrockPackets.MOB_EQUIPMENT, ClientboundPackets26_1.SET_EQUIPMENT, wrapper -> {
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final BedrockItem item = wrapper.read(itemRewriter.newItemType()); // item
-            final byte slot = wrapper.read(Types.BYTE); // slot
-            final byte selectedSlot = wrapper.read(Types.BYTE); // selected slot
-            final byte containerId = wrapper.read(Types.BYTE); // container id
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final BedrockItem item = wrapper.read(itemRewriter.newItemType()); // 物品
+            final byte slot = wrapper.read(Types.BYTE); // 槽位
+            final byte selectedSlot = wrapper.read(Types.BYTE); // 选中槽位
+            final byte containerId = wrapper.read(Types.BYTE); // 容器 ID
 
             final Entity entity = wrapper.user().get(EntityTracker.class).getEntityByRid(entityRuntimeId);
             if (entity == null || entity instanceof ClientPlayerEntity) {
@@ -764,14 +766,14 @@ public class EntityPackets {
                 return;
             }
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(Types.BYTE, (byte) equipmentSlot.ordinal()); // slot
-            wrapper.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // item
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(Types.BYTE, (byte) equipmentSlot.ordinal()); // 槽位
+            wrapper.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // 物品
         });
         protocol.registerClientbound(ClientboundBedrockPackets.TAKE_ITEM_ENTITY, ClientboundPackets26_1.TAKE_ITEM_ENTITY, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
-            final long itemEntityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // item entity runtime id
-            final long collectorEntityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // collector entity runtime id
+            final long itemEntityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 物品实体运行时 ID
+            final long collectorEntityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 收集者实体运行时 ID
 
             final Entity itemEntity = entityTracker.getEntityByRid(itemEntityRuntimeId);
             final Entity collectorEntity = entityTracker.getEntityByRid(collectorEntityRuntimeId);
@@ -779,9 +781,9 @@ public class EntityPackets {
                 wrapper.cancel();
                 return;
             }
-            wrapper.write(Types.VAR_INT, itemEntity.javaId()); // item entity id
-            wrapper.write(Types.VAR_INT, collectorEntity.javaId()); // collector entity id
-            wrapper.write(Types.VAR_INT, 0); // amount
+            wrapper.write(Types.VAR_INT, itemEntity.javaId()); // 物品实体 ID
+            wrapper.write(Types.VAR_INT, collectorEntity.javaId()); // 收集者实体 ID
+            wrapper.write(Types.VAR_INT, 0); // 数量
         });
     }
 
@@ -882,8 +884,8 @@ public class EntityPackets {
             case LOVE_HEARTS -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.LOVE_HEARTS;
             case VILLAGER_ANGRY -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.VILLAGER_ANGRY;
             case VILLAGER_HAPPY -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.VILLAGER_HAPPY;
-            // MOT Entity.java totem uses ActorEvent 65 (TALISMAN_ACTIVATE / CONSUME_TOTEM).
-            // Java 1.21 expects PROTECTED_FROM_DEATH(35); without this the pop is cancelled.
+            // MOT 的 Entity.java 中不死图腾使用 ActorEvent 65（TALISMAN_ACTIVATE / CONSUME_TOTEM）。
+            // Java 1.21 期望 PROTECTED_FROM_DEATH(35)；缺少这一步会导致图腾触发被取消。
             case TALISMAN_ACTIVATE -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.PROTECTED_FROM_DEATH;
             case WITCH_HAT_MAGIC -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.WITCH_HAT_MAGIC;
             case FIREWORKS_EXPLODE -> net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent.FIREWORKS_EXPLODE;

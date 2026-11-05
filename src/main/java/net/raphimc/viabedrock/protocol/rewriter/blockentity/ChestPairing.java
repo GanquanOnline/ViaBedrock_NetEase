@@ -21,8 +21,8 @@ import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.IntTag;
 
 /**
- * Maps Bedrock double-chest pairing ({@code pairx}/{@code pairz}) onto Java {@code type=left|right|single}.
- * Inverse of Geyser's Java→Bedrock pair offset (MOT {@code BlockEntityChest} stores the partner the same way).
+ * 把基岩的双箱配对（{@code pairx}/{@code pairz}）映射到 Java 的 {@code type=left|right|single}。
+ * 与 Geyser 的 Java → 基岩配对偏移互逆（MOT 的 {@code BlockEntityChest} 也以同样方式保存对方）。
  */
 public final class ChestPairing {
 

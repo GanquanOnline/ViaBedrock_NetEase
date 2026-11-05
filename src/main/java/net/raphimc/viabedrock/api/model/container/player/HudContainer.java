@@ -35,12 +35,12 @@ public class HudContainer extends InventoryRedirectContainer {
     @Override
     public boolean setItem(final int slot, final BedrockItem item) {
         if (super.setItem(slot, item)) {
-            if (slot == 0) return true; // cursor
-            if (slot >= 28 && slot <= 31) return true; // 2x2 crafting grid
+            if (slot == 0) return true; // 光标
+            if (slot >= 28 && slot <= 31) return true; // 2x2 合成网格
             if (slot >= 32 && slot <= 40) {
-                // 3x3 crafting grid: can't use SET_SLOT because javaContainerId() returns
-                // the player inventory (0), but these slots belong to the crafting table window (1).
-                // Send a full CONTAINER_SET_CONTENT for the crafting table instead.
+                // 3x3 合成网格：无法使用 SET_SLOT，因为 javaContainerId() 返回的是
+                // 玩家物品栏（0），而这些槽位属于工作台窗口（1）。
+                // 改为对工作台发送完整的 CONTAINER_SET_CONTENT。
                 final InventoryTracker tracker = this.user.get(InventoryTracker.class);
                 if (tracker != null) {
                     final Container current = tracker.getCurrentContainer();
@@ -59,10 +59,10 @@ public class HudContainer extends InventoryRedirectContainer {
     @Override
     public int javaSlot(final int slot) {
         if (slot >= 28 && slot <= 31) {
-            // 2x2 crafting input → Java player inventory slots 1-4
+            // 2x2 合成输入 → Java 玩家物品栏槽位 1-4
             return slot - 27;
         } else if (slot >= 32 && slot <= 40) {
-            // 3x3 crafting input → Java crafting table slots 1-9
+            // 3x3 合成输入 → Java 工作台槽位 1-9
             return slot - 31;
         } else {
             return super.javaSlot(slot);

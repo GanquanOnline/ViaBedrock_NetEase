@@ -23,9 +23,7 @@ import net.raphimc.viabedrock.api.chunk.BedrockBlockEntity;
 import net.raphimc.viabedrock.api.chunk.section.BedrockChunkSection;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
-/**
- * {@link BlockNeighborView} for runtime block updates: all neighbor lookups go through the {@link ChunkTracker}.
- */
+/** 用于运行时方块更新的 {@link BlockNeighborView}：所有邻居查找都经由 {@link ChunkTracker}。 */
 public final class TrackerNeighborView implements BlockNeighborView {
 
     private final ChunkTracker tracker;

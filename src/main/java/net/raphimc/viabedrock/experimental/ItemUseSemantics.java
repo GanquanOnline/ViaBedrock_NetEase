@@ -38,27 +38,26 @@ public final class ItemUseSemantics {
     private static final Set<String> CONSUME_ON_RELEASE_ITEMS = Set.of(
             "minecraft:potion",
             "minecraft:milk_bucket",
-            // MOT ItemOminousBottle.onUse() requires ticksUsed >= getUseDuration()-2 (32).
-            // It is not in minecraft:is_food; without this set Java right-click is a no-op.
+            // MOT 的 ItemOminousBottle.onUse() 要求 ticksUsed >= getUseDuration()-2（32）。
+            // 它不在 minecraft:is_food 里；没有这个集合，Java 右键就是空操作。
             "minecraft:ominous_bottle"
     );
     private static final Set<String> RELEASE_ON_RELEASE_ITEMS = Set.of(
             "minecraft:bow",
             "minecraft:crossbow",
             "minecraft:trident",
-            // MOT ItemBrush has no onClickAir/canRelease. Java brushing is
-            // USE_ITEM_ON against the suspicious block; treating brush as
-            // hold-to-use swallowed that CLICK_BLOCK.
+            // MOT 的 ItemBrush 没有 onClickAir/canRelease。Java 的刷扫是
+            // 针对可疑方块的 USE_ITEM_ON；把刷子当作按住使用会吞掉该 CLICK_BLOCK。
             "minecraft:spyglass",
             "minecraft:shield"
     );
     private static final String SPEAR_ITEM_TAG = "minecraft:is_spear";
     private static final String ARMOR_ITEM_TAG = "minecraft:is_armor";
     /**
-     * MOT {@code onActivate} delegates to {@code onClickAir} for these items.
-     * Java often emits USE_ITEM_ON then USE_ITEM for one right-click; the extra
-     * CLICK_AIR would double-throw / double-cast / give two maps / equip twice.
-     * Ref: MOT ProjectileItem, ItemFishingRod, ItemEmptyMap, ItemArmor.
+     * 对这些物品，MOT 的 {@code onActivate} 会转发到 {@code onClickAir}。
+     * Java 经常为一次右键先发 USE_ITEM_ON 再发 USE_ITEM；多余的
+     * CLICK_AIR 会导致双重投掷 / 双重施法 / 得到两张地图 / 装备两次。
+     * 参考：MOT 的 ProjectileItem、ItemFishingRod、ItemEmptyMap、ItemArmor。
      */
     private static final Set<String> DUPLICATE_CLICK_AIR_AFTER_USE_ON = Set.of(
             "minecraft:ender_pearl",
@@ -71,8 +70,8 @@ public final class ItemUseSemantics {
             "minecraft:wind_charge",
             "minecraft:fishing_rod",
             "minecraft:empty_map",
-            // MOT ItemFirework.onActivate places on pass-through blocks, then onClickAir
-            // boosts while gliding. Java USE_ITEM_ON+USE_ITEM would consume two rockets.
+            // MOT 的 ItemFirework.onActivate 会放在可穿透方块上，随后在滑翔时
+            // 由 onClickAir 加速。Java 的 USE_ITEM_ON+USE_ITEM 会消耗两支烟花。
             "minecraft:firework_rocket"
     );
 
@@ -92,14 +91,14 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Official Bedrock starts food from PlayerAuthInput START_USING_ITEM +
-     * PERFORM_ITEM_INTERACTION. NetEase 860 Nukkit-MOT parses that payload but never
-     * handles it, so consumables need a standalone USE_ITEM transaction there.
-     * Bows/crossbows already send that standalone packet on both paths.
-     * MOT 860 also starts tridents and spears from CLICK_AIR
-     * ({@code ItemTrident.onClickAir}, {@code ItemSpear.onClickAir}); AuthInput
-     * START_USING_ITEM is parsed and ignored, so NetEase must send the same
-     * standalone packet. Shields must not: MOT blocking is sneak, not use.
+     * 官方基岩通过 PlayerAuthInput 的 START_USING_ITEM 加
+     * PERFORM_ITEM_INTERACTION 开始进食。网易 860 的 Nukkit-MOT 会解析该 payload 但从不
+     * 处理它，因此可消耗物品在那里需要独立的 USE_ITEM 事务。
+     * 弓/弩在两条路径上本来就已发送该独立数据包。
+     * MOT 860 还会从 CLICK_AIR 开始三叉戟与长矛
+     * （{@code ItemTrident.onClickAir}、{@code ItemSpear.onClickAir}）；AuthInput 的
+     * START_USING_ITEM 会被解析并忽略，因此网易侧必须发送同样的
+     * 独立数据包。盾牌不能这样：MOT 的格挡是潜行，不是使用。
      */
     static boolean needsStandaloneUseTransaction(final boolean emulateNetEase, final boolean consumable,
                                                  final boolean bow, final boolean crossbow, final boolean trident,
@@ -124,29 +123,28 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Nukkit's MobEquipmentProcessor always calls {@code setUsingItem(false)}. Sending
-     * MOB_EQUIPMENT immediately before a NetEase consumable CLICK_AIR therefore cancels
-     * the using-state that the first click just started.
+     * Nukkit 的 MobEquipmentProcessor 总会调用 {@code setUsingItem(false)}。因此在网易可消耗物品的
+     * CLICK_AIR 之前紧接着发送 MOB_EQUIPMENT，会取消第一次点击刚开始的使用状态。
      */
     static boolean skipMobEquipmentBeforeUse(final boolean emulateNetEase, final boolean consumable) {
         return emulateNetEase && consumable;
     }
 
     /**
-     * Java may emit USE_ITEM_ON then USE_ITEM for the same right-click. Nukkit 860 treats a
-     * second CLICK_AIR while already using as a finish attempt, so the extra packet must be
-     * dropped until the held duration is ready.
+     * Java 可能为同一次右键先发 USE_ITEM_ON 再发 USE_ITEM。Nukkit 860 会把已在使用中的
+     * 第二次 CLICK_AIR 当作完成尝试，因此在持有时长达到之前必须
+     * 丢弃多余的那个数据包。
      */
     static boolean ignoreDuplicateUseStart(final boolean alreadyUsing, final boolean sameItem) {
         return alreadyUsing && sameItem;
     }
 
     /**
-     * Official 975 starts food from AuthInput START_USING_ITEM + PERFORM_ITEM_INTERACTION.
-     * NetEase 860 Nukkit parses that payload but never handles it. A second CLICK_AIR
-     * while already using is treated as a finish attempt, so NetEase must not attach
-     * the same ItemUseTransaction to AuthInput for any hold-to-use item
-     * (food, bow, crossbow, trident, spear, shield, spyglass, brush).
+     * 官方 975 通过 AuthInput 的 START_USING_ITEM 加 PERFORM_ITEM_INTERACTION 开始进食。
+     * 网易 860 的 Nukkit 会解析该 payload 但从不处理它。已在使用中的第二次 CLICK_AIR
+     * 会被当作完成尝试，因此网易侧不能把同一个 ItemUseTransaction 挂到 AuthInput 上，
+     * 对任何按住使用的物品都不行
+     * （食物、弓、弩、三叉戟、长矛、盾牌、望远镜、刷子）。
      */
     static boolean attachAuthInputItemInteraction(final boolean emulateNetEase, final boolean consumable,
                                                   final boolean bow, final boolean holdToUseWeapon) {
@@ -166,10 +164,10 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT CLICK_AIR compares the held stack with {@code equalsFast} (id+data only).
-     * A later INVENTORY_SLOT rewrite that only changes NBT/netId/blockRuntimeId must
-     * not cancel an in-progress eat/draw. Enchanted golden apples always carry NBT,
-     * so even official matching has to ignore tag/blockRuntimeId once using started.
+     * MOT 的 CLICK_AIR 用 {@code equalsFast}（仅 id+data）比较手持物品堆。
+     * 之后只改动 NBT/netId/blockRuntimeId 的 INVENTORY_SLOT 重写，
+     * 不能取消正在进行的进食/拉弓。附魔金苹果总是带 NBT，
+     * 所以即便用官方匹配，一旦开始使用也必须忽略 tag/blockRuntimeId。
      */
     public static boolean matchesUseItem(final boolean emulateNetEase, final int snapshotId, final short snapshotData,
                                   final int snapshotBlockRuntimeId, final Object snapshotTag,
@@ -182,9 +180,9 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code ItemEdible.onClickAir} is {@code player.canEat(true)} except for
-     * golden apples, chorus fruit and honey bottles, which always return true.
-     * Potions/milk/ominous bottles are not ItemEdible and also start regardless of hunger.
+     * MOT 的 {@code ItemEdible.onClickAir} 相当于 {@code player.canEat(true)}，
+     * 但金苹果、紫颂果和蜂蜜瓶例外，它们总是返回 true。
+     * 药水/牛奶/不祥之瓶不是 ItemEdible，也同样无视饥饿度直接开始。
      */
     static boolean alwaysEatsWhenFull(final String identifier) {
         return "minecraft:golden_apple".equals(identifier)
@@ -203,10 +201,9 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code ItemBow.getArrow} accepts any id 262 stack (plain or tipped via
-     * damage). Java spectral/tipped still have to count as draw-ammo so the client
-     * can start using; MOT fires 262 and treats unknown spectral as a normal arrow
-     * once the stack is in the main inventory.
+     * MOT 的 {@code ItemBow.getArrow} 接受任何 id 为 262 的物品堆（普通，或通过
+     * damage 指定的药箭）。Java 的光灵箭/药箭仍须算作拉弓弹药，好让客户端
+     * 能开始使用；只要该堆在主物品栏里，MOT 就会发射 262，并把未知的光灵箭当作普通箭。
      */
     static boolean canStartBow(final boolean emulateNetEase, final boolean bow, final boolean creative,
                                final boolean hasBowAmmo) {
@@ -235,19 +232,19 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code ItemGoatHorn.onClickAir} is a one-shot cooldown (140 ticks),
-     * not hold-to-use. Resource-pack {@code use_duration} must not swallow that
-     * CLICK_AIR into {@code beginContinuousItemUse}.
+     * MOT 的 {@code ItemGoatHorn.onClickAir} 是一次性冷却（140 刻），
+     * 不是按住使用。资源包的 {@code use_duration} 不能把该
+     * CLICK_AIR 吞进 {@code beginContinuousItemUse}。
      */
     static boolean isGoatHorn(final String identifier) {
         return "minecraft:goat_horn".equals(identifier);
     }
 
     /**
-     * MOT {@code ItemSpear.onClickAir} starts using and {@code canRelease()} is true.
-     * Java 1.21 spears are also hold-to-use; without this mapping a right-click
-     * becomes an instant CLICK_AIR and never reaches {@code onRelease}/stab.
-     * Prefer the Bedrock {@code minecraft:is_spear} tag, then identifier suffix.
+     * MOT 的 {@code ItemSpear.onClickAir} 会开始使用，且 {@code canRelease()} 为 true。
+     * Java 1.21 的长矛同样是按住使用；没有这条映射，右键
+     * 会变成瞬时的 CLICK_AIR，永远到不了 {@code onRelease}/突刺。
+     * 优先用基岩的 {@code minecraft:is_spear} 标签，其次看标识符后缀。
      */
     static boolean isSpear(final String identifier, final Set<String> itemTags) {
         if (itemTags != null && itemTags.contains(SPEAR_ITEM_TAG)) {
@@ -261,47 +258,47 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code ItemShield} has no onClickAir. Blocking is sneak-or-riding + shield
-     * in either hand. NetEase must not send a use transaction for a shield.
+     * MOT 的 {@code ItemShield} 没有 onClickAir。格挡是潜行或骑乘加
+     * 任一只手持盾。网易侧不得为盾牌发送使用事务。
      */
     static boolean emulateShieldAsSneak(final boolean emulateNetEase, final boolean shield) {
         return emulateNetEase && shield;
     }
 
     /**
-     * MOT processes START_SPRINTING before START_SNEAKING and does not clear
-     * an already-sprinting player. Java shield-block is standing, so the
-     * shield-as-sneak start must emit StopSprinting when the player is sprinting.
+     * MOT 先处理 START_SPRINTING 再处理 START_SNEAKING，且不会清除
+     * 已在疾跑的玩家。Java 的盾牌格挡是站立姿态，因此
+     * 盾牌当潜行的开始操作在玩家疾跑时必须发送 StopSprinting。
      */
     static boolean stopSprintingOnShieldSneakStart(final boolean emulateNetEase, final boolean shield, final boolean sprinting) {
         return emulateShieldAsSneak(emulateNetEase, shield) && sprinting;
     }
 
     /**
-     * MOT {@code updateBlockingFlag} requires sneak-or-riding + shield. Java
-     * right-click block is standing, so ViaBedrock still sends StartSneaking.
-     * MOT {@code EntityHuman.getHeight()} then short-sneaks to 1.49. PersistSneak
-     * is unused on MOT 860 AuthInput; NukkitMOTJE treats it as "shield sneak" and
-     * restores the standing AABB. Official 975 does not need this bit.
-     * Ref: MOT Player.updateBlockingFlag; EntityHuman.getHeight isShortSneaking.
+     * MOT 的 {@code updateBlockingFlag} 要求潜行或骑乘加盾牌。Java
+     * 右键方块是站立姿态，因此 ViaBedrock 仍会发送 StartSneaking。
+     * 随后 MOT 的 {@code EntityHuman.getHeight()} 会短潜行到 1.49。PersistSneak
+     * 在 MOT 860 的 AuthInput 中未被使用；NukkitMOTJE 把它当作盾牌潜行，
+     * 并恢复站立的 AABB。官方 975 不需要这一位。
+     * 参考：MOT Player.updateBlockingFlag；EntityHuman.getHeight 的 isShortSneaking。
      */
     public static boolean persistSneakWhileShieldBlocking(final boolean emulateNetEase, final boolean shieldSneakEmulated) {
         return emulateNetEase && shieldSneakEmulated;
     }
 
     /**
-     * MOT AuthInput START/STOP_SPIN_ATTACK is the SAI path. Standalone
-     * PlayerAction 23 has no case (default setUsingItem(false) at 3874);
-     * PlayerAction 24 on SAI ≥748 also breaks into that default. Keep the
-     * AuthInput bits; skip the extra PlayerAction on NetEase.
+     * MOT 的 AuthInput START/STOP_SPIN_ATTACK 是 SAI 路径。独立的
+     * PlayerAction 23 没有对应 case（在 3874 行落到默认的 setUsingItem(false)）；
+     * PlayerAction 24 在 SAI 上也会转入该默认分支。保留
+     * AuthInput 的那几位；在网易侧跳过额外的 PlayerAction。
      */
     public static boolean sendStandaloneSpinAttackPlayerAction(final boolean emulateNetEase) {
         return !emulateNetEase;
     }
 
     /**
-     * MOT {@code ItemCrossbow.launchArrow} requires {@code serverTick - loadTick > 10}.
-     * Firing on the same tick charge completes starts a new charge instead of shooting.
+     * MOT 的 {@code ItemCrossbow.launchArrow} 要求 {@code serverTick - loadTick > 10}。
+     * 在装填完成的同一刻开火会开始新的装填而不是射击。
      */
     static boolean crossbowFireReady(final boolean emulateNetEase, final boolean charged, final int ticksSinceCharge) {
         if (!emulateNetEase || !charged) {
@@ -316,8 +313,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Java may emit USE_ITEM_ON then USE_ITEM for one click. MOT items whose
-     * {@code onActivate} calls {@code onClickAir} would then double-apply.
+     * Java 可能为一次点击先发 USE_ITEM_ON 再发 USE_ITEM。那些 {@code onActivate}
+     * 会调用 {@code onClickAir} 的 MOT 物品就会重复生效。
      */
     static boolean dropDuplicateAirClickAfterUseOn(final boolean emulateNetEase, final String identifier,
                                                    final boolean sameTickUseOn) {
@@ -339,8 +336,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code Player.onSpinAttack}: {@code riptideTicks = 50 + (level << 5)}.
-     * Unknown level uses 1 so the proxy never leaves spin latched forever.
+     * MOT 的 {@code Player.onSpinAttack}：{@code riptideTicks = 50 + (level << 5)}。
+     * 未知等级按 1 处理，这样代理不会让旋转状态永久锁存。
      */
     public static int riptideDurationTicks(final int riptideLevel) {
         final int level = riptideLevel > 0 ? riptideLevel : 1;
@@ -348,8 +345,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code ItemTrident.onRelease} reads {@code Enchantment.getEnchantmentLevel(RIPTIDE)}.
-     * Bedrock stores that as a short {@code id}/{@code lvl} pair in {@code ench}.
+     * MOT 的 {@code ItemTrident.onRelease} 读取 {@code Enchantment.getEnchantmentLevel(RIPTIDE)}。
+     * 基岩把它存为 {@code ench} 中的 short {@code id}/{@code lvl} 对。
      */
     public static int riptideLevel(final com.viaversion.nbt.tag.CompoundTag tag) {
         if (tag == null) {
@@ -375,8 +372,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code Level.useItemOn} activates the block first unless sneaking.
-     * Hold-to-use (food/bow/shield) must start from Java {@code USE_ITEM}, not {@code USE_ITEM_ON}.
+     * MOT 的 {@code Level.useItemOn} 除非潜行，否则会先激活方块。
+     * 按住使用（食物/弓/盾）必须由 Java 的 {@code USE_ITEM} 开始，而不是 {@code USE_ITEM_ON}。
      */
     public static boolean shouldStartContinuousUseFromUseItemOn(final boolean emulateNetEase) {
         return !emulateNetEase;
@@ -403,8 +400,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Java {@code BoatItem} / {@code PlaceOnWaterBlockItem} ray-miss as {@code USE_ITEM}.
-     * MOT only places from {@code onActivate} (CLICK_BLOCK) against the water surface.
+     * Java 的 {@code BoatItem} / {@code PlaceOnWaterBlockItem} 射线未命中时表现为 {@code USE_ITEM}。
+     * MOT 只从针对水面的 {@code onActivate}（CLICK_BLOCK）放置。
      */
     static boolean isWaterSurfacePlaceItem(final String identifier, final Set<String> itemTags) {
         if (identifier == null) {
@@ -424,22 +421,22 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT {@code Item.java} defaults {@code canRelease()==false} / {@code getUseDuration()==0}.
-     * Resource-pack {@code ItemUseDefinition} therefore never reaches {@code processAutoCompletion}
-     * unless ViaBedrock sends a duration-ready second CLICK_AIR. Vanilla MOT foods/potions still
-     * auto-complete and must not get that extra click.
+     * MOT 的 {@code Item.java} 默认 {@code canRelease()==false} / {@code getUseDuration()==0}。
+     * 因此除非 ViaBedrock 发送一次达到时长的第二次 CLICK_AIR，资源包的 {@code ItemUseDefinition}
+     * 永远到不了 {@code processAutoCompletion}。原版 MOT 的食物/药水仍会
+     * 自动完成，不能给它们那额外的点击。
      */
     static boolean motAutoCompletesConsumable(final String identifier, final Set<String> itemTags) {
         return CONSUME_ON_RELEASE_ITEMS.contains(identifier) || isFood(itemTags);
     }
 
     /**
-     * MOT CLICK_AIR / CLICK_BLOCK always call {@code inventory.getItemInHand()}
-     * after {@code equipItem(hotbarSlot)}. {@code equipItem} rejects {@code < 0},
-     * so an offhand stack in {@code itemInHand} would still consume the main hand.
-     * Non-shield offhand use is promoted with a silent F-swap first.
-     * Shield stays sneak-emulation and must not swap.
-     * Ref: MOT Player.java case 1 CLICK_AIR; PlayerInventory.equipItem.
+     * MOT 的 CLICK_AIR / CLICK_BLOCK 在 {@code equipItem(hotbarSlot)} 之后总会调用
+     * {@code inventory.getItemInHand()}。{@code equipItem} 拒绝 {@code < 0}，
+     * 因此 {@code itemInHand} 里的副手物品堆仍会消耗主手。
+     * 非盾牌的副手使用会先用静默 F 交换提升。
+     * 盾牌仍走潜行模拟，不得交换。
+     * 参考：MOT Player.java case 1 CLICK_AIR；PlayerInventory.equipItem。
      */
     static boolean rejectNetEaseOffhandUse(final boolean emulateNetEase, final boolean offhand, final boolean shield) {
         return emulateNetEase && offhand && !shield;
@@ -450,40 +447,39 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT Player.java never handles {@code StartItemUseOn} / {@code StopItemUseOn}
-     * ({@code ACTION_START_ITEM_USE_ON=28}, {@code ACTION_STOP_ITEM_USE_ON=29}).
-     * The 860 PlayerAction switch falls through to {@code setUsingItem(false)}, so a
-     * Java USE_ITEM_ON while chewing/drawing would cancel MOT auto-complete.
-     * Official 975 still expects those actions around CLICK_BLOCK.
+     * MOT 的 Player.java 从不处理 {@code StartItemUseOn} / {@code StopItemUseOn}
+     * （{@code ACTION_START_ITEM_USE_ON=28}、{@code ACTION_STOP_ITEM_USE_ON=29}）。
+     * 860 的 PlayerAction switch 会落到 {@code setUsingItem(false)}，因此 Java 在咀嚼/拉弓时
+     * 的 USE_ITEM_ON 会取消 MOT 的自动完成。
+     * 官方 975 仍期望 CLICK_BLOCK 前后有这些动作。
      */
     static boolean sendItemUseOnPlayerActions(final boolean emulateNetEase) {
         return !emulateNetEase;
     }
 
     /**
-     * Native MOT 860 CLICK_BLOCK typically has an empty {@code actions[]} list. MOT
-     * {@code handleInventoryTransactionPacket} parses every action before case 2
-     * ({@code TYPE_USE_ITEM}); a fabricated SOURCE_CONTAINER decrement whose window
-     * or {@code equalsExact} snapshot does not match returns immediately and never
-     * runs {@code useItemOn}. GanAC {@code validateActionSources} also treats a
-     * mismatched predicted decrement as SOURCE_ITEM_MISMATCH. Official 975 can keep
-     * the predicted slot delta.
-     * Ref: MOT Player.java 4264-4270 / case 2; NetworkInventoryAction.createInventoryAction.
+     * 原生 MOT 860 的 CLICK_BLOCK 通常带一个空的 {@code actions[]} 列表。MOT 的
+     * {@code handleInventoryTransactionPacket} 会在 case 2
+     * （{@code TYPE_USE_ITEM}）之前解析每个动作；一个伪造的 SOURCE_CONTAINER 扣减若窗口
+     * 或 {@code equalsExact} 快照不匹配，就会立即返回，永远不
+     * 执行 {@code useItemOn}。GanAC 的 {@code validateActionSources} 也会把
+     * 不匹配的预测扣减当作 SOURCE_ITEM_MISMATCH。官方 975 可以保留
+     * 预测的槽位增量。
+     * 参考：MOT Player.java 4264-4270 / case 2；NetworkInventoryAction.createInventoryAction。
      */
     static boolean sendPredictedClickBlockSlotDelta(final boolean emulateNetEase) {
         return !emulateNetEase;
     }
 
     /**
-     * MOT USE_ITEM CLICK_BLOCK ({@code actionType=0}) always calls
-     * {@code setUsingItem(false)} before {@code Level.useItemOn}. Java Fabric
-     * keeps sending USE_ITEM_ON at the crosshair while chewing/drawing; a
-     * CLICK_BLOCK would cancel MOT auto-complete after 1 tick. Shield-block is
-     * sneak-emulated, not MOT using-item, so those clicks must still reach
-     * chests/buttons. Do this whenever the proxy is already using, not only when
-     * NetEase emulation is on: production logs showed {@code false -> true} then
-     * a silent {@code true -> false} on the next tick with no CLICK_AIR finish.
-     * Ref: MOT Player.java case 2 / actionType 0.
+     * MOT 的 USE_ITEM CLICK_BLOCK（{@code actionType=0}）总会在 {@code Level.useItemOn} 之前
+     * 调用 {@code setUsingItem(false)}。Java Fabric 在咀嚼/拉弓时会
+     * 持续向准星发送 USE_ITEM_ON；一次 CLICK_BLOCK 会让 MOT 的自动完成在 1 刻后被取消。
+     * 盾牌格挡是潜行模拟的，不是 MOT 的使用物品状态，因此这些点击仍须到达
+     * 箱子/按钮。只要代理已处于使用状态就要这么做，而不只在开启
+     * 网易模拟时：生产日志显示先出现 {@code false -> true}，下一刻又静默变成
+     * {@code true -> false}，且没有 CLICK_AIR 完成。
+     * 参考：MOT Player.java case 2 / actionType 0。
      */
     static boolean skipClickBlockWhileUsing(final boolean emulateNetEase, final boolean usingItem) {
         return skipClickBlockWhileUsing(emulateNetEase, usingItem, false);
@@ -495,22 +491,22 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * MOT Player.java never handles {@code StartItemUseOn}. Sending it on NetEase bow
-     * start is unused noise; keep it on official 975 only.
+     * MOT 的 Player.java 从不处理 {@code StartItemUseOn}。在网易侧的弓开始操作上
+     * 发送它只是无用噪声；只在官方 975 上保留。
      */
     static boolean sendStartItemUseOnForBow(final boolean emulateNetEase) {
         return !emulateNetEase;
     }
 
     /**
-     * Official 975 still finishes food with a second USE_ITEM plus delayed ItemRelease.
-     * Nukkit 860 treats a second CLICK_AIR as {@code onUse(ticksUsed)} and always clears
-     * using-state first. If that packet arrives before {@code eatingTick} (apple = 31),
-     * {@code onUse} fails and {@code processAutoCompletion()} can never consume.
+     * 官方 975 仍用第二次 USE_ITEM 加延迟的 ItemRelease 完成进食。
+     * Nukkit 860 会把第二次 CLICK_AIR 当作 {@code onUse(ticksUsed)}，并总会先清除
+     * 使用状态。若该数据包在 {@code eatingTick}（苹果为 31）之前到达，
+     * {@code onUse} 就会失败，{@code processAutoCompletion()} 永远无法消耗物品。
      * <p>
-     * Java chewing is hidden separately by {@code javaUsingVisible()}. NetEase therefore
-     * must not send a finish click at all and let Nukkit auto-complete while protocol
-     * using-state stays true.
+     * Java 侧的咀嚼由 {@code javaUsingVisible()} 单独隐藏。因此网易侧
+     * 完全不必发送完成点击，让 Nukkit 在协议侧使用状态保持 true 时
+     * 自行自动完成。
      */
     static boolean sendConsumableFinishTransaction(final boolean emulateNetEase, final boolean consumable) {
         return sendConsumableFinishTransaction(emulateNetEase, consumable, true);
@@ -525,27 +521,27 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Official 975 still follows that second USE_ITEM with a delayed ItemRelease; Nukkit
-     * 860 ignores ItemRelease Consume here, so NetEase must not send it.
+     * 官方 975 在该第二次 USE_ITEM 之后还会跟一个延迟的 ItemRelease；Nukkit
+     * 860 在此处忽略 ItemRelease Consume，因此网易侧不能发送它。
      */
     static boolean delayReleaseAfterConsumableFinish(final boolean emulateNetEase, final boolean consumable) {
         return consumable && !emulateNetEase;
     }
 
     /**
-     * Official 975 can drop the local using-state as soon as the finish packet is queued.
-     * NetEase still has to keep protocol-side using-state until the finish USE_ITEM is
-     * actually sent, otherwise START_SPRINTING / MOB_EQUIPMENT cancel Nukkit first.
-     * Java chewing itself is driven separately by {@code javaUsingVisible()}.
+     * 官方 975 可以在完成包入队后立即丢弃本地使用状态。
+     * 网易侧仍必须保持协议侧使用状态，直到完成用的 USE_ITEM
+     * 真正发出，否则 START_SPRINTING / MOB_EQUIPMENT 会先把它取消。
+     * Java 侧的咀嚼本身由 {@code javaUsingVisible()} 单独驱动。
      */
     static boolean keepLocalUsingAfterConsumableFinish(final boolean emulateNetEase, final boolean consumable, final boolean finishSent) {
         return emulateNetEase && consumable && !finishSent;
     }
 
     /**
-     * A duration-ready consumable release is completed by CLIENT_TICK_END and must not
-     * send a second cancel transaction. Any early release is a real interrupt and must
-     * reach MOT so its {@code TYPE_RELEASE_ITEM} handler can clear using-state.
+     * 达到时长的可消耗物品释放由 CLIENT_TICK_END 完成，不得
+     * 再发送第二次取消事务。任何提前释放都是真正的打断，必须
+     * 发往 MOT，好让它的 {@code TYPE_RELEASE_ITEM} 处理器清除使用状态。
      */
     static boolean ignoreJavaConsumableRelease(final boolean emulateNetEase, final boolean consumable) {
         return ignoreJavaConsumableRelease(emulateNetEase, consumable, false);
@@ -562,8 +558,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * A mismatched use snapshot is a real cancellation, including during the first tick.
-     * Send it to MOT instead of leaving a stale server-side using latch.
+     * 使用快照不匹配属于真正的取消，第一个刻内也一样。
+     * 应把它发送给 MOT，而不是留下一个过期的服务端 using 闩锁。
      */
     static boolean sendCancelRelease(final boolean emulateNetEase, final boolean consumable, final int usingTicks) {
         return true;
@@ -591,9 +587,8 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * Java's eat animation is local. Once the vanilla duration has elapsed, stop rewriting
-     * LIVING_ENTITY_FLAGS so a later SET_ENTITY_DATA cannot restart chewing after the
-     * client already released the item.
+     * Java 的进食动画是本地计算的。原版时长走完后，不要再重写 LIVING_ENTITY_FLAGS，
+     * 这样后续的 SET_ENTITY_DATA 就不会在客户端已经松开物品后重新开始咀嚼。
      */
     public static boolean javaUsingVisible(final boolean usingItem, final boolean consumable, final int usingTicks) {
         return javaUsingVisible(usingItem, consumable, usingTicks, DEFAULT_CONSUMABLE_USE_TICKS);
@@ -613,17 +608,15 @@ public final class ItemUseSemantics {
             return itemUse.useDurationTicks();
         }
         if (isFood(itemTags) || CONSUME_ON_RELEASE_ITEMS.contains(identifier)) {
-            // MOT Food.eatingTick is 31; NetEase finishReadyTicks subtracts 1 so apple
-            // auto-completes at 31. Dried kelp is overridden above to 16.
+            // MOT Food.eatingTick 为 31；网易的 finishReadyTicks 会减去 1，因此苹果在 31 时自动完成。干海带在上面被覆写为 16。
             return DEFAULT_CONSUMABLE_USE_TICKS;
         }
         return -1;
     }
 
     /**
-     * Nukkit START_SPRINTING always calls {@code setUsingItem(false)}. Java starts sprinting
-     * from movement even while the eating animation is held, so NetEase must drop that
-     * command until the consumable finishes.
+     * Nukkit 的 START_SPRINTING 总是调用 {@code setUsingItem(false)}。Java 会因移动而开始疾跑，即使进食动画仍在保持，
+     * 所以网易端必须丢弃该命令，直到消耗品使用结束。
      */
     public static boolean suppressStartSprintingWhileUsingItem(final boolean emulateNetEase, final boolean usingItem) {
         return emulateNetEase && usingItem;
@@ -645,17 +638,15 @@ public final class ItemUseSemantics {
     }
 
     /**
-     * CLIENT_TICK_END inspects {@code usingItemTicks} before {@code Entity.age} advances.
-     * Nukkit counts {@code serverTick - startAction} after the same game tick, so duration
-     * {@code N} is ready at {@code N - 1} Java ticks.
+     * CLIENT_TICK_END 在 {@code Entity.age} 前进之前检查 {@code usingItemTicks}。
+     * Nukkit 在同一个游戏刻之后统计 {@code serverTick - startAction}，因此时长 {@code N} 在 {@code N - 1} 个 Java 刻时就已就绪。
      */
     private static int finishReadyTicks(final int useDurationTicks, final boolean emulateNetEase) {
         if (!emulateNetEase) {
             return useDurationTicks;
         }
-        // CLIENT_TICK_END inspects usingItemTicks before Entity.age advances. Official 975
-        // still finishes at the configured duration; NetEase 860 needs the packet one tick
-        // earlier so Nukkit's serverTick - startAction reaches eatingTick (apple = 31).
+        // CLIENT_TICK_END 在 Entity.age 前进之前检查 usingItemTicks。官方 975 仍在配置的时长处结束；
+        // 网易 860 需要提前一个刻发送数据包，这样 Nukkit 的 serverTick - startAction 才能达到 eatingTick（苹果 = 31）。
         return Math.max(1, useDurationTicks - 1);
     }
 

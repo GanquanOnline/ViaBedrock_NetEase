@@ -32,14 +32,14 @@ import java.util.*;
 
 public class CraftingSimulator {
 
-    // Nukkit SOURCE_TODO windowId values
+    // Nukkit SOURCE_TODO 的 windowId 取值
     private static final int TODO_USE_INGREDIENT = -5;
     private static final int TODO_CRAFTING_RESULT = -4;
     private static final int MAX_WIRE_ITEM_AMOUNT = 0xFFFF;
 
     /**
-     * Simulates a PICKUP on the crafting output slot (left click to take crafting result to cursor).
-     * Returns the list of Bedrock InventoryActionData, or null if no recipe matches.
+     * 在合成输出槽上模拟一次 PICKUP（左键把合成结果拿到光标）。
+     * 返回基岩 InventoryActionData 列表；若无配方的匹配则返回 null。
      */
     public static List<InventoryActionData> simulateCraftPickup(final boolean is3x3, final InventoryTracker tracker) {
         return simulateCraftPickup(is3x3, tracker, JavaItemStackLimits.forTracker(tracker));
@@ -62,13 +62,13 @@ public class CraftingSimulator {
             return null;
         }
 
-        // If cursor already has items, check if we can stack
+        // 如果光标上已有物品，检查能否堆叠
         if (!cursorItem.isEmpty()) {
             if (cursorItem.isDifferent(primaryOutput)) {
-                return Collections.emptyList(); // Can't take result — cursor has different item
+                return Collections.emptyList(); // 无法取走结果 — 光标上是不同的物品
             }
             if (cursorItem.amount() > maxStackSize || cursorItem.amount() + primaryOutput.amount() > maxStackSize) {
-                return Collections.emptyList(); // Can't take result — would exceed max stack
+                return Collections.emptyList(); // 无法取走结果 — 会超过最大堆叠
             }
         }
 
@@ -77,21 +77,20 @@ public class CraftingSimulator {
 
         final List<InventoryActionData> actions = new ArrayList<>();
 
-        // ACTION 1: per grid slot, SOURCE_TODO(-5 USE_INGREDIENT) + an explicit grid SlotChange that
-        // decrements the slot by 1. This mirrors the real Bedrock client packets so the server's
-        // CraftingTransaction collects the inputs and validates (single merged -5 with slot=0 and no grid
-        // change made canExecute fail, leaving a stale transaction that corrupted the next craft).
+        // 操作 1：对每个合成网格槽位，发送 SOURCE_TODO（-5 USE_INGREDIENT）加一个显式的网格 SlotChange，使该槽位减 1。
+        // 这与真实基岩客户端的数据包一致，服务器端的 CraftingTransaction 才能收集这些输入并通过校验
+        // （把 -5 合并成单条、slot=0 且没有网格变化，会让 canExecute 失败，留下一个过期事务并污染下一次合成）。
         addGridConsumption(actions, is3x3, gridItems, match, 1);
 
         if (!addExtraOutputs(actions, recipe, 1, inventoryItems, stackLimits)) return null;
 
-        // ACTION 2: SOURCE_TODO(-4) — set primaryOutput
+        // 操作 2：SOURCE_TODO(-4) → 设置 primaryOutput
         actions.add(new InventoryActionData(
                 new InventorySource(InventorySourceType.NonImplementedFeatureTODO, TODO_CRAFTING_RESULT, InventorySource_InventorySourceFlags.NoFlag),
                 0, primaryOutput, BedrockItem.empty()
         ));
 
-        // ACTION 3: cursor update — place result in cursor
+        // 操作 3：更新光标 → 把结果放入光标
         final BedrockItem newCursor;
         if (cursorItem.isEmpty()) {
             newCursor = primaryOutput.copy();
@@ -105,9 +104,9 @@ public class CraftingSimulator {
     }
 
     /**
-     * Simulates a QUICK_MOVE (Shift+Click) on the crafting output slot.
-     * The crafted item goes directly into the player's inventory.
-     * Returns the list of Bedrock InventoryActionData, or null if no recipe matches.
+     * 在合成输出槽上模拟一次 QUICK_MOVE（Shift+点击）。
+     * 合成出的物品直接进入玩家物品栏。
+     * 返回基岩 InventoryActionData 列表；若无配方的匹配则返回 null。
      */
     public static List<InventoryActionData> simulateCraftQuickMove(final boolean is3x3, final InventoryTracker tracker) {
         return simulateCraftQuickMove(is3x3, tracker, JavaItemStackLimits.forTracker(tracker));
@@ -231,9 +230,9 @@ public class CraftingSimulator {
     }
 
     /**
-     * Reads the crafting grid contents from HUD container.
-     * 2x2: HUD slots 28-31
-     * 3x3: HUD slots 32-40
+     * 从 HUD 容器读取合成网格内容。
+     * 2x2：HUD 槽位 28-31
+     * 3x3：HUD 槽位 32-40
      */
     public static BedrockItem[] getGridItems(final boolean is3x3, final InventoryTracker tracker) {
         final int gridSize = is3x3 ? 9 : 4;
@@ -246,13 +245,9 @@ public class CraftingSimulator {
     }
 
     /**
-     * For each non-empty crafting grid slot, emits the pair of actions a real Bedrock client sends when
-     * crafting consumes items from that slot:
-     *   1. SOURCE_TODO(-5 USE_INGREDIENT) with slot = grid-relative index (0-based), fromItem empty,
-     *      toItem the consumed ingredient — this feeds the server's CraftingTransaction inputs.
-     *   2. A ContainerInventory SlotChange on the HUD/UI container (id 124) at the absolute grid slot,
-     *      decrementing the stack by the requested craft count (or clearing it) — the actual grid
-     *      mutation the server validates.
+     * 对每个非空的合成网格槽位，发出真实基岩客户端在合成消耗该槽位物品时会发送的两个动作：
+     * 1. SOURCE_TODO（-5 USE_INGREDIENT），slot = 网格内的相对索引（从 0 开始），fromItem 为空，toItem 为被消耗的材料 — 这会喂给服务器的 CraftingTransaction 输入。
+     * 2. 在 HUD/UI 容器（id 124）上对绝对网格槽位发一个 ContainerInventory SlotChange，按请求的合成数量扣减该堆叠（或清空它）— 这是服务器实际校验的网格变更。
      */
     private static void addGridConsumption(final List<InventoryActionData> actions, final boolean is3x3,
                                            final BedrockItem[] gridItems, final RecipeMatch match,
@@ -305,8 +300,8 @@ public class CraftingSimulator {
     }
 
     /**
-     * Java Shift-click fills the main inventory first (9-35) then the hotbar (0-8).
-     * EaseCation walks hotbar-first; MOT player inventory uses vanilla Java order.
+     * Java 的 Shift+点击先填主物品栏（9-35），再填快捷栏（0-8）。
+     * EaseCation 先走快捷栏；MOT 玩家物品栏使用原版 Java 顺序。
      */
     private static int[] quickMoveTargetSlots() {
         final int[] slots = new int[36];

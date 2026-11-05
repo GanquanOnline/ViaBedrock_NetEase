@@ -21,13 +21,13 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 
 /**
- * Wire-id helpers for Bedrock {@code ContainerSlotType}.
+ * 基岩 {@code ContainerSlotType} 的线上 id 辅助方法。
  * <p>
- * Nukkit-MOT inserts a hole at {@code RECIPE_ITEMS} (17) on NetEase so every later
- * slot type is {@code id + 1} on the wire. Official Bedrock keeps the generated
- * {@link ContainerEnumName} values. Reading a NetEase 860 {@code DynamicContainer}
- * (wire 64) as official 63 would look like {@code RecipeFoodContainer} and drop
- * bundle / dynamic-container updates.
+ * Nukkit-MOT 在网易端于 {@code RECIPE_ITEMS}（17）处插入一个空缺，使之后
+ * 每个槽位类型在线上都是 {@code id + 1}。官方基岩保持生成的
+ * {@link ContainerEnumName} 值。把网易 860 的 {@code DynamicContainer}
+ * （线上 64）当作官方 63 读取会被识别为 {@code RecipeFoodContainer}，
+ * 并丢弃收纳袋 / 动态容器的更新。
  */
 public final class ContainerSlotTypeLayout {
 

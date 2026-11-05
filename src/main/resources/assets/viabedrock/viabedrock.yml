@@ -1,30 +1,30 @@
-# If true, enables experimental features. These features are almost certainly not fully stable/tested and may cause unexpected issues
+# 为 true 时启用实验性功能。这些功能几乎肯定未完全稳定/测试，可能导致意外问题
 enable-experimental-features: false
-# If true, Java Edition swords play the legacy blocking animation while right-click is held.
-# Normal sword right-click interactions are still forwarded to the Bedrock server.
-# ViaBedrock does not grant damage reduction; only the animation-only release packet is suppressed.
-# Java 1.21.8 still applies its normal held-use movement slowdown while the animation is active.
-# Requires enable-experimental-features: true.
+# 为 true 时，Java 版剑在按住右键期间播放旧版格挡动画。
+# 正常的剑右键交互仍会转发给基岩服务端。
+# ViaBedrock 不会赋予伤害减免；只是抑制仅用于动画的释放数据包。
+# 动画激活期间，Java 1.21.8 仍会应用其正常的持用减速。
+# 需要 enable-experimental-features: true。
 enable-sword-blocking-animation: false
-# Bridge arbitrary Java custom payloads and bounded Bedrock ScriptMessages in both directions.
+# 双向桥接任意 Java 自定义负载与有大小上限的基岩 ScriptMessage。
 java-custom-payload-bridge:
   enabled: false
   max-payload-bytes: 8192
   max-channel-bytes: 128
   max-messages-per-minute: 120
   max-bytes-per-minute: 262144
-# Controls blob caching (Reduces network usage and loading time), Valid options: "disabled", "memory", "disk"
+# 控制 blob 缓存（可减少网络流量和加载时间），可选值："disabled"、"memory"、"disk"
 blob-cache: "disk"
-# If enabled, starts the resource pack HTTP server and enables resource pack translation
+# 启用后会启动资源包 HTTP 服务器并开启资源包转换
 translate-resource-packs: true
-# Resource pack HTTP server address
+# 资源包 HTTP 服务器地址
 resource-pack-host: 127.0.0.1
-# Resource pack HTTP server port (0 = random available port)
+# 资源包 HTTP 服务器端口（0 = 随机可用端口）
 resource-pack-port: 0
-# Resource pack URL which the clients will use to download the resource pack (empty = auto)
+# 客户端下载资源包时使用的 URL（留空 = 自动）
 resource-pack-url: ""
-# Resource pack delivery mode. "embedded" serves packs from this ViaProxy process;
-# "remote" uploads converted packs to the shared pack service.
+# 资源包投递模式。"embedded" 由本 ViaProxy 进程提供资源包；
+# "remote" 把转换后的资源包上传到共享资源包服务。
 resource-pack-delivery:
   mode: embedded
   internal-url: ""
@@ -32,32 +32,32 @@ resource-pack-delivery:
   shared-secret: ""
   connect-timeout-millis: 2000
   request-timeout-millis: 10000
-# Controls resource pack caching (Reduces network usage and loading time), Valid options: "disabled", "memory", "disk"
+# 控制资源包缓存（可减少网络流量和加载时间），可选值："disabled"、"memory"、"disk"
 pack-cache: "disk"
 
-# Process-wide content-addressed resource-pack cache. Set enabled to false to use the legacy per-connection path.
-# The mode is fixed at process startup; changing enabled requires a full ViaBedrock restart.
+# 进程级的内容寻址资源包缓存。把 enabled 设为 false 可改用旧的按连接路径。
+# 该模式在进程启动时固定；修改 enabled 需要完全重启 ViaBedrock。
 resource-pack-cache:
   enabled: true
-  # If true, a previously verified CDN pack may be reused only when backend address, UUID, raw version,
-  # announced size, content id, content-key fingerprint, and the full ordered RESOURCE_PACKS_INFO
-  # announcement are identical. Conflicting content always forces acquisition. UUID/version alone is never trusted.
+# 为 true 时，仅当后端地址、UUID、原始版本、声明大小、content id、content-key 指纹，
+# 以及完整有序的 RESOURCE_PACKS_INFO 声明全部相同时，才可复用此前校验过的 CDN 资源包。
+# 内容冲突时一律重新获取；绝不只凭 UUID/版本号信任。
   trust-declared-pack-alias: false
-  # 0 = auto (min(3072 MiB, max(512 MiB, one quarter of max heap))).
+# 0 = 自动（取 3072 MiB 与 max(512 MiB, 最大堆的四分之一) 中的较小值）。
   memory-budget-mib: 0
-  # 0 = auto (min(one half of max heap, twice memory-budget-mib)).
+# 0 = 自动（取最大堆的一半与 memory-budget-mib 两倍中的较小值）。
   memory-hard-limit-mib: 0
-  # 0 = auto (half the available processors, clamped to 2..4); configured values are clamped to 1..64.
+# 0 = 自动（可用处理器数的一半，限制在 2..4）；配置值会被限制在 1..64。
   cpu-workers: 0
-  # Clamped to 1..64.
+# 限制在 1..64。
   io-workers: 4
-  # Per executor and for all pending resource-pack HTTP requests; clamped to 1..4096.
-  # A single HTTP token may consume at most min(8, queue-capacity) pending requests.
+# 每个执行器以及所有待处理的资源包 HTTP 请求的上限；限制在 1..4096。
+# 单个 HTTP 令牌最多可占用 min(8, queue-capacity) 个待处理请求。
   queue-capacity: 64
-  # Durations and size/count limits below must be positive; most non-positive values are normalized to 1.
+# 下面的时长与大小/数量限制必须为正数；多数非正值会被归一化为 1。
   idle-expire-minutes: 30
   build-timeout-seconds: 120
-  # Total raw/canonical CAS plus Java artifact budget; minimum 2 MiB, divided evenly between both stores.
+# 原始/规范化 CAS 加 Java 产物的总预算；最小 2 MiB，在两个存储之间均分。
   disk-budget-mib: 20480
   disk-idle-days: 7
   max-archive-mib: 2048
@@ -65,90 +65,91 @@ resource-pack-cache:
   max-entry-mib: 512
   max-entries: 100000
   max-compression-ratio: 200
-# If true, translates bedrock's showCoordinates game rule to java's reduced debug info flag
+# 为 true 时，把基岩的 showCoordinates 游戏规则转换为 Java 的 reduced debug info 标志
 translate-show-coordinates-game-rule: false
-# If true, disables the internal server blacklist. This will allow you to connect to any server, even if it's known to ban ViaBedrock clients
+# 为 true 时禁用内置服务器黑名单。这样即使某服务器已知会封禁 ViaBedrock 客户端，也允许连接
 disable-server-blacklist: false
-# The language code to send to the bedrock server (e.g. "en_us", "zh_cn"). Empty = "en_us"
+# 发送给基岩服务端的语言代码（例如 "en_us"、"zh_cn"）。留空 = "en_us"
 language: ""
-# NetEase / China Edition client emulation.
-# enabled: pretend to be a NetEase client (RakNet 8 + protocol 860 + NetEase login fields).
-# The MOT 1.21.124 NetEase compatibility path is a single protocol tuple.
-# When enabled, ViaBedrock pins these values to protocol 860, GameVersion 1.21.124_NetEase and RakNet 8.
-# The explicit values remain here so generated runtime configs document the required wire versions.
+# 网易 / 中国版客户端仿真。
+# enabled: 假装成网易客户端（网易登录字段 + RakNet 传输）。
+# protocol-version 选择 Nukkit-MOT 配置：898 = 1.21.130_NetEase（modpc 3.10），
+# 860 = 1.21.124_NetEase（modpc 3.9），0 = 自动（最新配置）。两者都保留可用。
+# game-version 与 raknet-protocol-version 用于说明线上取值；启用时由所选配置决定
+# （RakNet 8 与 11 均接受）。
 netease:
   enabled: false
-  protocol-version: 860
-  game-version: "1.21.124_NetEase"
+  protocol-version: 898
+  game-version: "1.21.130_NetEase"
   raknet-protocol-version: 8
-# Shared secret for ViaProxy authentication bridge.
-# When set, generates HMAC-signed identity tokens in the skin JWT.
-# Must match the secret configured in the Nemisys ViaProxyAuth plugin.
-# Empty still writes a Java-client marker so Waterdog skips fake-dimension transfers.
+# ViaProxy 认证桥使用的共享密钥。
+# 设置后会在皮肤 JWT 中生成 HMAC 签名的身份令牌。
+# 必须与 Nemisys ViaProxyAuth 插件里配置的密钥一致。
+# 留空时仍会写入 Java 客户端标记，使 Waterdog 跳过假维度传送。
 viaproxy-auth-secret: ""
-# Enables server-side entity animation using Display Entities when ViaBedrockUtility mod is not present.
-# When disabled, custom entities will only show as invisible interaction boxes (upstream behavior).
-# This setting has no effect when ViaBedrockUtility mod is installed (client-side rendering is always used).
+# 未安装 ViaBedrockUtility 模组时，启用基于 Display Entity 的服务端实体动画。
+# 禁用后，自定义实体只会显示为不可见的交互框（上游行为）。
+# 已安装 ViaBedrockUtility 模组时该设置无效（始终使用客户端渲染）。
 enable-server-entity-animation: true
-# Timeout (ms) for fetching Java Edition skin from Mojang API during login.
-# Set to 0 to disable Java skin fetching (always use Steve).
-# The fetch runs asynchronously during the Bedrock server handshake, so actual blocking
-# time is typically much shorter than this value.
+# 登录期间从 Mojang API 获取 Java 版皮肤的 超时（毫秒）。
+# 设为 0 可禁用 Java 皮肤获取（始终使用 Steve）。
+# 该获取在基岩服务端握手期间异步进行，因此实际阻塞时间
+# 通常远小于该值。
 java-skin-fetch-timeout: 1000
 
-# Customizes the Java Edition tab list shown when joining a Bedrock server.
-# Supported placeholders: %level_name%, %version%. Use an empty string to clear the header or footer.
-# In quoted strings, use \n for line breaks and \u00A7 for Minecraft formatting codes.
+# 自定义加入基岩服务器时显示的 Java 版玩家列表。
+# 支持的占位符：%level_name%、%version%。用空字符串清空页眉或页脚。
+# 在引号字符串中，用 \n 表示换行，用 \u00A7 表示 Minecraft 格式代码。
 tab-list:
-  # If false, ViaBedrock will not send a custom tab list header or footer.
+  # 为 false 时，ViaBedrock 不发送自定义玩家列表页眉或页脚。
   enabled: true
   header: "%level_name%\n"
   footer: "\u00A7aViaBedrock \u00A73v%version%\n\u00A77https://github.com/RaphiMC/ViaBedrock"
 
-# If true, applies Floyd-Steinberg dithering when converting Bedrock map pixels to the limited Java map color
-# palette. This trades hard color banding for fine noise and greatly improves smooth gradients (faces/portraits).
-# Set to false for crisp nearest-color output (better for flat-color / text / UI maps). Requires experimental features.
+# 为 true 时，在把基岩地图像素转换为 Java 有限的地图调色板时使用 Floyd-Steinberg 抖动。
+# 这会用细噪声换掉生硬的色带，显著改善平滑渐变（人脸/头像）。
+# 设为 false 则输出清晰的最近色（更适合纯色 / 文字 / UI 地图）。需要启用实验性功能。
 dither-maps: true
 
-# BedrockLoader custom block mapping sync options.
-# Requires enable-experimental-features: true; the experimental feature switch is the top-level gate.
+# BedrockLoader 自定义方块映射同步选项。
+# 需要 enable-experimental-features: true；实验性功能开关是总开关。
 customMappingSync:
-  # If false, ViaBedrock will not request BedrockLoader mappings and will use vanilla-safe fallbacks.
+  # 为 false 时，ViaBedrock 不请求 BedrockLoader 映射，改用原版安全的回退方案。
   enabled: true
-  # Maximum time to wait for a mapping snapshot.
+  # 等待映射快照的最长时间。
   timeoutMs: 10000
-  # Maximum uncompressed snapshot size accepted from BedrockLoader.
+  # 接受的 BedrockLoader 未压缩快照最大大小。
   maxSnapshotBytes: 16777216
-  # Maximum custom payload size requested from BedrockLoader.
+  # 向 BedrockLoader 请求的自定义负载最大大小。
   maxPayloadBytes: 28672
-  # Maximum number of custom block states accepted in a snapshot.
+  # 快照中接受的自定义方块状态最大数量。
   maxCustomBlockStates: 65536
-  # Maximum number of custom block entity types accepted in a snapshot.
+  # 快照中接受的自定义方块实体类型最大数量。
   maxCustomBlockEntityTypes: 4096
-  # Maximum Java block state id accepted for projected custom states.
+  # 投影自定义状态时接受的 Java 方块状态 ID 上限。
   maxJavaBlockStateId: 1048575
-  # Valid options: "SAFE_FALLBACK", "KICK"
+  # 可选值："SAFE_FALLBACK"、"KICK"
   failureMode: "SAFE_FALLBACK"
-  # Vanilla fallback used by local-degradation/profile building.
+  # 本地降级/构建配置时使用的原版回退方块。
   defaultFallbackBlock: "minecraft:stone"
-  # If false, chunked BedrockLoader mapping snapshots are rejected.
+  # 为 false 时，拒绝分块的 BedrockLoader 映射快照。
   enableChunks: true
-  # If true, send BedrockLoader diagnostic result payloads.
+  # 为 true 时发送 BedrockLoader 诊断结果负载。
   sendSyncResult: false
 
-# Movement watchdog: a fail-safe net for the rare case where the backend never sends the packet that would
-# unlock movement after a world/dimension/server switch, leaving the server-side player frozen while the
-# client keeps moving. It NEVER touches the normal path - it only acts after a timeout far above any normal
-# handshake, so normal players are unaffected.
+# 移动看门狗：一种兜底机制，用于世界/维度/服务器切换后后端始终没有发送会
+# 解锁移动的数据包这种少见情况，此时服务端玩家会卡住而客户端仍在移动。
+# 它绝不介入正常路径——只有在超过远高于正常握手的超时之后才会动作，
+# 因此正常玩家不受影响。
 movementWatchdog:
-  # off     = disabled (behaviour identical to upstream)
-  # observe = only log when a lock stays stuck past the timeout, without changing behaviour (default, safest)
-  # active  = additionally perform the conservative, idempotent recovery (re-send the handshake finalization
-  #           the backend omitted; for stuck chunks, re-request the chunk radius - never lets the player phase)
+  # off     = 禁用（行为与上游完全一致）
+  # observe = 仅在锁定超过超时仍卡住时记录日志，不改变行为（默认，最安全）
+  # active  = 额外执行保守且幂等的恢复（重发后端遗漏的握手收尾；
+  #           对卡住的区块重新请求区块半径——绝不让玩家穿模）
   mode: "observe"
-  # Ticks (20/s) a dimension change may stay un-finalized before the watchdog acts. 200 = 10s.
+  # 维度切换可以保持未最终化的刻数（20 刻/秒），超过后看门狗才动作。200 = 10 秒。
   dimensionChangeTimeoutTicks: 200
-  # Ticks the player may stay stuck in an unloaded chunk before the watchdog re-requests chunks. 200 = 10s.
+  # 玩家可以卡在未加载区块中的刻数，超过后看门狗重新请求区块。200 = 10 秒。
   chunkStuckTimeoutTicks: 200
-  # Throttle (ticks) between repeated chunk-radius re-requests while stuck. 100 = 5s.
+  # 卡住期间重复请求区块半径的最小间隔（刻）。100 = 5 秒。
   chunkRadiusRequestIntervalTicks: 100

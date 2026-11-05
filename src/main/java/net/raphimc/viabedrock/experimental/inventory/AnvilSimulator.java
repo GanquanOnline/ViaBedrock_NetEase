@@ -38,13 +38,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java anvil result clicks become MOT {@code CraftRecipeOptional} rather than a
- * plain Take from {@code AnvilResultPreview}. MOT writes the real result into
- * HUD created-output slot 50 and then expects Consume of the input/material.
+ * Java 的铁砧结果点击会变成 MOT {@code CraftRecipeOptional}，而不是从 {@code AnvilResultPreview} 做普通 Take。
+ * MOT 会把真实结果写入 HUD 的 created-output 槽位 50，然后期望对输入/材料执行 Consume。
  */
 public final class AnvilSimulator {
 
-    // Distinct from CraftingSimulator's SOURCE_TODO crafting-result (-4).
+    // 与 CraftingSimulator 中 SOURCE_TODO 的合成结果（-4）不同。
     static final int TODO_ANVIL_RESULT = -6;
 
     private AnvilSimulator() {
@@ -68,9 +67,8 @@ public final class AnvilSimulator {
         if (materialCount < 0) {
             return null;
         }
-        // Java computes the anvil preview locally; MOT never fills AnvilResultPreview.
-        // Use the input stack as a stand-in so the SAI request still consumes the inputs
-        // and the Java cursor is not left holding a phantom item if the server rejects.
+        // Java 在本地计算铁砧预览；MOT 从不会填充 AnvilResultPreview。用输入物品堆作为替代，
+        // 这样 SAI 请求仍会消耗这些输入，且服务器拒绝时 Java 光标上不会残留一个凭空出现的物品。
         final BedrockItem result = input.copy();
         final List<InventoryActionData> actions = new ArrayList<>();
         actions.add(new InventoryActionData(

@@ -30,11 +30,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Wire-layout helpers for Bedrock CREATIVE_CONTENT (packet 0x91 / 145).
+ * Bedrock CREATIVE_CONTENT（数据包 0x91 / 145）的线上布局辅助方法。
  * <p>
- * Official 975 and NetEase 860 both write groups from protocol 776, then a
- * 1-based creative net-id plus an instance item for each entry. Nukkit 860
- * still uses the legacy item codec rather than NetworkItemStackDescriptor.
+ * 官方 975 与网易 860 都从协议 776 起写入分组，然后为每个条目
+ * 写入从 1 开始的创造模式网络 ID 外加一个实例物品。Nukkit 860
+ * 仍然使用旧的物品编解码器，而不是 NetworkItemStackDescriptor。
  */
 public final class CreativeContentLayout {
 
@@ -48,9 +48,9 @@ public final class CreativeContentLayout {
     }
 
     /**
-     * Nukkit writes CREATIVE_CONTENT entries with putSlot(..., true) / instance-item
-     * layout: no stack-network-id boolean. Reading them with ItemRewriter.itemType()
-     * consumes the next field as that boolean and desynchronizes the rest of the packet.
+     * Nukkit 用 putSlot(..., true) / 实例物品布局写入 CREATIVE_CONTENT 条目：
+     * 没有 stack-network-id 布尔值。用 ItemRewriter.itemType() 去读，
+     * 会把下一个字段当成那个布尔值消费掉，导致数据包其余部分失步。
      */
     public static Type<BedrockItem> itemType() {
         return InstanceItemType.INSTANCE;

@@ -344,7 +344,7 @@ public class JoinGate extends StoredObject {
         final ByteBuf packetBuffer = this.user().getChannel().alloc().buffer();
         try {
             wrapper.writeToBuffer(packetBuffer);
-            Types.VAR_INT.readPrimitive(packetBuffer); // Drop the 26_1 packet id; replay restores it from the packet type.
+            Types.VAR_INT.readPrimitive(packetBuffer); // 丢弃 26_1 数据包 id；重放时会根据包类型还原它。
             return packetBuffer.readBytes(packetBuffer.readableBytes());
         } finally {
             packetBuffer.release();

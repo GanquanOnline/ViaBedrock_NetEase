@@ -29,9 +29,7 @@ import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * Immutable, disk-backed pack content. Binary assets enter the heap only while a caller reads them.
- */
+/** 不可变的、磁盘支撑的包内容。二进制资源仅在调用方读取时才进入堆。 */
 public final class ZipFileContent extends Content {
 
     private final Path path;

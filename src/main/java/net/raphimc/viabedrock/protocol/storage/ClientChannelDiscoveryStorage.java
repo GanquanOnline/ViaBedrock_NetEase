@@ -19,9 +19,7 @@ package net.raphimc.viabedrock.protocol.storage;
 
 import com.viaversion.viaversion.api.connection.StorableObject;
 
-/**
- * Connection-scoped state for the shared NeoForge configuration channel probe.
- */
+/** 共享 NeoForge 配置通道探测的连接级状态。 */
 public final class ClientChannelDiscoveryStorage implements StorableObject {
 
     private boolean probeSent;

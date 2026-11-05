@@ -31,7 +31,7 @@ public class DisconnectHandler extends ChannelOutboundHandlerAdapter {
     public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
         if (ctx.channel().isActive() && !this.calledDisconnect) {
             this.calledDisconnect = true;
-            ctx.disconnect(promise); // Send disconnect notification to the server and close the channel
+            ctx.disconnect(promise); // 向服务端发送断开通知并关闭通道
         } else {
             super.close(ctx, promise);
         }

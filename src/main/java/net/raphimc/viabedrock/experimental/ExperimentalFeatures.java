@@ -115,8 +115,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
- * This class is used to register experimental features that are not yet stable/tested enough to be included in the main protocol.
- * These features may be subject to change or removal in future versions.
+ * 该类用于注册尚未足够稳定/经过测试、还不能纳入主协议的实验性功能。
+ * 这些功能在后续版本中可能变更或被移除。
  */
 public class ExperimentalFeatures {
 
@@ -141,7 +141,7 @@ public class ExperimentalFeatures {
         MODULES.add(module);
     }
 
-    // --- Module dispatch methods ---
+    // --- 模块分发方法 ---
 
     public static void dispatchMappingsLoad(final BedrockMappingData data, final MappingLoadPhase phase) {
         for (final FeatureModule module : MODULES) {
@@ -369,11 +369,11 @@ public class ExperimentalFeatures {
             return;
         }
 
-        // Resolve lock-policy helpers at startup so a later drop/click cannot fail with NoClassDefFoundError.
+        // 在启动时解析锁策略辅助类，避免之后的丢弃/点击因 NoClassDefFoundError 失败。
         canDropLockedItem(BedrockItem.empty());
 
-        registerModule(new PyRpcDispatcherModule());  // Must be first (owns PY_RPC handler)
-        registerModule(new ModUIClientModule());      // PY_RPC consumer
+        registerModule(new PyRpcDispatcherModule());  // 必须放在最前（拥有 PY_RPC 处理器）
+        registerModule(new ModUIClientModule());      // PY_RPC 消费者
         registerModule(new CameraModule());
         registerModule(new AlternateDimensionModule());
         registerModule(new CustomEntityTypeResolver());
@@ -501,9 +501,9 @@ public class ExperimentalFeatures {
                 clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.StartSneaking, PlayerAuthInputPacket_InputData.SneakPressedRaw);
                 clientPlayer.setShieldSneakEmulated(true);
             }
-            // MOT processes START_SPRINTING before START_SNEAKING and does not
-            // clear an already-sprinting player. Java shield-block is standing;
-            // emit StopSprinting so MOT is not sprinting+sneaking.
+            // MOT 先处理 START_SPRINTING 再处理 START_SNEAKING，且不会
+            // 清除已在疾跑的玩家。Java 的盾牌格挡是站立姿态；
+            // 因此发送 StopSprinting，避免 MOT 处于疾跑加潜行状态。
             if (ItemUseSemantics.stopSprintingOnShieldSneakStart(emulateNetEase, true, clientPlayer.isSprinting())) {
                 clientPlayer.authInputData().remove(PlayerAuthInputPacket_InputData.StartSprinting);
                 clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.StopSprinting);
@@ -543,8 +543,8 @@ public class ExperimentalFeatures {
             syncJavaUsingItem(user, clientPlayer);
             return;
         }
-        // Keep the Java hand for the use animation. MOT slots come from the
-        // silent F-swap so CLICK_AIR / RELEASE see the stack in the main hand.
+        // 使用动画保留 Java 侧的手。MOT 的槽位来自
+        // 静默 F 交换，好让 CLICK_AIR / RELEASE 看到主手里的那堆物品。
         clientPlayer.startUsingItem(
                 handContext.hand(),
                 motHandContext.containerId(),
@@ -558,9 +558,9 @@ public class ExperimentalFeatures {
         if (ItemUseSemantics.suppressStartSprintingWhileUsingItem(emulateNetEase, true)) {
             clientPlayer.authInputData().remove(PlayerAuthInputPacket_InputData.StartSprinting);
             if (clientPlayer.isSprinting()) {
-                // MOT START_SPRINTING sets sprinting=true and usingItem=false. Java eat/draw
-                // cancels sprint; dropping StartSprinting is not enough — emit StopSprinting
-                // so MOT/GanAC SprintCheck sees the use-start edge.
+                // MOT 的 START_SPRINTING 会把 sprinting 置为 true、usingItem 置为 false。Java 进食/拉弓
+                // 会取消疾跑；只丢弃 StartSprinting 不够，要发送 StopSprinting，
+                // 好让 MOT/GanAC 的 SprintCheck 看到使用开始这一边沿。
                 clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.StopSprinting);
             }
             clientPlayer.setSprinting(false);
@@ -611,7 +611,7 @@ public class ExperimentalFeatures {
         );
     }
 
-    // --- Java USE_ITEM air-click items that MOT only handles as CLICK_BLOCK ---
+    // --- MOT 只按 CLICK_BLOCK 处理的 Java USE_ITEM 空点击物品 ---
 
     private static ItemUseAirClickTarget.WorldView airClickWorld(final UserConnection user) {
         final ChunkTracker chunkTracker = user.get(ChunkTracker.class);
@@ -679,11 +679,11 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Translates a Java right-click on a fake item frame entity into the Bedrock block interaction the server expects.
-     * Item frames are blocks on Bedrock (handled by {@code BlockItemFrame.onActivate}: empty frame -> place held item,
-     * filled frame -> rotate), but ViaBedrock exposes them to the Java client as entities, so the entity interaction
-     * never reaches the server on its own. Returns false (no-op) when experimental features are off or the interacted
-     * entity is not a tracked item frame, letting the caller fall back to its default handling.
+     * 把 Java 对伪物品展示框实体的右键转换为服务端期望的基岩方块交互。
+     * 物品展示框在基岩中是方块（由 {@code BlockItemFrame.onActivate} 处理：空框 -> 放置手持物品，
+     * 有物品的框 -> 旋转），但 ViaBedrock 以实体形式把它暴露给 Java 客户端，因此实体交互
+     * 本身永远到不了服务端。当实验性功能关闭，或交互的实体不是被跟踪的物品展示框时，
+     * 返回 false（空操作），让调用方回退到默认处理。
      */
     public static boolean tryHandleItemFrameInteract(final UserConnection user, final int javaEntityId, final InteractionHand hand) {
         if (!ViaBedrock.getConfig().shouldEnableExperimentalFeatures()) {
@@ -704,18 +704,18 @@ public class ExperimentalFeatures {
         final int faceInt = info.facingDirection();
         final Direction direction = Direction.getFromVerticalId(faceInt);
         final BlockFace face = direction != null ? direction.blockFace() : BlockFace.NORTH;
-        // Center of the block. Nukkit's BlockItemFrame.onActivate doesn't depend on the precise click position.
+        // 方块中心。Nukkit 的 BlockItemFrame.onActivate 不依赖精确的点击位置。
         final Position3f clickPosition = new Position3f(0.5F, 0.5F, 0.5F);
 
         sendItemUseOnBlock(user, clientPlayer, handContext, inventoryTransactionRewriter, chunkTracker,
-                info.position(), faceInt, face, clickPosition, false, 0); // sequence 0: entity interaction, no Java ack
+                info.position(), faceInt, face, clickPosition, false, 0); // sequence 0：实体交互，没有 Java 确认
         return true;
     }
 
     /**
-     * Custom cubes are shown as a Java placeholder block plus an item-display overlay.
-     * If the display still intercepts a right-click, translate it into the Bedrock
-     * block use the server expects instead of dropping the packet.
+     * 自定义方块以 Java 占位方块加物品展示叠加层的形式呈现。
+     * 如果展示层仍然拦截了右键，就把它转换为服务端期望的基岩
+     * 方块使用操作，而不是丢弃该数据包。
      */
     public static boolean tryHandleCustomBlockOverlayInteract(final UserConnection user, final int javaEntityId, final InteractionHand hand) {
         if (!ViaBedrock.getConfig().shouldEnableExperimentalFeatures()) {
@@ -749,8 +749,8 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Left-clicking an overlay display must start the Bedrock block break at that
-     * position. Returns true when the attack was consumed as a block action.
+     * 左键点击叠加展示层必须在对应位置开始基岩方块破坏。
+     * 当该攻击被当作方块操作处理时返回 true。
      */
     public static boolean tryHandleCustomBlockOverlayAttack(final UserConnection user, final int javaEntityId) {
         if (!ViaBedrock.getConfig().shouldEnableExperimentalFeatures()) {
@@ -769,10 +769,10 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Java left-clicking a fake item-frame entity must become Bedrock
-     * {@code StartDestroyBlock}. Nukkit's {@code BlockItemFrame.onTouch} drops the
-     * displayed item on LEFT_CLICK_BLOCK and only then lets a later destroy break
-     * the frame. Cancelling ATTACK with no translation swallowed both.
+     * Java 左键点击伪物品展示框实体必须变成基岩的
+     * {@code StartDestroyBlock}。Nukkit 的 {@code BlockItemFrame.onTouch} 会在 LEFT_CLICK_BLOCK 时
+     * 丢出展示的物品，之后才允许后续的破坏打破展示框。
+     * 而取消 ATTACK 又不做转换会把两者都吞掉。
      */
     public static boolean tryHandleItemFrameAttack(final UserConnection user, final int javaEntityId) {
         if (!ViaBedrock.getConfig().shouldEnableExperimentalFeatures()) {
@@ -814,18 +814,18 @@ public class ExperimentalFeatures {
         clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(
                 PlayerActionType.StartDestroyBlock, position, direction.ordinal()));
         if (clientPlayer.javaGameMode() == GameMode.CREATIVE) {
-            // MOT PredictDestroy already aborts then completes. A trailing Abort
-            // is stored in MOT's EnumMap before Predict, so GanAC/MOT would see
-            // Abort first and drop the break. Mirror finishBlockBreak: Start+Predict.
+            // MOT 的 PredictDestroy 本身会先中止再完成。若在 Predict 之前还排了一个 Abort，
+            // 它会被存进 MOT 的 EnumMap，于是 GanAC/MOT 会先看到 Abort 并丢弃该破坏。
+            // 与 finishBlockBreak 保持一致：Start+Predict。
             clientPlayer.clearDelayedMotBreak();
             for (PlayerActionType type : overlayCreativeBreakActions()) {
                 clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(
                         type, position, direction.ordinal()));
             }
         } else if (overlaySurvivalInstantBreak(user, position)) {
-            // Survival overlay is Java ATTACK on a fake display — there is no STOP_DESTROY.
-            // MOT only finishes on PredictDestroyBlock. Instant (hardness 0) overlays must
-            // Start+Predict like creative. Non-instant overlays keep CrackBlock via SWING.
+            // 生存模式下的叠加层是 Java 对伪展示层的 ATTACK，没有 STOP_DESTROY。
+            // MOT 只在 PredictDestroyBlock 时完成。瞬破（硬度 0）的叠加层必须像创造模式那样
+            // Start+Predict。非瞬破的叠加层则通过 SWING 保留 CrackBlock。
             clientPlayer.clearDelayedMotBreak();
             for (PlayerActionType type : overlayCreativeBreakActions()) {
                 clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(
@@ -852,8 +852,8 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * MOT PredictDestroy already aborts then completes. Do not append Abort after
-     * Predict: MOT EnumMap would iterate Abort first and drop the break.
+     * MOT 的 PredictDestroy 本身会先中止再完成。不要在 Predict 之后补 Abort：
+     * MOT 的 EnumMap 会先迭代到 Abort 并丢弃该破坏。
      */
     static List<PlayerActionType> overlayCreativeBreakActions() {
         return List.of(PlayerActionType.PredictDestroyBlock);
@@ -874,9 +874,9 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * MOT only consumes {@code getItemInHand()}. Promote a Java offhand stack
-     * with a silent F-swap so CLICK_AIR / CLICK_BLOCK see it in the main hand.
-     * Shield stays sneak-emulation and is not swapped.
+     * MOT 只消费 {@code getItemInHand()}。用静默 F 交换把 Java 的副手物品堆
+     * 提升到主手，好让 CLICK_AIR / CLICK_BLOCK 看到它。
+     * 盾牌仍走潜行模拟，不做交换。
      */
     private static ItemUseHandContext motContextForOffhandUse(final UserConnection user, final ClientPlayerEntity clientPlayer,
                                                               final ItemUseHandContext handContext, final ItemRewriter itemRewriter) {
@@ -893,9 +893,8 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * MOT transaction type 3 also compares and consumes the selected main-hand
-     * stack. Entity interaction allows an empty offhand, so it intentionally does
-     * not apply the item-use empty-stack guard above.
+     * MOT 事务类型 3 还会比较并消耗选中的主手物品堆。实体交互允许副手为空，
+     * 因此它有意不套用上面物品使用的空堆校验。
      */
     public static ItemUseHandContext motContextForEntityInteraction(final UserConnection user,
                                                                     final ClientPlayerEntity clientPlayer,
@@ -915,7 +914,7 @@ public class ExperimentalFeatures {
             return null;
         }
         if (clientPlayer.isOffhandPromoted()) {
-            // A new action may reuse a promotion whose previous restore is pending.
+            // 新动作可以复用一次仍在等待恢复的提升。
             clientPlayer.markOffhandPromoted();
             return ItemUseHandContext.resolve(user.get(InventoryTracker.class), InteractionHand.MAIN_HAND);
         }
@@ -924,8 +923,8 @@ public class ExperimentalFeatures {
             return null;
         }
         if (swap.requestId() == null) {
-            // Legacy TYPE_NORMAL has no ITEM_STACK_RESPONSE ledger. The MOT
-            // transaction is already applied, so treat it as immediately promoted.
+            // 旧式 TYPE_NORMAL 没有 ITEM_STACK_RESPONSE 记录。MOT 事务
+            // 已经生效，因此视为已立即提升。
             clientPlayer.markOffhandPromoted();
             return ItemUseHandContext.resolve(user.get(InventoryTracker.class), InteractionHand.MAIN_HAND);
         }
@@ -957,7 +956,7 @@ public class ExperimentalFeatures {
                 }
                 final BedrockItem promotedMainHand = inventoryTracker.getInventoryContainer().getSelectedHotbarItem();
                 final BedrockItem promotedOffhand = inventoryTracker.getOffhandContainer().getItem(0);
-                // Capture before ClickSimulator/applyMirrorUpdates can replace or mutate the slots.
+                // 在 ClickSimulator/applyMirrorUpdates 可能替换或改动槽位之前先捕获。
                 clientPlayer.captureOffhandRestoreIdentity(promotedMainHand, promotedOffhand);
                 final ClientAuthInventoryModule.SwapHandsResult restore;
                 try {
@@ -977,8 +976,8 @@ public class ExperimentalFeatures {
                     return;
                 }
 
-                // A legacy transaction or an empty action list has no response ledger entry.
-                // Ordered emission is not confirmation, so never drain the deferred queue here.
+                // 旧式事务或空动作列表没有对应的响应记录。
+                // 按顺序发出并不等于确认，所以绝不在这里排空延迟队列。
                 abandonOffhandRestoreAndResync(user, clientPlayer, inventoryTracker,
                         "Reverse hand swap emitted no tracked ItemStackRequest response");
             });
@@ -1052,9 +1051,9 @@ public class ExperimentalFeatures {
         final Boolean accepted = restoreResponseAccepted(decoded, requestId);
         if (Boolean.TRUE.equals(accepted)) {
             if (clientPlayer.markOffhandPromotionConfirmed(requestId)) {
-                // Flush queued ATTACK/INTERACT now that MOT has the promoted
-                // main-hand. Stay PROMOTED so a follow-up USE_ITEM can still
-                // remap OFF_HAND; restore happens when that use ends.
+                // MOT 已拿到提升后的主手，现在刷出排队的 ATTACK/INTERACT。
+                // 保持 PROMOTED，好让后续的 USE_ITEM 仍能重映射 OFF_HAND；
+                // 该次使用结束时再做恢复。
                 EntityInteractionPacketSender.flushDeferred(user, clientPlayer);
             }
             return;
@@ -1209,8 +1208,8 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Java inventory is not swapped, so match the original offhand stack by item.
-     * MOT packets still use the snapshot's main-hand hotbar slot.
+     * Java 的物品栏没有交换，因此按物品匹配原始的副手物品堆。
+     * MOT 数据包仍使用快照中的主手快捷栏槽位。
      */
     private static ItemUseHandContext motPacketContext(final ItemUseHandContext javaContext, final ClientPlayerEntity clientPlayer) {
         if (!clientPlayer.isOffhandPromoted() || clientPlayer.itemUseSnapshot() == null) {
@@ -1227,9 +1226,9 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Builds and sends the CLICK_BLOCK ItemUseTransaction (preceded/followed by Start/StopItemUseOn) that a
-     * Bedrock client emits when interacting with a block. Shared by the USE_ITEM_ON handler and the empty
-     * bucket / glass bottle fluid branch of USE_ITEM.
+     * 构建并发送 CLICK_BLOCK 的 ItemUseTransaction（前后伴随 Start/StopItemUseOn），
+     * 即基岩客户端与方块交互时发出的包。由 USE_ITEM_ON 处理器与 USE_ITEM 的
+     * 空桶 / 玻璃瓶流体分支共用。
      */
     static BlockPosition blockPlacementAckPosition(final BlockPosition clickedPosition, final BlockFace face,
                                                    final boolean clickedBlockReplaceable) {
@@ -1237,10 +1236,9 @@ public class ExperimentalFeatures {
     }
 
     private static void sendItemUseOnBlock(final UserConnection user, final ClientPlayerEntity clientPlayer, final ItemUseHandContext handContext, final InventoryTransactionRewriter inventoryTransactionRewriter, final ChunkTracker chunkTracker, final BlockPosition position, final int faceInt, final BlockFace face, final Position3f clickPosition, final boolean insideBlock, final int sequence) {
-        // MOT USE_ITEM CLICK_BLOCK always setUsingItem(false) (Player.java:4528).
-        // Java Fabric keeps sending USE_ITEM_ON / item-frame / overlay / empty-bucket
-        // while chewing or drawing. Skip the whole CLICK_BLOCK (and 28/29) unless
-        // shield-as-sneak still needs to place/activate.
+        // MOT 的 USE_ITEM CLICK_BLOCK 总会 setUsingItem(false)（Player.java:4528）。
+        // 而 Java Fabric 在咀嚼或拉弓期间仍会发送 USE_ITEM_ON / 物品展示框 / 叠加层 / 空桶。
+        // 除非盾牌当潜行仍需放置/激活，否则整段 CLICK_BLOCK（以及 28/29）都跳过。
         if (ItemUseSemantics.skipClickBlockWhileUsing(
                 ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
                 clientPlayer.isUsingItem(),
@@ -1260,15 +1258,15 @@ public class ExperimentalFeatures {
                 : new PlacementPrediction.Result(blockPlacementAckPosition(position, face, insideBlock), true);
         final BlockPosition expectedPos = placement.target();
         final boolean predictedSuccess = placement.success();
-        // sequence 0 means there is no Java block-change to acknowledge (for example item frames).
-        // Only track operations that actually emitted CLICK_BLOCK; skipped uses were acknowledged above.
+        // sequence 为 0 表示没有需要确认的 Java 方块变更（例如物品展示框）。
+        // 只跟踪真正发出了 CLICK_BLOCK 的操作；被跳过的使用已在上面确认过。
         if (sequence > 0) {
             user.get(BlockPlacementAckTracker.class).addPendingAck(expectedPos, sequence);
         }
 
-        // Official Bedrock sends StartItemUseOn before CLICK_BLOCK. MOT 860 has no
-        // case 28/29; the PlayerAction default calls setUsingItem(false) and would
-        // cancel an in-progress eat/draw if Java also looks at a block this tick.
+        // 官方基岩在 CLICK_BLOCK 之前发送 StartItemUseOn。MOT 860 没有
+        // case 28/29；PlayerAction 的默认分支会调用 setUsingItem(false)，若 Java 本刻
+        // 又注视了方块，就会取消正在进行的进食/拉弓。
         final boolean sendItemUseOnActions = ItemUseSemantics.sendItemUseOnPlayerActions(ViaBedrock.getConfig().shouldEmulateNetEaseClient());
         if (sendItemUseOnActions) {
             ExperimentalPacketFactory.sendBedrockPlayerAction(
@@ -1281,13 +1279,13 @@ public class ExperimentalFeatures {
             );
         }
 
-        // This is the main packet that the bedrock client use to interact with block.
+        // 这是基岩客户端与方块交互时使用的主要数据包。
         final PacketWrapper transactionPacket = PacketWrapper.create(ServerboundBedrockPackets.INVENTORY_TRANSACTION, user);
 
         final List<InventoryActionData> clickBlockActions = predictedClickBlockActions(handContext, clientPlayer,
                 ViaBedrock.getConfig().shouldEmulateNetEaseClient(), predictedSuccess);
         final BedrockInventoryTransaction inventoryTransaction = new BedrockInventoryTransaction(
-                0, // legacy request id
+                0, // 旧式请求 id
                 null,
                 clickBlockActions,
                 ComplexInventoryTransaction_Type.ItemUseTransaction,
@@ -1304,13 +1302,13 @@ public class ExperimentalFeatures {
                         predictedSuccess
                                 ? ItemUseInventoryTransaction_PredictedResult.Success
                                 : ItemUseInventoryTransaction_PredictedResult.Failure,
-                        (byte) 0 // TODO: client cooldown state
+                        (byte) 0 // TODO: 客户端冷却状态
                 )
         );
         transactionPacket.write(inventoryTransactionRewriter.getInventoryTransactionType(), inventoryTransaction);
         transactionPacket.sendToServer(BedrockProtocol.class);
 
-        // Bedrock sends a stop item use on after the transaction packet
+        // 基岩在事务包之后会发送一个停止物品使用
         if (sendItemUseOnActions) {
             ExperimentalPacketFactory.sendBedrockPlayerAction(
                     user,
@@ -1332,9 +1330,9 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * Official 975 still sends a predicted SOURCE_CONTAINER decrement with CLICK_BLOCK.
-     * NetEase 860 native clients leave {@code actions[]} empty and let MOT apply the
-     * decrement after {@code Level.useItemOn}.
+     * 官方 975 仍会在 CLICK_BLOCK 中携带一个预测的 SOURCE_CONTAINER 扣减。
+     * 网易 860 原生客户端会把 {@code actions[]} 留空，让 MOT 在
+     * {@code Level.useItemOn} 之后自行扣减。
      */
     static List<InventoryActionData> predictedClickBlockActions(final ItemUseHandContext handContext,
                                                                 final ClientPlayerEntity clientPlayer,
@@ -1388,8 +1386,8 @@ public class ExperimentalFeatures {
     }
 
     /**
-     * MOT ReleaseItem.headRot is the player eye/head position. ClientPlayerEntity.position()
-     * already stores that eye position, so adding eyeOffset again would sit 1.62 blocks too high.
+     * MOT 的 ReleaseItem.headRot 是玩家的眼睛/头部位置。ClientPlayerEntity.position()
+     * 已经存有该眼睛位置，再次加上 eyeOffset 会高出 1.62 个方块。
      */
     static Position3f releaseHeadPosition(final ClientPlayerEntity clientPlayer) {
         return clientPlayer == null ? Position3f.ZERO : clientPlayer.position();
@@ -1398,7 +1396,7 @@ public class ExperimentalFeatures {
     private static void sendReleaseItemTransaction(final UserConnection user, final InventoryTransactionRewriter inventoryTransactionRewriter, final ReleaseItemSnapshot snapshot, final ItemReleaseInventoryTransaction_ActionType actionType) {
         final PacketWrapper transactionPacket = PacketWrapper.create(ServerboundBedrockPackets.INVENTORY_TRANSACTION, user);
         final BedrockInventoryTransaction inventoryTransaction = new BedrockInventoryTransaction(
-                0, // legacy request id
+                0, // 旧式请求 id
                 null,
                 null,
                 ComplexInventoryTransaction_Type.ItemReleaseTransaction,
@@ -1418,7 +1416,7 @@ public class ExperimentalFeatures {
         if (snapshot == null) {
             return false;
         }
-        // Check slot first
+        // 先检查槽位
         if (snapshot.hand() != handContext.hand()
                 || snapshot.containerId() != handContext.containerId()
                 || snapshot.containerSlot() != handContext.containerSlot()
@@ -1426,12 +1424,12 @@ public class ExperimentalFeatures {
             return false;
         }
         
-        // Current item must exist
+        // 当前物品必须存在
         if (handContext.item() == null || handContext.item().isEmpty()) {
             return false;
         }
         
-        // Only compare numeric item ID - allow data/NBT changes from server resyncs
+        // 只比较数值物品 ID，允许服务端重同步带来的 data/NBT 变化
         return snapshot.item().identifier() == handContext.item().identifier();
     }
 
@@ -1546,20 +1544,20 @@ public class ExperimentalFeatures {
 
     private static void sendMobEquipment(final UserConnection user, final ClientPlayerEntity clientPlayer, final byte slot, final BedrockItem item, final byte containerId) {
         final PacketWrapper mobEquipmentPacket = PacketWrapper.create(ServerboundBedrockPackets.MOB_EQUIPMENT, user);
-        mobEquipmentPacket.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // entity runtime id
-        mobEquipmentPacket.write(user.get(ItemRewriter.class).newItemType(), item); // item
-        mobEquipmentPacket.write(Types.BYTE, slot); // slot
-        mobEquipmentPacket.write(Types.BYTE, slot); // selected slot
-        mobEquipmentPacket.write(Types.BYTE, containerId); // container id
+        mobEquipmentPacket.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
+        mobEquipmentPacket.write(user.get(ItemRewriter.class).newItemType(), item); // 物品
+        mobEquipmentPacket.write(Types.BYTE, slot); // 槽位
+        mobEquipmentPacket.write(Types.BYTE, slot); // 选中槽位
+        mobEquipmentPacket.write(Types.BYTE, containerId); // 容器 ID
         mobEquipmentPacket.sendToServer(BedrockProtocol.class);
     }
 
-    // --- Existing experimental features ---
+    // --- 现有实验性功能 ---
 
     private static final int MAP_FLAGS_ALL = ClientboundMapItemDataPacket_Type.Creation.getValue() | ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue() | ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
 
     public static void registerPacketTranslators(final BedrockProtocol protocol) {
-        // Dispatch to feature modules before the built-in experimental hooks are installed.
+        // 在内置实验性钩子安装之前，把包分发到各功能模块。
         for (final FeatureModule module : MODULES) {
             try {
                 module.onPacketRegistration(protocol);
@@ -1577,13 +1575,13 @@ public class ExperimentalFeatures {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
 
-            final PlayerActionAction action = PlayerActionAction.values()[wrapper.passthrough(Types.VAR_INT)]; // action
-            wrapper.passthrough(Types.BLOCK_POSITION1_14); // block position
-            wrapper.passthrough(Types.UNSIGNED_BYTE); // face
-            final int sequence = wrapper.passthrough(Types.VAR_INT); // sequence number
+            final PlayerActionAction action = PlayerActionAction.values()[wrapper.passthrough(Types.VAR_INT)]; // 动作
+            wrapper.passthrough(Types.BLOCK_POSITION1_14); // 方块位置
+            wrapper.passthrough(Types.UNSIGNED_BYTE); // 面
+            final int sequence = wrapper.passthrough(Types.VAR_INT); // 序列号
 
-            // Mining, drops, F/Q swaps, and riptide all consume the selected main-hand
-            // mirror. Keep them behind the same promotion boundary as entity actions.
+            // 挖掘、掉落、F/Q 交换与激流都会消耗选中的主手
+            // 镜像。让它们与实体动作处在同一条提升边界之后。
             if (action != PlayerActionAction.RELEASE_USE_ITEM
                     && !canProcessHandSensitiveAction(wrapper.user(), wrapper, clientPlayer,
                     InteractionHand.MAIN_HAND, false, false, sequence)) {
@@ -1606,14 +1604,14 @@ public class ExperimentalFeatures {
                         cancelUsingItem(wrapper.user(), inventoryTransactionRewriter, clientPlayer);
                         return;
                     }
-                    // The injected Java consumable produces a release packet, but Bedrock swords have no
-                    // corresponding continuous-use state to release.
+                    // 注入的 Java 可消耗物品会产生一个释放包，但基岩的剑没有
+                    // 对应的持续使用状态可供释放。
                     if (ExperimentalItemRewriter.isSwordBlockingAnimationItem(wrapper.user().get(ItemRewriter.class), inventoryTracker.getInventoryContainer().getSelectedHotbarItem())) {
                         return;
                     }
-                    // After a successful NetEase finish, CLIENT_TICK_END already cleared using-state
-                    // while the local inventory mirror still holds the pre-eat stack. Resyncing that
-                    // snapshot would put the eaten item back into the Java client.
+                    // 网易侧成功完成后，CLIENT_TICK_END 已经清掉了使用状态，
+                    // 而本地物品栏镜像仍持有进食前的物品堆。重新同步该
+                    // 快照会把已吃掉的食物放回 Java 客户端。
                     if (isConsumableUseItem(wrapper.user().get(ItemRewriter.class), inventoryTracker.getInventoryContainer().getSelectedHotbarItem())) {
                         return;
                     }
@@ -1621,8 +1619,8 @@ public class ExperimentalFeatures {
                     return;
                 }
 
-                // After a silent offhand promote the tracker main hand holds the
-                // used stack. Java still reports OFF_HAND for the animation.
+                // 静默提升副手之后，跟踪器的主手持有
+                // 实际使用的物品堆。而 Java 在播放动画时仍上报 OFF_HAND。
                 final ItemUseHandContext handContext = ItemUseHandContext.resolve(
                         inventoryTracker,
                         clientPlayer.isOffhandPromoted() ? InteractionHand.MAIN_HAND : clientPlayer.usingItemHand());
@@ -1642,9 +1640,9 @@ public class ExperimentalFeatures {
                     stopUsingItem(wrapper.user(), clientPlayer);
                     return;
                 }
-                // Duration-ready Java RELEASE_USE_ITEM is completed by CLIENT_TICK_END.
-                // Check that before the Use branch so this skip actually runs. Early
-                // releases are not duration-ready and must still reach MOT.
+                // 达到时长的 Java RELEASE_USE_ITEM 由 CLIENT_TICK_END 完成。
+                // 要在 Use 分支之前检查这一点，这段跳过逻辑才会真正执行。过早的
+                // 释放并未达到时长，必须仍然发往 MOT。
                 if (ItemUseSemantics.ignoreJavaConsumableRelease(
                         ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
                         isConsumableUseItem(wrapper.user().get(ItemRewriter.class), selectedItem),
@@ -1670,9 +1668,9 @@ public class ExperimentalFeatures {
                 if (!canProcessHandSensitiveAction(wrapper.user(), wrapper, clientPlayer, InteractionHand.MAIN_HAND, false, false, sequence)) {
                     return;
                 }
-                // MOT 860 SAI drops TYPE_NORMAL InventoryTransaction. Q/Ctrl-Q must
-                // travel as ITEM_STACK_REQUEST Drop, matching inventory-window drops.
-                // Ref: MOT Player.java isInventorySAIGateActive; DropActionProcessor.
+                // MOT 860 的 SAI 会丢弃 TYPE_NORMAL InventoryTransaction。Q/Ctrl-Q 必须
+                // 以 ITEM_STACK_REQUEST Drop 的形式发送，与物品栏窗口内的丢弃一致。
+                // 参考：MOT Player.java 的 isInventorySAIGateActive；DropActionProcessor。
                 wrapper.cancel();
                 ClientAuthInventoryModule.tryHandleHotbarDrop(wrapper.user(), action == PlayerActionAction.DROP_ALL_ITEMS);
             }
@@ -1688,8 +1686,8 @@ public class ExperimentalFeatures {
                 return;
             }
 
-            // Keep sending START_USING_ITEM every tick while using item
-            // This mirrors official Bedrock client behavior
+            // 使用物品期间每刻都继续发送 START_USING_ITEM
+            // 这与官方基岩客户端行为一致
             clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.StartUsingItem);
 
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
@@ -1755,12 +1753,12 @@ public class ExperimentalFeatures {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final InventoryTransactionRewriter inventoryTransactionRewriter = wrapper.user().get(InventoryTransactionRewriter.class);
 
-            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // hand
-            final int sequence = wrapper.read(Types.VAR_INT); // sequence
-            final float yaw = wrapper.read(Types.FLOAT); // yaw
-            final float pitch = wrapper.read(Types.FLOAT); // pitch
+            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // 手
+            final int sequence = wrapper.read(Types.VAR_INT); // 序列
+            final float yaw = wrapper.read(Types.FLOAT); // 偏航角
+            final float pitch = wrapper.read(Types.FLOAT); // 俯仰角
 
-            // Mark as using item and send StartUsingItem flag in the current tick's PlayerAuthInput
+            // 标记为正在使用物品，并在本刻的 PlayerAuthInput 中发送 StartUsingItem 标志
             final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
             if (!canProcessHandSensitiveAction(wrapper.user(), wrapper, clientPlayer, hand, true, true, sequence)) {
                 return;
@@ -1804,9 +1802,9 @@ public class ExperimentalFeatures {
                 return;
             }
 
-            // Java USE_ITEM for empty buckets/bottles, filled buckets, boats and lily pads is an air click.
-            // MOT only runs onActivate from CLICK_BLOCK, so resolve the looked-at block here.
-            // Same-tick USE_ITEM_ON already cancelled above via dropDuplicateAirClickAfterUseOn.
+            // Java 对空桶/空瓶、已装满的桶、船和睡莲的 USE_ITEM 属于空点击。
+            // MOT 只从 CLICK_BLOCK 触发 onActivate，因此在这里解析注视的方块。
+            // 同一刻的 USE_ITEM_ON 已在上面通过 dropDuplicateAirClickAfterUseOn 取消。
             if (trySendAirClickAsBlockUse(wrapper.user(), clientPlayer, motHandContext, itemRewriter, inventoryTransactionRewriter, yaw, pitch, sequence)) {
                 restorePromotedOffhand(wrapper.user(), clientPlayer);
                 wrapper.cancel();
@@ -1827,8 +1825,8 @@ public class ExperimentalFeatures {
                 }
                 sendSelectedHotbarSlot(wrapper.user(), motHandContext, clientPlayer);
             }
-            // Send now, then restore. Writing the wrapper and restoring first
-            // would let MOT see the original main hand before this USE_ITEM.
+            // 先发送，再恢复。若先写入包装并恢复，
+            // MOT 会在本次 USE_ITEM 之前就看到原始主手。
             sendUseItemTransaction(wrapper.user(), inventoryTransactionRewriter, motHandContext, clientPlayer, false);
             restorePromotedOffhand(wrapper.user(), clientPlayer);
             wrapper.cancel();
@@ -1837,7 +1835,7 @@ public class ExperimentalFeatures {
             }
         });
 
-        // Handle COMPLETED_USING_ITEM from server (sent when item use completes, e.g. eating)
+        // 处理来自服务端的 COMPLETED_USING_ITEM（物品使用完成时发送，例如进食）
         protocol.registerClientbound(ClientboundBedrockPackets.COMPLETED_USING_ITEM, null, wrapper -> {
             wrapper.cancel();
             stopUsingItem(wrapper.user(), wrapper.user().get(EntityTracker.class).getClientPlayer());
@@ -1851,10 +1849,10 @@ public class ExperimentalFeatures {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final InventoryTransactionRewriter inventoryTransactionRewriter = wrapper.user().get(InventoryTransactionRewriter.class);
 
-            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // hand
+            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // 手
 
-            BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // block position
-            int faceInt = wrapper.read(Types.UNSIGNED_BYTE); // face
+            BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // 方块位置
+            int faceInt = wrapper.read(Types.UNSIGNED_BYTE); // 面
             Direction direction = Direction.getFromVerticalId(faceInt);
             if (direction == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown block face id: " + faceInt);
@@ -1866,12 +1864,12 @@ public class ExperimentalFeatures {
                     wrapper.read(Types.FLOAT), // y
                     wrapper.read(Types.FLOAT)  // z
             );
-            boolean insideBlock = wrapper.read(Types.BOOLEAN); // inside block
-            wrapper.read(Types.BOOLEAN); // world border, this doesn't exist on Bedrock.
+            boolean insideBlock = wrapper.read(Types.BOOLEAN); // 在方块内
+            wrapper.read(Types.BOOLEAN); // 世界边界，基岩上没有该字段。
 
-            // Defer block changed ack until the server confirms via UPDATE_BLOCK.
-            // Sending ack immediately would clear the Java client's prediction before any BLOCK_UPDATE arrives,
-            // causing the placed block to flicker (disappear then reappear).
+            // 把方块变更确认推迟到服务端通过 UPDATE_BLOCK 确认之后。
+            // 立即发送确认会在任何 BLOCK_UPDATE 到达之前清掉 Java 客户端的预测，
+            // 导致已放置的方块闪烁（先消失再出现）。
             final int sequence = wrapper.read(Types.VAR_INT);
 
             if (!canProcessHandSensitiveAction(wrapper.user(), wrapper, clientPlayer, hand, true, true, sequence)) {
@@ -1881,9 +1879,9 @@ public class ExperimentalFeatures {
                     inventoryTracker, hand, clientPlayer.isOffhandPromoted());
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
             final BedrockItem selectedItem = handContext.item();
-            // MOT CLICK_BLOCK always setUsingItem(false). Keep eating/drawing from
-            // being cancelled by a later Java USE_ITEM_ON at the same crosshair.
-            // Ref: MOT Player.java case 2 / actionType 0.
+            // MOT 的 CLICK_BLOCK 总会 setUsingItem(false)。要避免进食/拉弓
+            // 被随后同一准星的 Java USE_ITEM_ON 取消。
+            // 参考：MOT Player.java case 2 / actionType 0。
             if (ItemUseSemantics.skipClickBlockWhileUsing(
                     ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
                     clientPlayer.isUsingItem(),
@@ -1893,8 +1891,8 @@ public class ExperimentalFeatures {
                 }
                 return;
             }
-            // MOT Level.useItemOn runs block.onActivate first unless sneaking.
-            // Starting hold-to-use here swallows chests/tables while holding food/bow.
+            // MOT 的 Level.useItemOn 除非潜行，否则会先执行 block.onActivate。
+            // 在这里开始按住使用，会在手持食物/弓时吞掉箱子与工作台。
             if (ItemUseSemantics.shouldStartContinuousUseFromUseItemOn(ViaBedrock.getConfig().shouldEmulateNetEaseClient())
                     && isContinuousUseItem(itemRewriter, selectedItem)) {
                 beginContinuousItemUse(wrapper.user(), inventoryTransactionRewriter, clientPlayer, itemRewriter, handContext);
@@ -1905,8 +1903,8 @@ public class ExperimentalFeatures {
                 return;
             }
             if (isContinuousUseItem(itemRewriter, selectedItem)) {
-                // EaseCation #600: a failed placeable-food click does not send another USE_ITEM.
-                // Wait for the server to confirm the use instead of starting it locally.
+                // EaseCation #600：可放置食物的点击失败后不会再次发送 USE_ITEM。
+                // 改为等待服务端确认该次使用，而不是在本地开始使用。
                 clientPlayer.prepareBlockItemUse(handContext.hand(), handContext.containerId(), handContext.containerSlot(), handContext.transactionHotbarSlot(), selectedItem);
             } else {
                 clientPlayer.setUsingItem(false);
@@ -1933,7 +1931,7 @@ public class ExperimentalFeatures {
             BedrockInventoryTransaction inventoryTransaction = wrapper.read(inventoryTransactionRewriter.getInventoryTransactionType());
 
             if (inventoryTransaction.legacyRequestId() != 0) {
-                // Ignore legacy inventory transactions for now
+                // 暂时忽略旧式物品栏事务
                 return;
             }
 
@@ -1954,7 +1952,7 @@ public class ExperimentalFeatures {
 
             switch (inventoryTransaction.transactionType()) {
                 case NormalTransaction -> {
-                    break; // Nothing to do here for now
+                    break; // 此处暂时无事可做
                 }
                 default -> {
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received unsupported inventory transaction type: " + inventoryTransaction.transactionType());
@@ -1965,15 +1963,15 @@ public class ExperimentalFeatures {
         protocol.registerClientbound(ClientboundBedrockPackets.MAP_ITEM_DATA, ClientboundPackets26_1.MAP_ITEM_DATA, wrapper -> {
             MapTracker mapTracker = wrapper.user().get(MapTracker.class);
 
-            final long mapId = wrapper.read(BedrockTypes.VAR_LONG); // map id
-            final int typeFlags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // type flags
-            final byte dimension = wrapper.read(Types.BYTE); // dimension
-            final boolean locked = wrapper.read(Types.BOOLEAN); // locked
-            final BlockPosition origin = wrapper.read(BedrockTypes.BLOCK_POSITION); // origin
+            final long mapId = wrapper.read(BedrockTypes.VAR_LONG); // 地图 id
+            final int typeFlags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 类型标志
+            final byte dimension = wrapper.read(Types.BYTE); // 维度
+            final boolean locked = wrapper.read(Types.BOOLEAN); // 已锁定
+            final BlockPosition origin = wrapper.read(BedrockTypes.BLOCK_POSITION); // 原点
 
             final LongList trackedEntities = new LongArrayList();
             if ((typeFlags & ClientboundMapItemDataPacket_Type.Creation.getValue()) != 0) {
-                final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // length
+                final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                 for (int i = 0; i < length; i++) {
                     trackedEntities.add(wrapper.read(BedrockTypes.VAR_LONG).longValue());
                 }
@@ -1981,15 +1979,15 @@ public class ExperimentalFeatures {
 
             byte scale = 0;
             if ((typeFlags & MAP_FLAGS_ALL) != 0) {
-                scale = wrapper.read(Types.BYTE); // scale
+                scale = wrapper.read(Types.BYTE); // 缩放
             }
 
             final List<MapDecoration> decorations = new ArrayList<>();
             final List<MapTrackedObject> trackedObjects = new ArrayList<>();
             if ((typeFlags & ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue()) != 0) {
-                final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // length
+                final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                 for (int i = 0; i < length; i++) {
-                    MapTrackedObject.Type objectType = MapTrackedObject.Type.values()[wrapper.read(BedrockTypes.INT_LE)]; //TODO: Error logging
+                    MapTrackedObject.Type objectType = MapTrackedObject.Type.values()[wrapper.read(BedrockTypes.INT_LE)]; // TODO: 错误日志记录
                     switch (objectType) {
                         case BLOCK:
                             trackedObjects.add(new MapTrackedObject(wrapper.read(BedrockTypes.BLOCK_POSITION)));
@@ -2000,14 +1998,14 @@ public class ExperimentalFeatures {
                     }
                 }
 
-                final int decorLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // length
+                final int decorLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                 for (int i = 0; i < decorLength; i++) {
                     final byte iconType = wrapper.read(Types.BYTE);
                     final byte rotation = wrapper.read(Types.BYTE);
                     final byte x = wrapper.read(Types.BYTE);
                     final byte y = wrapper.read(Types.BYTE);
-                    final String name = wrapper.read(BedrockTypes.STRING); // name
-                    final int color = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // color
+                    final String name = wrapper.read(BedrockTypes.STRING); // 名称
+                    final int color = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 颜色
 
                     decorations.add(new MapDecoration(iconType, rotation, x, y, name, color));
                 }
@@ -2019,19 +2017,19 @@ public class ExperimentalFeatures {
             int yOffset = 0;
             int[] colors = new int[0];
             if ((typeFlags & ClientboundMapItemDataPacket_Type.TextureUpdate.getValue()) != 0) {
-                width = wrapper.read(BedrockTypes.VAR_INT); // width
-                height = wrapper.read(BedrockTypes.VAR_INT); // height
-                xOffset = wrapper.read(BedrockTypes.VAR_INT); // x offset
-                yOffset = wrapper.read(BedrockTypes.VAR_INT); // y offset
+                width = wrapper.read(BedrockTypes.VAR_INT); // 宽度
+                height = wrapper.read(BedrockTypes.VAR_INT); // 高度
+                xOffset = wrapper.read(BedrockTypes.VAR_INT); // x 偏移
+                yOffset = wrapper.read(BedrockTypes.VAR_INT); // y 偏移
 
-                final int colorsLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // colors length
+                final int colorsLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 颜色数量
                 colors = new int[colorsLength];
                 for (int i = 0; i < colorsLength; i++) {
                     colors[i] = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
                 }
             }
 
-            //TODO: Clean this up
+            // TODO: 清理这里
             int nextJavaId = mapTracker.getNextMapId();
             if ((typeFlags & ClientboundMapItemDataPacket_Type.Creation.getValue()) != 0) {
                 MapObject existingMap = mapTracker.getMapObjects().get(mapId);
@@ -2123,14 +2121,14 @@ public class ExperimentalFeatures {
                 return;
             }
 
-            wrapper.write(Types.VAR_INT, mapObject.getJavaId()); // map id
-            wrapper.write(Types.BYTE, mapObject.getScale()); // scale
-            wrapper.write(Types.BOOLEAN, mapObject.isLocked()); // locked
+            wrapper.write(Types.VAR_INT, mapObject.getJavaId()); // 地图 id
+            wrapper.write(Types.BYTE, mapObject.getScale()); // 缩放
+            wrapper.write(Types.BOOLEAN, mapObject.isLocked()); // 已锁定
 
-            writeMapIcons(wrapper, mapObject.getDecorations()); // Icons (Prefixed Optional)
-            wrapper.write(Types.UNSIGNED_BYTE, (short) mapObject.getWidth()); // width
+            writeMapIcons(wrapper, mapObject.getDecorations()); // 图标（带前缀的可选字段）
+            wrapper.write(Types.UNSIGNED_BYTE, (short) mapObject.getWidth()); // 宽度
             if (mapObject.getWidth() > 0) {
-                wrapper.write(Types.UNSIGNED_BYTE, (short) mapObject.getHeight()); // height
+                wrapper.write(Types.UNSIGNED_BYTE, (short) mapObject.getHeight()); // 高度
                 wrapper.write(Types.BYTE, (byte) mapObject.getXOffset()); // xOffset
                 wrapper.write(Types.BYTE, (byte) mapObject.getYOffset()); // yOffset
 
@@ -2156,8 +2154,8 @@ public class ExperimentalFeatures {
         Via.getPlatform().runRepeatingSync(new MapInfoRequestTickTask(), 20L);
     }
 
-    // Maps a Bedrock MapDecoration_Type value (index) to a Java minecraft:map_decoration_type registry id.
-    // The Java registry is a built-in (non-synced) registry, so the indices follow vanilla 1.21 order. -1 = don't draw.
+    // 把基岩的 MapDecoration_Type 值（索引）映射到 Java minecraft:map_decoration_type 注册表 id。
+    // Java 注册表是内置（不同步）注册表，因此索引遵循原版 1.21 顺序。-1 = 不绘制。
     private static final int[] BEDROCK_TO_JAVA_MAP_DECORATION = buildMapDecorationTable();
 
     private static int[] buildMapDecorationTable() {
@@ -2192,7 +2190,7 @@ public class ExperimentalFeatures {
 
     private static int javaMapDecorationType(final int bedrockType) {
         if (bedrockType < 0 || bedrockType >= BEDROCK_TO_JAVA_MAP_DECORATION.length) {
-            return 0; // unknown -> fall back to player marker rather than dropping silently
+            return 0; // unknown -> 回退到玩家标记，而不是静默丢弃
         }
         return BEDROCK_TO_JAVA_MAP_DECORATION[bedrockType];
     }
@@ -2206,18 +2204,18 @@ public class ExperimentalFeatures {
         }
 
         if (visible.isEmpty()) {
-            wrapper.write(Types.BOOLEAN, false); // no icons
+            wrapper.write(Types.BOOLEAN, false); // 无图标
             return;
         }
 
-        wrapper.write(Types.BOOLEAN, true); // has icons
+        wrapper.write(Types.BOOLEAN, true); // 有图标
         wrapper.write(Types.VAR_INT, visible.size());
         for (final MapDecoration decoration : visible) {
-            wrapper.write(Types.VAR_INT, javaMapDecorationType(decoration.image())); // type
+            wrapper.write(Types.VAR_INT, javaMapDecorationType(decoration.image())); // 类型
             wrapper.write(Types.BYTE, (byte) decoration.xOffset()); // x
             wrapper.write(Types.BYTE, (byte) decoration.yOffset()); // z
-            wrapper.write(Types.BYTE, (byte) (decoration.rotation() & 15)); // rotation
-            wrapper.write(Types.BOOLEAN, false); // no custom display name
+            wrapper.write(Types.BYTE, (byte) (decoration.rotation() & 15)); // 旋转
+            wrapper.write(Types.BOOLEAN, false); // 没有自定义显示名称
         }
     }
 
@@ -2229,7 +2227,7 @@ public class ExperimentalFeatures {
         user.put(new BlockPlacementAckTracker(user));
         user.put(new CustomBlockDisplayTracker(user));
 
-        // Dispatch to feature modules
+        // 分发到各功能模块
         for (final FeatureModule module : MODULES) {
             try {
                 module.onStorageRegistration(user);

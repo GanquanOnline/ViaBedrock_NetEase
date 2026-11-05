@@ -43,7 +43,7 @@ public class StructureBlockBlockEntityRewriter implements BlockEntityRewriter.Re
         MIRROR_MODES.add("LEFT_RIGHT");
         MIRROR_MODES.add("FRONT_BACK");
 
-        // Clientside default mapping for invalid data modes is "DATA"
+        // 无效 data 模式在客户端的默认映射是 "DATA"
         DATA_MODES.add("INVALID");
         DATA_MODES.add("SAVE");
         DATA_MODES.add("LOAD");
@@ -88,7 +88,7 @@ public class StructureBlockBlockEntityRewriter implements BlockEntityRewriter.Re
         this.copy(bedrockTag, javaTag, "zStructureSize", "sizeZ", IntTag.class);
         this.copy(bedrockTag, javaTag, "ignoreEntities", ByteTag.class);
         this.copy(bedrockTag, javaTag, "isPowered", "powered", ByteTag.class);
-        this.copy(bedrockTag, javaTag, "removeBlocks", "showair", ByteTag.class); // Not correct, but at least it's something
+        this.copy(bedrockTag, javaTag, "removeBlocks", "showair", ByteTag.class); // 并不正确，但至少能用
         this.copy(bedrockTag, javaTag, "showBoundingBox", "showboundingbox", ByteTag.class);
         this.copy(bedrockTag, javaTag, "seed", LongTag.class);
 

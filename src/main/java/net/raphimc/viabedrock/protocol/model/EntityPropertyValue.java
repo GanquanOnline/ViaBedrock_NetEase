@@ -9,7 +9,7 @@
  */
 package net.raphimc.viabedrock.protocol.model;
 
-/** A named value resolved from an indexed MOT property snapshot. */
+/** 从带索引的 MOT 属性快照中解析出的具名值。 */
 public record EntityPropertyValue(
         String name,
         int type,

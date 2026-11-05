@@ -46,10 +46,10 @@ public class JavaRegistries {
 
         registries.put(RegistryKeys.WORLDGEN_BIOME, buildJavaBiomeRegistry(gameSession.getBedrockBiomeDefinitions(), resourcePackStorage));
         modifyDimensionRegistry(gameSession, registries.getCompoundTag(RegistryKeys.DIMENSION_TYPE));
-        registries.remove(RegistryKeys.DIALOG); // Not needed
-        registries.remove(RegistryKeys.TEST_INSTANCE); // Not needed
-        registries.remove(RegistryKeys.CHAT_TYPE); // Not needed
-        registries.remove(RegistryKeys.TEST_ENVIRONMENT); // Not needed
+        registries.remove(RegistryKeys.DIALOG); // 不需要
+        registries.remove(RegistryKeys.TEST_INSTANCE); // 不需要
+        registries.remove(RegistryKeys.CHAT_TYPE); // 不需要
+        registries.remove(RegistryKeys.TEST_ENVIRONMENT); // 不需要
 
         return registries;
     }
@@ -163,12 +163,12 @@ public class JavaRegistries {
                 }*/
             }
 
-            // One warning is enough
+            // 一条警告就够了
             /*if (!effects.contains("mood_sound")) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Missing mood sound for " + bedrockBiomeName + ": " + bedrockBiome);
             }*/
 
-            // TODO: Enhancement: Biome sounds
+            // TODO: 增强功能：生物群系音效
 
             javaBiomes.put(javaIdentifier, javaBiome);
         }

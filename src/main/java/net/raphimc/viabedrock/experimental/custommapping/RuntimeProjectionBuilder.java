@@ -1,6 +1,4 @@
-/*
- * Builds a RuntimeProjection from the validated snapshot profile and concrete START_GAME runtime ids.
- */
+/* 根据校验后的快照配置与具体的 START_GAME 运行时 ID 构建 RuntimeProjection。 */
 package net.raphimc.viabedrock.experimental.custommapping;
 
 import com.viaversion.nbt.tag.CompoundTag;
@@ -93,7 +91,7 @@ public final class RuntimeProjectionBuilder {
 
         for (Map.Entry<String, CompoundTag> blockProperty : effectiveBlockProperties.entrySet()) {
             if (!(blockProperty.getValue().get("vanilla_block_data") instanceof CompoundTag)) {
-                continue; // Bedrock client ignores blocks without this tag
+                continue; // 基岩客户端会忽略没有此标签的方块
             }
             if (!(blockProperty.getValue().get("menu_category") instanceof CompoundTag)) {
                 throw new IllegalStateException("Missing menu_category tag for " + blockProperty.getKey());
@@ -128,7 +126,7 @@ public final class RuntimeProjectionBuilder {
         for (BlockProperties blockProperty : blockProperties) {
             final String identifier = blockProperty.name().toLowerCase(Locale.ROOT);
             if (vanillaBedrockIdentifiers.contains(identifier)) {
-                continue; // Bedrock client does not allow overriding vanilla block states
+                continue; // 基岩客户端不允许覆写原版方块状态
             }
             effectiveBlockProperties.putIfAbsent(identifier, blockProperty.properties());
         }

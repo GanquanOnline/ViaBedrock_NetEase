@@ -36,9 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java grindstone result clicks become MOT {@code CraftRepairAndDisenchant}
- * ({@code recipeId=0}, {@code times=1}, {@code repairCost=0}) plus Consume of
- * equipment/ingredient and Take from HUD created-output slot 50.
+ * Java 的砂轮结果点击会变成 MOT {@code CraftRepairAndDisenchant}（{@code recipeId=0}、{@code times=1}、{@code repairCost=0}），
+ * 加上对装备/材料的 Consume，以及从 HUD created-output 槽位 50 的 Take。
  */
 public final class GrindstoneSimulator {
 

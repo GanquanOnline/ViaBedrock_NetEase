@@ -24,8 +24,8 @@ import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Reads a BedrockItem in "instance item" format used in CRAFTING_DATA recipe outputs.
- * This format differs from BedrockItemType in that it does NOT have a hasNetId boolean field.
+ * 读取 CRAFTING_DATA 配方输出中所用「实例物品」格式的 BedrockItem。
+ * 该格式与 BedrockItemType 的区别在于它没有 hasNetId 布尔字段。
  */
 public class InstanceItemType extends Type<BedrockItem> {
 

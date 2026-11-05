@@ -123,14 +123,12 @@ public class DirectoryContent extends Content {
         }
     }
 
-    /** Replaces one owned file with its decrypted bytes without materializing the entry on heap. */
+    /** 用一个自有文件的解密字节替换该文件，而不在堆上实体化该条目。 */
     public void decryptFile(final String path, final Cipher cipher) throws IOException {
         this.decryptFile(path, cipher, 0L, Long.MAX_VALUE);
     }
 
-    /**
-     * Replaces one owned file with a bounded decrypted payload after skipping an unencrypted prefix.
-     */
+    /** 跳过未加密前缀后，用一个有界的解密载荷替换一个自有文件。 */
     public void decryptFile(final String path, final Cipher cipher, final long encryptedOffset,
                             final long maxOutputBytes) throws IOException {
         if (encryptedOffset < 0L || maxOutputBytes < 0L) {

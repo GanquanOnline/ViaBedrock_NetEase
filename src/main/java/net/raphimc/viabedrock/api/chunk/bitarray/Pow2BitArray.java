@@ -25,19 +25,13 @@ import java.util.Arrays;
 
 public class Pow2BitArray implements BitArray {
 
-    /**
-     * Array used to store data
-     */
+    /** 用于存储数据的数组 */
     private final int[] words;
 
-    /**
-     * Palette version information
-     */
+    /** 调色板版本信息 */
     private final BitArrayVersion version;
 
-    /**
-     * Number of entries in this palette (<b>not</b> the length of the words array that internally backs this palette)
-     */
+    /** 此调色板的条目数量（<b>不是</b>内部支撑此调色板的 words 数组长度） */
     private final int size;
 
     Pow2BitArray(final BitArrayVersion version, final int size, final int[] words) {
@@ -51,9 +45,7 @@ public class Pow2BitArray implements BitArray {
         }
     }
 
-    /**
-     * Sets the entry at the given location to the given value
-     */
+    /** 将给定位置的条目设置为给定值 */
     public void set(final int index, final int value) {
         Preconditions.checkElementIndex(index, this.size);
         Preconditions.checkArgument(value >= 0 && value <= this.version.getMaxEntryValue(), "Invalid value %s", value);
@@ -64,9 +56,7 @@ public class Pow2BitArray implements BitArray {
         this.words[arrayIndex] = this.words[arrayIndex] & ~(this.version.getMaxEntryValue() << offset) | (value & this.version.getMaxEntryValue()) << offset;
     }
 
-    /**
-     * Gets the entry at the given index
-     */
+    /** 获取给定索引处的条目 */
     public int get(final int index) {
         Preconditions.checkElementIndex(index, this.size);
 

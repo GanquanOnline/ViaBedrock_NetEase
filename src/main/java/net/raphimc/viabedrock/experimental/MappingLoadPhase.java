@@ -18,32 +18,32 @@
 package net.raphimc.viabedrock.experimental;
 
 /**
- * Phases during BedrockMappingData.load() where feature modules can inject custom mappings.
- * The order matches the initialization sequence in the load method.
+ * 在 BedrockMappingData.load() 期间，功能模块可注入自定义映射的各阶段。
+ * 顺序与 load 方法中的初始化顺序一致。
  */
 public enum MappingLoadPhase {
 
     /**
-     * After vanilla block states are loaded into javaBlockStates BiMap.
-     * Custom block state mappings should be added here.
+     * 在原版方块状态被载入 javaBlockStates BiMap 之后。
+     * 自定义方块状态映射应在此处添加。
      */
     AFTER_BLOCK_STATES,
 
     /**
-     * After bedrockToJavaEntities map is populated.
-     * Custom entity type fallback mappings should be loaded here.
+     * 在 bedrockToJavaEntities 映射被填充之后。
+     * 自定义实体类型回退映射应在此处加载。
      */
     AFTER_ENTITY_MAPPINGS,
 
     /**
-     * After javaBlockEntities map is populated.
-     * Custom block entity type mappings should be loaded here.
+     * 在 javaBlockEntities 映射被填充之后。
+     * 自定义方块实体类型映射应在此处加载。
      */
     AFTER_BLOCK_ENTITIES,
 
     /**
-     * After all mappings are fully loaded.
-     * Additional data files (e.g., block_light_data.nbt) should be loaded here.
+     * 在所有映射完全加载之后。
+     * 附加数据文件（例如 block_light_data.nbt）应在此处加载。
      */
     COMPLETE
 

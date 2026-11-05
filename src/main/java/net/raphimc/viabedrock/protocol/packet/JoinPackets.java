@@ -90,7 +90,7 @@ public class JoinPackets {
     private static final PacketHandler BIOME_DEFINITION_LIST_HANDLER = wrapper -> {
         if (wrapper.isCancelled()) return;
 
-        wrapper.user().get(GameSessionStorage.class).setBedrockBiomeDefinitions((CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG)); // biome definitions
+        wrapper.user().get(GameSessionStorage.class).setBedrockBiomeDefinitions((CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG)); // 生物群系定义
     };
 
     private static final PacketHandler REQUIRE_UNINITIALIZED_WORLD_HANDLER = wrapper -> {
@@ -129,21 +129,33 @@ public class JoinPackets {
     }
 
     /**
-     * NetEase / Nukkit-MOT protocol 860 still uses the pre-v898 START_GAME tail:
-     * four leading IDs including ownerIdentifier, rewind + server-auth block breaking
-     * (no movement-mode varint), and tickDeathSystemsEnabled before serverAuthSounds.
-     * It does not send the later server join information tree or trailing ID strings.
+     * 网易 / Nukkit-MOT 的 START_GAME 仍使用 924 之前的尾部：四个前置 ID（含
+     * ownerIdentifier）、rewind + 服务端权威方块破坏（没有 movement-mode varint），且没有
+     * 服务器加入信息树。协议 860 还额外有 tickDeathSystemsEnabled
+     * （827..896）；898 已将其移除。加入信息树随协议 924 引入。
      */
-    private static boolean isNetEaseLegacyStartGame() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient()
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() > 0
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() < 898;
+    public static final int START_GAME_JOIN_INFORMATION_PROTOCOL = 924;
+    public static final int START_GAME_TICK_DEATH_SYSTEMS_PROTOCOL = 827;
+    public static final int START_GAME_TICK_DEATH_SYSTEMS_END_PROTOCOL = 897;
+
+    static boolean usesNetEaseStartGameTail() {
+        return usesNetEaseStartGameTail(ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
+                ViaBedrock.getConfig().getNetEaseProtocolVersion());
+    }
+
+    static boolean usesNetEaseStartGameTail(final boolean emulateNetEase, final int protocol) {
+        return emulateNetEase && protocol > 0 && protocol < START_GAME_JOIN_INFORMATION_PROTOCOL;
+    }
+
+    static boolean usesStartGameTickDeathSystems(final int protocol) {
+        return protocol >= START_GAME_TICK_DEATH_SYSTEMS_PROTOCOL
+                && protocol < START_GAME_TICK_DEATH_SYSTEMS_END_PROTOCOL;
     }
 
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientboundTransition(ClientboundBedrockPackets.PLAY_STATUS,
                 State.LOGIN, (PacketHandler) wrapper -> {
-                    final int rawStatus = wrapper.read(Types.INT); // status
+                    final int rawStatus = wrapper.read(Types.INT); // 状态
                     final PlayStatus status = PlayStatus.getByValue(rawStatus);
                     if (status == null) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown PlayStatus: " + rawStatus);
@@ -152,9 +164,9 @@ public class JoinPackets {
                     }
 
                     if (status == PlayStatus.LoginSuccess) {
-                        // Open the initial cycle before LOGIN_FINISHED reaches the Java client. Otherwise
-                        // CLIENT_INFORMATION can start the probe before a later Bedrock pre-play packet
-                        // resets the cycle and accidentally removes the negotiation deadline.
+                        // 在 LOGIN_FINISHED 到达 Java 客户端之前开启初始周期。否则
+                        // CLIENT_INFORMATION 可能先启动探测，之后某个基岩 pre-play 数据包
+                        // 重置该周期并意外移除协商截止时间。
                         wrapper.user().get(ClientChannelDiscoveryStorage.class).beginConfigurationCycle();
                         wrapper.user().get(ClientLightStorage.class).beginConfigurationCycle();
                         enterInitialConfiguration(wrapper);
@@ -166,7 +178,7 @@ public class JoinPackets {
                         writePlayStatusKickMessage(wrapper, status);
                     }
                 }, State.PLAY, (PacketHandler) wrapper -> {
-                    final int rawStatus = wrapper.read(Types.INT); // status
+                    final int rawStatus = wrapper.read(Types.INT); // 状态
                     final PlayStatus status = PlayStatus.getByValue(rawStatus);
                     if (status == null) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown PlayStatus: " + rawStatus);
@@ -181,11 +193,11 @@ public class JoinPackets {
                         wrapper.cancel();
                         final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
                         if (clientPlayer.isInitiallySpawned()) {
-                            // C1: re-spawn on the same connection (e.g. cross-server reload that reuses this entity).
-                            // The plain early-return below would skip the loading-screen finalization, leaving the
-                            // client stuck on the loading screen and the backend unaware the player is ready. Gated by
-                            // the movementWatchdog switch: ACTIVE re-sends the idempotent finalization, OBSERVE logs,
-                            // OFF keeps upstream behaviour.
+                            // C1：同一连接上的重生（例如复用该实体的跨服重载）。
+                            // 下面朴素的提前返回会跳过加载界面的收尾，使
+                            // 客户端卡在加载界面，后端也不知道玩家已就绪。此行为由
+                            // movementWatchdog 开关控制：ACTIVE 重发幂等的收尾，OBSERVE 记录日志，
+                            // OFF 保持上游行为。
                             final ViaBedrockConfig.MovementWatchdogMode mode = ViaBedrock.getConfig().getMovementWatchdogMode();
                             if (mode == ViaBedrockConfig.MovementWatchdogMode.ACTIVE) {
                                 PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, null);
@@ -200,8 +212,8 @@ public class JoinPackets {
                         }
 
                         final PacketWrapper interact = PacketWrapper.create(ServerboundBedrockPackets.INTERACT, wrapper.user());
-                        interact.write(Types.UNSIGNED_BYTE, (short) InteractPacket_Action.InteractUpdate.getValue()); // action
-                        interact.write(BedrockTypes.UNSIGNED_VAR_LONG, 0L); // target entity runtime id
+                        interact.write(Types.UNSIGNED_BYTE, (short) InteractPacket_Action.InteractUpdate.getValue()); // 动作
+                        interact.write(BedrockTypes.UNSIGNED_VAR_LONG, 0L); // 目标实体运行时 ID
                         InteractPacketLayout.writePosition(interact, InteractPacket_Action.InteractUpdate, Position3f.ZERO);
                         interact.scheduleSendToServer(BedrockProtocol.class);
 
@@ -210,7 +222,7 @@ public class JoinPackets {
 
                         PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, null);
                         final PacketWrapper setLocalPlayerAsInitialized = PacketWrapper.create(ServerboundBedrockPackets.SET_LOCAL_PLAYER_AS_INITIALIZED, wrapper.user());
-                        setLocalPlayerAsInitialized.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // entity runtime id
+                        setLocalPlayerAsInitialized.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
                         setLocalPlayerAsInitialized.scheduleSendToServer(BedrockProtocol.class);
                         startNetEaseLatencyHeartbeat(wrapper.user());
                         PyRpcDispatcherModule.scheduleClientLoadAddonsFinished(wrapper.user());
@@ -219,7 +231,7 @@ public class JoinPackets {
                         writePlayStatusKickMessage(wrapper, status);
                     }
                 }, State.CONFIGURATION, (PacketHandler) wrapper -> {
-                    final int rawStatus = wrapper.read(Types.INT); // status
+                    final int rawStatus = wrapper.read(Types.INT); // 状态
                     final PlayStatus status = PlayStatus.getByValue(rawStatus);
                     if (status == null) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown PlayStatus: " + rawStatus);
@@ -231,10 +243,10 @@ public class JoinPackets {
                         wrapper.cancel();
                         sendClientCacheStatus(wrapper.user());
                     } else if (status == PlayStatus.PlayerSpawn) {
-                        // NetEase streams the spawn notification before the Java client finished its
-                        // configuration phase. Delay the initialization handshake until the replayed
-                        // packet is handled in PLAY state; otherwise the backend never sees
-                        // SET_LOCAL_PLAYER_AS_INITIALIZED and times the client out.
+                        // 网易在 Java 客户端完成配置阶段之前就推送了出生通知。
+                        // 把初始化握手延迟到重放的数据包在 PLAY 状态被处理之后；
+                        // 否则后端永远收不到
+                        // SET_LOCAL_PLAYER_AS_INITIALIZED，并会让客户端超时。
                         wrapper.cancel();
                     } else {
                         wrapper.setPacketType(ClientboundConfigurationPackets1_21_9.DISCONNECT);
@@ -369,11 +381,14 @@ public class JoinPackets {
                     final String serverEngine;
                     final boolean hashedRuntimeBlockIds;
                     final CompoundTag playerPropertyData;
-                    if (isNetEaseLegacyStartGame()) {
-                        final NetEaseLegacyStartGameTail tail = readNetEaseLegacyStartGameTail(wrapper);
+                    if (usesNetEaseStartGameTail()) {
+                        final NetEaseLegacyStartGameTail tail = readNetEaseLegacyStartGameTail(wrapper,
+                                usesStartGameTickDeathSystems(ViaBedrock.getConfig().getNetEaseProtocolVersion()));
                         if (tail.leftoverBytes() != 0) {
                             ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
-                                    "NetEase START_GAME had " + tail.leftoverBytes() + " leftover bytes after protocol 860 layout");
+                                    "NetEase START_GAME had " + tail.leftoverBytes()
+                                            + " leftover bytes after the protocol "
+                                            + ViaBedrock.getConfig().getNetEaseProtocolVersion() + " layout");
                         }
                         gameLevelName = tail.gameLevelName();
                         rewindHistorySize = tail.rewindHistorySize();
@@ -385,48 +400,48 @@ public class JoinPackets {
                         hashedRuntimeBlockIds = tail.hashedRuntimeBlockIds();
                         playerPropertyData = tail.playerPropertyData();
                     } else {
-                        wrapper.read(BedrockTypes.STRING); // level id
-                        gameLevelName = wrapper.read(BedrockTypes.STRING); // level name
-                        wrapper.read(BedrockTypes.STRING); // premium world template id
-                        wrapper.read(Types.BOOLEAN); // is trial
-                        rewindHistorySize = wrapper.read(BedrockTypes.VAR_INT); // rewind history size
-                        blockBreakingServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative block breaking
-                        levelTime = wrapper.read(BedrockTypes.LONG_LE); // current level time
-                        wrapper.read(BedrockTypes.VAR_INT); // enchantment seed
-                        blockProperties = wrapper.read(BedrockTypes.BLOCK_PROPERTIES_ARRAY); // block properties
-                        wrapper.read(BedrockTypes.STRING); // multiplayer correlation id
-                        inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative inventories
-                        serverEngine = wrapper.read(BedrockTypes.STRING); // server engine
-                        playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
-                        wrapper.read(BedrockTypes.LONG_LE); // block registry checksum
-                        wrapper.read(BedrockTypes.UUID); // world template id
-                        wrapper.read(Types.BOOLEAN); // client side generation
-                        hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // use hashed block runtime ids
-                        wrapper.read(Types.BOOLEAN); // server authoritative sounds
-                        if (wrapper.read(Types.BOOLEAN)) { // has server join information
-                            if (wrapper.read(Types.BOOLEAN)) { // has gathering join information
-                                wrapper.read(BedrockTypes.UUID); // experience id
-                                wrapper.read(BedrockTypes.STRING); // experience name
-                                wrapper.read(BedrockTypes.UUID); // experience world id
-                                wrapper.read(BedrockTypes.STRING); // experience world name
-                                wrapper.read(BedrockTypes.STRING); // creator id
-                                wrapper.read(BedrockTypes.UUID); // target id
-                                wrapper.read(BedrockTypes.STRING); // scenario id
-                                wrapper.read(BedrockTypes.STRING); // server id
+                        wrapper.read(BedrockTypes.STRING); // 世界 id
+                        gameLevelName = wrapper.read(BedrockTypes.STRING); // 世界名称
+                        wrapper.read(BedrockTypes.STRING); // 付费世界模板 id
+                        wrapper.read(Types.BOOLEAN); // 是否为试用版
+                        rewindHistorySize = wrapper.read(BedrockTypes.VAR_INT); // 回滚历史大小
+                        blockBreakingServerAuthoritative = wrapper.read(Types.BOOLEAN); // 服务端权威方块破坏
+                        levelTime = wrapper.read(BedrockTypes.LONG_LE); // 当前世界时间
+                        wrapper.read(BedrockTypes.VAR_INT); // 附魔种子
+                        blockProperties = wrapper.read(BedrockTypes.BLOCK_PROPERTIES_ARRAY); // 方块属性
+                        wrapper.read(BedrockTypes.STRING); // 多人关联 id
+                        inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // 服务端权威物品栏
+                        serverEngine = wrapper.read(BedrockTypes.STRING); // 服务端引擎
+                        playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // 玩家属性数据
+                        wrapper.read(BedrockTypes.LONG_LE); // 方块注册表校验和
+                        wrapper.read(BedrockTypes.UUID); // 世界模板 id
+                        wrapper.read(Types.BOOLEAN); // 客户端侧生成
+                        hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // 使用哈希方块运行时 ID
+                        wrapper.read(Types.BOOLEAN); // 服务端权威音效
+                        if (wrapper.read(Types.BOOLEAN)) { // 是否含服务器加入信息
+                            if (wrapper.read(Types.BOOLEAN)) { // 是否含 gathering 加入信息
+                                wrapper.read(BedrockTypes.UUID); // 体验 id
+                                wrapper.read(BedrockTypes.STRING); // 体验名称
+                                wrapper.read(BedrockTypes.UUID); // 体验世界 id
+                                wrapper.read(BedrockTypes.STRING); // 体验世界名称
+                                wrapper.read(BedrockTypes.STRING); // 创建者 id
+                                wrapper.read(BedrockTypes.UUID); // 目标 id
+                                wrapper.read(BedrockTypes.STRING); // 场景 id
+                                wrapper.read(BedrockTypes.STRING); // 服务器 id
                             }
-                            if (wrapper.read(Types.BOOLEAN)) { // has store entry point info
-                                wrapper.read(BedrockTypes.STRING); // store id
-                                wrapper.read(BedrockTypes.STRING); // store name
+                            if (wrapper.read(Types.BOOLEAN)) { // 是否含商店入口信息
+                                wrapper.read(BedrockTypes.STRING); // 商店 id
+                                wrapper.read(BedrockTypes.STRING); // 商店名称
                             }
-                            if (wrapper.read(Types.BOOLEAN)) { // has presence info
-                                wrapper.read(BedrockTypes.STRING); // experience name
-                                wrapper.read(BedrockTypes.STRING); // world name
+                            if (wrapper.read(Types.BOOLEAN)) { // 是否含 presence 信息
+                                wrapper.read(BedrockTypes.STRING); // 体验名称
+                                wrapper.read(BedrockTypes.STRING); // 世界名称
                             }
                         }
-                        wrapper.read(BedrockTypes.STRING); // server id
-                        wrapper.read(BedrockTypes.STRING); // scenario id
-                        wrapper.read(BedrockTypes.STRING); // world id
-                        wrapper.read(BedrockTypes.STRING); // owner id
+                        wrapper.read(BedrockTypes.STRING); // 服务器 id
+                        wrapper.read(BedrockTypes.STRING); // 场景 id
+                        wrapper.read(BedrockTypes.STRING); // 世界 id
+                        wrapper.read(BedrockTypes.STRING); // 所有者 id
                     }
                     gameSession.setPlayerEntityProperties(playerPropertyData);
 
@@ -501,10 +516,10 @@ public class JoinPackets {
                             vanillaVersion,
                             enabledFeatures
                     ));
-                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // Bedrock client ignores multiple start game packets
+                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // 基岩客户端会忽略多个 start game 数据包
         );
         protocol.registerClientboundTransition(ClientboundBedrockPackets.BIOME_DEFINITION_LIST,
-                // Biomes are technically data driven, but the client seems to ignore most of the defined data and instead uses hardcoded values.
+                // 生物群系在技术上由数据驱动，但客户端似乎忽略其中大部分已定义的数据，转而使用硬编码值。
                 State.CONFIGURATION, new PacketHandlers() {
                     @Override
                     protected void register() {
@@ -522,29 +537,29 @@ public class JoinPackets {
                 State.CONFIGURATION, (PacketHandler) wrapper -> {
                     wrapper.cancel();
                     final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
-                    final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // entry count
+                    final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数
                     for (int i = 0; i < count; i++) {
-                        final String dimensionIdentifier = wrapper.read(BedrockTypes.STRING); // dimension identifier
-                        final int maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // maximum height
-                        final int minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // minimum height
-                        wrapper.read(BedrockTypes.VAR_INT); // generator type
-                        // Official 975+ appends dimension type. NetEase 860 still uses four fields per entry.
+                        final String dimensionIdentifier = wrapper.read(BedrockTypes.STRING); // 维度标识符
+                        final int maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最大高度
+                        final int minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                        wrapper.read(BedrockTypes.VAR_INT); // 生成器类型
+                        // 官方 975+ 会追加维度类型。网易 860 每个条目仍使用四个字段。
                         DimensionDataLayout.skipDimensionType(wrapper);
-                        if (dimensionIdentifier.equals(Dimension.OVERWORLD.getKey())) { // Bedrock client currently only supports overworld
+                        if (dimensionIdentifier.equals(Dimension.OVERWORLD.getKey())) { // 基岩客户端目前只支持主世界
                             gameSession.putBedrockDimensionDefinition(dimensionIdentifier, new IntIntImmutablePair(minimumHeight, maximumHeight));
                         }
                     }
-                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // Bedrock client ignores dimension data after start game
+                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // 基岩客户端会忽略 start game 之后的维度数据
         );
         protocol.registerClientbound(ClientboundBedrockPackets.ITEM_REGISTRY, null, wrapper -> {
             wrapper.cancel();
-            final ItemEntry[] itemEntries = wrapper.read(BedrockTypes.ITEM_ENTRY_ARRAY); // items
+            final ItemEntry[] itemEntries = wrapper.read(BedrockTypes.ITEM_ENTRY_ARRAY); // 物品
             final GameSessionStorage itemGameSession = wrapper.user().get(GameSessionStorage.class);
             if (itemGameSession != null) {
                 itemGameSession.setItemRegistryEntries(itemEntries);
             }
-            // Always rebuild. finishCustomMappingStartGame used to install an empty rewriter,
-            // and MOT custom block items only exist after this merge.
+            // 始终重建。finishCustomMappingStartGame 以前会安装一个空重写器，
+            // 而 MOT 的自定义方块物品只在此合并之后才存在。
             final ItemRewriter itemRewriter = new ItemRewriter(wrapper.user(), BlockItemMappingLayout.mergeCustomBlockItems(
                     itemEntries, itemGameSession != null ? itemGameSession.getStartGameBlockProperties() : null));
             wrapper.user().put(itemRewriter);
@@ -566,15 +581,15 @@ public class JoinPackets {
         });
         protocol.registerClientboundTransition(ClientboundBedrockPackets.AVAILABLE_ENTITY_IDENTIFIERS,
                 State.CONFIGURATION, (PacketHandler) wrapper -> {
-                    // MOT 860 sends identifiers immediately after START_GAME, while Java is still
-                    // in CONFIGURATION. Cancelling here left custom ids unregistered before the
-                    // deferred ADD_ENTITY replay. The pre-play guard already queues this packet.
+                    // MOT 860 在 START_GAME 之后立即发送标识符，此时 Java 仍处于
+                    // CONFIGURATION 阶段。在这里取消会让自定义 id 在延迟的
+                    // ADD_ENTITY 重放之前未注册。pre-play 保护已经会把这个包入队。
                     wrapper.cancel();
                 },
                 State.PLAY, (PacketHandler) wrapper -> {
                     wrapper.cancel();
                     final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
-                    final CompoundTag entityIdentifiers = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // entity identifiers
+                    final CompoundTag entityIdentifiers = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // 实体标识符
                     for (CompoundTag entityIdentifier : entityIdentifiers.getListTag("idlist", CompoundTag.class)) {
                         final String identifier = entityIdentifier.getString("id");
                         if (identifier != null) {
@@ -788,8 +803,8 @@ public class JoinPackets {
         user.put(new JoinGameStorage(pending.levelName(), pending.difficulty(), pending.rainLevel(), pending.lightningLevel(), pending.currentTime(), pending.chunkTickRange()));
         user.put(new GameRulesStorage(user, pending.gameRules()));
         user.put(new BlockStateRewriter(user, pending.blockProperties(), pending.hashedRuntimeBlockIds()));
-        // Rebuild against the new BlockStateRewriter. Do not wipe a later ITEM_REGISTRY
-        // merge with an empty table; MOT custom block items are synthesized here too.
+        // 针对新的 BlockStateRewriter 重建。不要用空表覆盖后续的 ITEM_REGISTRY
+        // 合并；MOT 的自定义方块物品也在这里合成。
         user.put(new ItemRewriter(user, BlockItemMappingLayout.mergeCustomBlockItems(
                 gameSession.getItemRegistryEntries(), pending.blockProperties())));
         final EntityTracker entityTracker = new EntityTracker(user);
@@ -799,8 +814,8 @@ public class JoinPackets {
 
         sendJavaConfigurationOutputs(user, pending.enabledFeatures(), () -> {
             final PacketWrapper requestChunkRadius = PacketWrapper.create(ServerboundBedrockPackets.REQUEST_CHUNK_RADIUS, user);
-            requestChunkRadius.write(BedrockTypes.VAR_INT, user.get(ClientSettingsStorage.class).viewDistance()); // radius
-            requestChunkRadius.write(Types.BYTE, ProtocolConstants.BEDROCK_REQUEST_CHUNK_RADIUS_MAX_RADIUS); // max radius
+            requestChunkRadius.write(BedrockTypes.VAR_INT, user.get(ClientSettingsStorage.class).viewDistance()); // 半径
+            requestChunkRadius.write(Types.BYTE, ProtocolConstants.BEDROCK_REQUEST_CHUNK_RADIUS_MAX_RADIUS); // 最大半径
             requestChunkRadius.sendToServer(BedrockProtocol.class);
             PacketFactory.sendBedrockLoadingScreen(user, ServerboundLoadingScreenPacketType.StartLoadingScreen, null);
         });
@@ -811,22 +826,20 @@ public class JoinPackets {
     }
 
     /**
-     * GanAC inbound NSL is {@code timestamp / 1_000_000}. A raw {@code currentTimeMillis}
-     * (~1.77e12) scales to ~1.77e6, which sits inside GanAC's process-wide ping counter
-     * {@code 1..999_999_999} and {@code releaseThrough} would drain earlier real pings.
-     * Vanilla Bedrock echoes {@code id * 1_000_000}; writing millis at that magnitude
-     * makes the scaled id {@code currentTimeMillis} (~1.77e12), outside GanAC's range.
-     * Do not use {@code 0} (MOT keepalive / GanAC ignore). Do not reuse GanAC's small
-     * counter. HUD still uses {@code JAVA_ONLY_LATENCY_PROBE}, never this packet.
-     * Ref: GanAC NetworkLatencyPackets.resolveModernResponseId; NukkitLatencyAdapter.
+     * GanAC 入站 NSL 为 {@code timestamp / 1_000_000}。原始的 {@code currentTimeMillis}
+     * （约 1.77e12）缩放后约 1.77e6，正好落在 GanAC 进程级 ping 计数器
+     * {@code 1..999_999_999} 内部，{@code releaseThrough} 会提前排空更早的真实 ping。
+     * 原版基岩回显 {@code id * 1_000_000}；按那个量级写入毫秒值
+     * 会让缩放后的 id 变成 {@code currentTimeMillis}（约 1.77e12），超出 GanAC 的范围。
+     * 不要用 {@code 0}（MOT 保活 / GanAC 忽略）。不要复用 GanAC 的小
+     * 计数器。HUD 仍使用 {@code JAVA_ONLY_LATENCY_PROBE}，绝不使用这个数据包。
+     * 参考：GanAC NetworkLatencyPackets.resolveModernResponseId；NukkitLatencyAdapter。
      */
     static long neteaseHeartbeatTimestamp(final long currentTimeMillis) {
         return Math.multiplyExact(currentTimeMillis, 1_000_000L);
     }
 
-    /**
-     * True when GanAC would treat {@code wireTimestamp / 1_000_000} as a pending ping id.
-     */
+    /** 当 GanAC 会把 {@code wireTimestamp / 1_000_000} 当作待处理 ping id 时返回 true。 */
     static boolean ganacPingIdCollision(final long wireTimestamp) {
         if (wireTimestamp == 0L) {
             return false;
@@ -839,17 +852,17 @@ public class JoinPackets {
         if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()) return;
         final Channel channel = user.getChannel();
         if (channel == null || !channel.isActive()) return;
-        // NetEase drops the session about 10s after spawn unless the client keeps sending
-        // NETWORK_STACK_LATENCY; echo is not enough, so send an active heartbeat from PlayerSpawn.
+        // 网易会在出生后约 10 秒丢弃会话，除非客户端持续发送
+        // NETWORK_STACK_LATENCY；仅回显不够，所以从 PlayerSpawn 起发送主动心跳。
         channel.eventLoop().scheduleAtFixedRate(() -> {
             if (!channel.isActive() || user.getProtocolInfo().getServerState() != State.PLAY) return;
             try {
                 final PacketWrapper ping = PacketWrapper.create(ServerboundBedrockPackets.NETWORK_STACK_LATENCY, user);
-                ping.write(BedrockTypes.LONG_LE, neteaseHeartbeatTimestamp(System.currentTimeMillis())); // timestamp
-                ping.write(Types.BOOLEAN, false); // from server
+                ping.write(BedrockTypes.LONG_LE, neteaseHeartbeatTimestamp(System.currentTimeMillis())); // 时间戳
+                ping.write(Types.BOOLEAN, false); // 来自服务端
                 ping.scheduleSendToServer(BedrockProtocol.class);
-                // Extra HUD sample. Server NETWORK_STACK_LATENCY already
-                // round-trips through Java PING/PONG for GanAC.
+                // 额外的 HUD 采样。服务端的 NETWORK_STACK_LATENCY 已经
+                // 通过 Java PING/PONG 为 GanAC 完成往返。
                 final PacketSyncStorage packetSyncStorage = user.get(PacketSyncStorage.class);
                 if (packetSyncStorage != null) {
                     packetSyncStorage.sendJavaLatencyProbe();
@@ -868,62 +881,62 @@ public class JoinPackets {
     }
 
     static StartGameSharedPrefix readStartGameSharedPrefix(final PacketWrapper wrapper) {
-        final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-        final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-        final GameType playerGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // player game type
-        final Position3f playerPosition = wrapper.read(BedrockTypes.POSITION_3F); // player position
-        final Position2f playerRotation = wrapper.read(BedrockTypes.POSITION_2F); // player rotation
-        wrapper.read(BedrockTypes.LONG_LE); // seed
-        wrapper.read(BedrockTypes.SHORT_LE); // spawn biome type
-        wrapper.read(BedrockTypes.STRING); // custom biome name
-        final Dimension dimension = Dimension.values()[wrapper.read(BedrockTypes.VAR_INT)]; // dimension
-        final GeneratorType generatorType = GeneratorType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GeneratorType.Undefined); // generator id
-        final GameType levelGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // level game type
-        final boolean hardcore = wrapper.read(Types.BOOLEAN); // hardcore
-        final Difficulty difficulty = Difficulty.getByValue(wrapper.read(BedrockTypes.VAR_INT), Difficulty.Unknown); // difficulty
-        wrapper.read(BedrockTypes.BLOCK_POSITION); // default spawn position
-        wrapper.read(Types.BOOLEAN); // achievements disabled
-        final Editor_WorldType editorWorldType = Editor_WorldType.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // world editor type
-        wrapper.read(Types.BOOLEAN); // created in world editor
-        wrapper.read(Types.BOOLEAN); // exported from world editor
-        final int currentTime = wrapper.read(BedrockTypes.VAR_INT); // day cycle stop time
-        wrapper.read(BedrockTypes.VAR_INT); // education edition offers
-        wrapper.read(Types.BOOLEAN); // education features enabled
-        wrapper.read(BedrockTypes.STRING); // education product id
-        final float rainLevel = wrapper.read(BedrockTypes.FLOAT_LE); // rain level
-        final float lightningLevel = wrapper.read(BedrockTypes.FLOAT_LE); // lightning level
-        wrapper.read(Types.BOOLEAN); // platform locked content confirmed
-        wrapper.read(Types.BOOLEAN); // multiplayer game
-        wrapper.read(Types.BOOLEAN); // is broadcasting to lan
-        wrapper.read(BedrockTypes.VAR_INT); // Xbox Live broadcast mode
-        wrapper.read(BedrockTypes.VAR_INT); // platform broadcast mode
-        final boolean commandsEnabled = wrapper.read(Types.BOOLEAN); // commands enabled
-        wrapper.read(Types.BOOLEAN); // texture packs required
-        final GameRule[] gameRules = wrapper.read(BedrockTypes.VAR_INT_GAME_RULE_ARRAY); // game rules
-        final Experiment[] experiments = wrapper.read(BedrockTypes.EXPERIMENT_ARRAY); // experiments
-        wrapper.read(Types.BOOLEAN); // experiments previously toggled
-        wrapper.read(Types.BOOLEAN); // bonus chest enabled
-        wrapper.read(Types.BOOLEAN); // start with map enabled
-        final int playerPermission = wrapper.read(BedrockTypes.VAR_INT); // player permission
-        final int chunkTickRange = wrapper.read(BedrockTypes.INT_LE); // server chunk tick range
-        wrapper.read(Types.BOOLEAN); // behavior pack locked
-        wrapper.read(Types.BOOLEAN); // resource pack locked
-        wrapper.read(Types.BOOLEAN); // from locked world template
-        wrapper.read(Types.BOOLEAN); // using msa gamer tags only
-        wrapper.read(Types.BOOLEAN); // from world template
-        wrapper.read(Types.BOOLEAN); // world template option locked
-        wrapper.read(Types.BOOLEAN); // only spawn v1 villagers
-        wrapper.read(Types.BOOLEAN); // disable personas
-        wrapper.read(Types.BOOLEAN); // disable custom skins
-        wrapper.read(Types.BOOLEAN); // mute emote chat
-        final String vanillaVersion = wrapper.read(BedrockTypes.STRING); // vanilla version
-        wrapper.read(BedrockTypes.INT_LE); // limited world width
-        wrapper.read(BedrockTypes.INT_LE); // limited world height
-        wrapper.read(Types.BOOLEAN); // nether type
-        wrapper.read(BedrockTypes.EDUCATION_URI_RESOURCE); // education shared uri
-        wrapper.read(Types.BOOLEAN); // enable experimental game play
-        final ChatRestrictionLevel chatRestrictionLevel = ChatRestrictionLevel.getByValue(wrapper.read(Types.BYTE), ChatRestrictionLevel.Disabled); // chat restriction level
-        wrapper.read(Types.BOOLEAN); // disabling player interactions
+        final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 id
+        final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+        final GameType playerGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // 玩家游戏模式
+        final Position3f playerPosition = wrapper.read(BedrockTypes.POSITION_3F); // 玩家位置
+        final Position2f playerRotation = wrapper.read(BedrockTypes.POSITION_2F); // 玩家朝向
+        wrapper.read(BedrockTypes.LONG_LE); // 种子
+        wrapper.read(BedrockTypes.SHORT_LE); // 出生生物群系类型
+        wrapper.read(BedrockTypes.STRING); // 自定义生物群系名称
+        final Dimension dimension = Dimension.values()[wrapper.read(BedrockTypes.VAR_INT)]; // 维度
+        final GeneratorType generatorType = GeneratorType.getByValue(wrapper.read(BedrockTypes.VAR_INT), GeneratorType.Undefined); // 生成器 id
+        final GameType levelGameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // 世界游戏模式
+        final boolean hardcore = wrapper.read(Types.BOOLEAN); // 极限模式
+        final Difficulty difficulty = Difficulty.getByValue(wrapper.read(BedrockTypes.VAR_INT), Difficulty.Unknown); // 难度
+        wrapper.read(BedrockTypes.BLOCK_POSITION); // 默认出生位置
+        wrapper.read(Types.BOOLEAN); // 成就已禁用
+        final Editor_WorldType editorWorldType = Editor_WorldType.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 世界编辑器类型
+        wrapper.read(Types.BOOLEAN); // 在世界编辑器中创建
+        wrapper.read(Types.BOOLEAN); // 从世界编辑器导出
+        final int currentTime = wrapper.read(BedrockTypes.VAR_INT); // 昼夜循环停止时间
+        wrapper.read(BedrockTypes.VAR_INT); // 教育版优惠
+        wrapper.read(Types.BOOLEAN); // 教育版功能已启用
+        wrapper.read(BedrockTypes.STRING); // 教育版产品 id
+        final float rainLevel = wrapper.read(BedrockTypes.FLOAT_LE); // 降雨强度
+        final float lightningLevel = wrapper.read(BedrockTypes.FLOAT_LE); // 闪电强度
+        wrapper.read(Types.BOOLEAN); // 平台锁定内容已确认
+        wrapper.read(Types.BOOLEAN); // 多人游戏
+        wrapper.read(Types.BOOLEAN); // 是否向局域网广播
+        wrapper.read(BedrockTypes.VAR_INT); // Xbox Live 广播模式
+        wrapper.read(BedrockTypes.VAR_INT); // 平台广播模式
+        final boolean commandsEnabled = wrapper.read(Types.BOOLEAN); // 命令已启用
+        wrapper.read(Types.BOOLEAN); // 需要纹理包
+        final GameRule[] gameRules = wrapper.read(BedrockTypes.VAR_INT_GAME_RULE_ARRAY); // 游戏规则
+        final Experiment[] experiments = wrapper.read(BedrockTypes.EXPERIMENT_ARRAY); // 实验
+        wrapper.read(Types.BOOLEAN); // 之前已切换的实验
+        wrapper.read(Types.BOOLEAN); // 奖励箱已启用
+        wrapper.read(Types.BOOLEAN); // 已启用初始地图
+        final int playerPermission = wrapper.read(BedrockTypes.VAR_INT); // 玩家权限
+        final int chunkTickRange = wrapper.read(BedrockTypes.INT_LE); // 服务端区块刻范围
+        wrapper.read(Types.BOOLEAN); // 行为包已锁定
+        wrapper.read(Types.BOOLEAN); // 资源包已锁定
+        wrapper.read(Types.BOOLEAN); // 来自锁定的世界模板
+        wrapper.read(Types.BOOLEAN); // 仅使用 MSA 玩家代号
+        wrapper.read(Types.BOOLEAN); // 来自世界模板
+        wrapper.read(Types.BOOLEAN); // 世界模板选项已锁定
+        wrapper.read(Types.BOOLEAN); // 只生成 v1 村民
+        wrapper.read(Types.BOOLEAN); // 禁用角色形象
+        wrapper.read(Types.BOOLEAN); // 禁用自定义皮肤
+        wrapper.read(Types.BOOLEAN); // 屏蔽表情聊天
+        final String vanillaVersion = wrapper.read(BedrockTypes.STRING); // 原版版本
+        wrapper.read(BedrockTypes.INT_LE); // 有限世界宽度
+        wrapper.read(BedrockTypes.INT_LE); // 有限世界高度
+        wrapper.read(Types.BOOLEAN); // 下界类型
+        wrapper.read(BedrockTypes.EDUCATION_URI_RESOURCE); // 教育版共享 URI
+        wrapper.read(Types.BOOLEAN); // 启用实验性玩法
+        final ChatRestrictionLevel chatRestrictionLevel = ChatRestrictionLevel.getByValue(wrapper.read(Types.BYTE), ChatRestrictionLevel.Disabled); // 聊天限制等级
+        wrapper.read(Types.BOOLEAN); // 禁用玩家交互
         return new StartGameSharedPrefix(
                 entityUniqueId,
                 entityRuntimeId,
@@ -949,33 +962,35 @@ public class JoinPackets {
         );
     }
 
-    static NetEaseLegacyStartGameTail readNetEaseLegacyStartGameTail(final PacketWrapper wrapper) {
-        // Nukkit-MOT / NetEase 860 (v1_21_0 .. v1_26_0, and >= v1_21_90):
-        // leading IDs including ownerIdentifier, then world block,
-        // then rewind + server-auth block breaking. No movement-mode varint.
-        wrapper.read(BedrockTypes.STRING); // server id
-        wrapper.read(BedrockTypes.STRING); // world id
-        wrapper.read(BedrockTypes.STRING); // scenario id
-        wrapper.read(BedrockTypes.STRING); // owner identifier
-        wrapper.read(BedrockTypes.STRING); // level id
-        final String gameLevelName = wrapper.read(BedrockTypes.STRING); // world name
-        wrapper.read(BedrockTypes.STRING); // premium world template id
-        wrapper.read(Types.BOOLEAN); // is trial
-        final int rewindHistorySize = wrapper.read(BedrockTypes.VAR_INT); // rewind history size
-        final boolean blockBreakingServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative block breaking
-        final long levelTime = wrapper.read(BedrockTypes.LONG_LE); // current tick
-        wrapper.read(BedrockTypes.VAR_INT); // enchantment seed
-        final BlockProperties[] blockProperties = wrapper.read(BedrockTypes.BLOCK_PROPERTIES_ARRAY); // no extra bool before/after
-        wrapper.read(BedrockTypes.STRING); // multiplayer correlation id
-        final boolean inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // server authoritative inventories
-        final String serverEngine = wrapper.read(BedrockTypes.STRING); // server engine
-        final CompoundTag playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // player property data
-        wrapper.read(BedrockTypes.LONG_LE); // block registry checksum
-        wrapper.read(BedrockTypes.UUID); // world template id
-        wrapper.read(Types.BOOLEAN); // client side generation
-        final boolean hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // use hashed block runtime ids
-        wrapper.read(Types.BOOLEAN); // tick death systems enabled (827 <= proto < 898)
-        wrapper.read(Types.BOOLEAN); // server authoritative sounds
+    static NetEaseLegacyStartGameTail readNetEaseLegacyStartGameTail(final PacketWrapper wrapper, final boolean tickDeathSystems) {
+        // Nukkit-MOT / 网易 860 与 898（924 之前）：
+        // 前置 ID（含 ownerIdentifier），然后是世界方块，
+        // 接着是 rewind + 服务端权威方块破坏。没有 movement-mode varint。
+        wrapper.read(BedrockTypes.STRING); // 服务器 id
+        wrapper.read(BedrockTypes.STRING); // 世界 id
+        wrapper.read(BedrockTypes.STRING); // 场景 id
+        wrapper.read(BedrockTypes.STRING); // 所有者标识符
+        wrapper.read(BedrockTypes.STRING); // 世界 id
+        final String gameLevelName = wrapper.read(BedrockTypes.STRING); // 世界名称
+        wrapper.read(BedrockTypes.STRING); // 付费世界模板 id
+        wrapper.read(Types.BOOLEAN); // 是否为试用版
+        final int rewindHistorySize = wrapper.read(BedrockTypes.VAR_INT); // 回滚历史大小
+        final boolean blockBreakingServerAuthoritative = wrapper.read(Types.BOOLEAN); // 服务端权威方块破坏
+        final long levelTime = wrapper.read(BedrockTypes.LONG_LE); // 当前刻
+        wrapper.read(BedrockTypes.VAR_INT); // 附魔种子
+        final BlockProperties[] blockProperties = wrapper.read(BedrockTypes.BLOCK_PROPERTIES_ARRAY); // 前后都没有额外 bool
+        wrapper.read(BedrockTypes.STRING); // 多人关联 id
+        final boolean inventoryServerAuthoritative = wrapper.read(Types.BOOLEAN); // 服务端权威物品栏
+        final String serverEngine = wrapper.read(BedrockTypes.STRING); // 服务端引擎
+        final CompoundTag playerPropertyData = (CompoundTag) wrapper.read(BedrockTypes.NETWORK_TAG); // 玩家属性数据
+        wrapper.read(BedrockTypes.LONG_LE); // 方块注册表校验和
+        wrapper.read(BedrockTypes.UUID); // 世界模板 ID
+        wrapper.read(Types.BOOLEAN); // 客户端侧生成
+        final boolean hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // 使用哈希方块运行时 ID
+        if (tickDeathSystems) {
+            wrapper.read(Types.BOOLEAN); // 启用刻死亡系统 (827 <= proto < 897)
+        }
+        wrapper.read(Types.BOOLEAN); // 服务端权威音效
         return new NetEaseLegacyStartGameTail(
                 gameLevelName,
                 rewindHistorySize,
@@ -1031,17 +1046,17 @@ public class JoinPackets {
 
     static void enterInitialConfiguration(final PacketWrapper wrapper) {
         final ProtocolInfo protocolInfo = wrapper.user().getProtocolInfo();
-        // Java changes its inbound decoder as soon as LOGIN_FINISHED is handled. Advance the ViaBedrock
-        // server-side state before exposing that packet so a following Bedrock pre-play packet cannot
-        // synthesize a second login profile while the Java client is already in CONFIGURATION.
+        // Java 一处理 LOGIN_FINISHED 就会切换入站解码器。在暴露该数据包之前先推进 ViaBedrock
+        // 服务端状态，这样后续的基岩 pre-play 数据包就不会在 Java 客户端已进入 CONFIGURATION
+        // 时再生成第二份登录档案。
         protocolInfo.setServerState(State.CONFIGURATION);
-        // NetEase pushes world packets before the Java client finished its configuration phase. Capture
-        // them so they can be replayed once the PLAY state is entered (see sendJavaConfigurationOutputs).
+        // 网易在 Java 客户端完成配置阶段之前就推送世界数据包。把它们捕获下来，
+        // 以便进入 PLAY 状态后重放（见 sendJavaConfigurationOutputs）。
         wrapper.user().put(new PlayStateTransitionQueue(wrapper.user()));
         wrapper.setPacketType(ClientboundLoginPackets.LOGIN_FINISHED);
-        wrapper.write(Types.UUID, protocolInfo.getUuid()); // uuid
-        wrapper.write(Types.STRING, protocolInfo.getUsername()); // username
-        wrapper.write(Types.PROFILE_PROPERTY_ARRAY, new GameProfile.Property[0]); // properties
+        wrapper.write(Types.UUID, protocolInfo.getUuid()); // UUID
+        wrapper.write(Types.STRING, protocolInfo.getUsername()); // 用户名
+        wrapper.write(Types.PROFILE_PROPERTY_ARRAY, new GameProfile.Property[0]); // 属性
     }
 
     static void writeEditorProjectDisconnect(final PacketWrapper disconnect, final String reason) {
@@ -1050,8 +1065,8 @@ public class JoinPackets {
 
     public static void sendConfigurationBrand(final UserConnection user, final String brand) {
         final PacketWrapper brandCustomPayload = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
-        brandCustomPayload.write(Types.STRING, "minecraft:brand"); // channel
-        brandCustomPayload.write(Types.STRING, brand); // content
+        brandCustomPayload.write(Types.STRING, "minecraft:brand"); // 通道
+        brandCustomPayload.write(Types.STRING, brand); // 内容
         brandCustomPayload.send(BedrockProtocol.class);
         if (user.getChannel() != null) {
             user.getChannel().flush();
@@ -1060,7 +1075,7 @@ public class JoinPackets {
 
     private static void sendClientCacheStatus(final UserConnection user) {
         final PacketWrapper clientCacheStatus = PacketWrapper.create(ServerboundBedrockPackets.CLIENT_CACHE_STATUS, user);
-        clientCacheStatus.write(Types.BOOLEAN, !ViaBedrock.getConfig().getBlobCacheMode().equals(ViaBedrockConfig.BlobCacheMode.DISABLED)); // is supported
+        clientCacheStatus.write(Types.BOOLEAN, !ViaBedrock.getConfig().getBlobCacheMode().equals(ViaBedrockConfig.BlobCacheMode.DISABLED)); // 是否受支持
         clientCacheStatus.sendToServer(BedrockProtocol.class);
     }
 
@@ -1092,31 +1107,31 @@ public class JoinPackets {
             final List<String> features = new ArrayList<>(enabledFeatures);
             features.add("minecraft:vanilla");
             final PacketWrapper updateEnabledFeatures = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.UPDATE_ENABLED_FEATURES, user);
-            updateEnabledFeatures.write(Types.STRING_ARRAY, features.toArray(new String[0])); // enabled features
+            updateEnabledFeatures.write(Types.STRING_ARRAY, features.toArray(new String[0])); // 启用的功能
             updateEnabledFeatures.send(BedrockProtocol.class);
         }
 
         for (Map.Entry<String, Tag> registry : gameSession.getJavaRegistries().entrySet()) {
             final CompoundTag registryTag = (CompoundTag) registry.getValue();
             final PacketWrapper registryData = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.REGISTRY_DATA, user);
-            registryData.write(Types.STRING, registry.getKey()); // registry key
+            registryData.write(Types.STRING, registry.getKey()); // 注册表键
             final List<RegistryEntry> entries = new ArrayList<>();
             for (Map.Entry<String, Tag> entry : registryTag.entrySet()) {
                 entries.add(new RegistryEntry(entry.getKey(), entry.getValue()));
             }
-            registryData.write(Types.REGISTRY_ENTRY_ARRAY, entries.toArray(new RegistryEntry[0])); // registry entries
+            registryData.write(Types.REGISTRY_ENTRY_ARRAY, entries.toArray(new RegistryEntry[0])); // 注册表条目
             registryData.send(BedrockProtocol.class);
         }
 
         final PacketWrapper updateTags = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.UPDATE_TAGS, user);
-        updateTags.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaTags().size()); // number of registries
+        updateTags.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaTags().size()); // 注册表数量
         for (Map.Entry<String, Tag> registryEntry : BedrockProtocol.MAPPINGS.getJavaTags().entrySet()) {
             final CompoundTag tag = (CompoundTag) registryEntry.getValue();
-            updateTags.write(Types.STRING, registryEntry.getKey()); // registry key
-            updateTags.write(Types.VAR_INT, tag.size()); // number of tags
+            updateTags.write(Types.STRING, registryEntry.getKey()); // 注册表键
+            updateTags.write(Types.VAR_INT, tag.size()); // 标签数量
             for (Map.Entry<String, Tag> tagEntry : tag.entrySet()) {
-                updateTags.write(Types.STRING, tagEntry.getKey()); // tag name
-                updateTags.write(Types.VAR_INT_ARRAY_PRIMITIVE, ((IntArrayTag) tagEntry.getValue()).getValue().clone()); // tag ids
+                updateTags.write(Types.STRING, tagEntry.getKey()); // 标签名称
+                updateTags.write(Types.VAR_INT_ARRAY_PRIMITIVE, ((IntArrayTag) tagEntry.getValue()).getValue().clone()); // 标签 ID
             }
         }
         updateTags.send(BedrockProtocol.class);
@@ -1125,14 +1140,14 @@ public class JoinPackets {
             final PacketWrapper finishConfiguration = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.FINISH_CONFIGURATION, user);
             finishConfiguration.send(BedrockProtocol.class);
             user.getProtocolInfo().setServerState(State.PLAY);
-            if (user.getProtocolInfo().protocolVersion().betweenInclusive(ProtocolVersion.v1_20_2, ProtocolVersion.v1_21_2)) { // VB compatibility
-                // Problematic code: https://github.com/ViaVersion/ViaBackwards/blob/b90b573f1d6f4d59841a3243e5bd072a43ec78e5/common/src/main/java/com/viaversion/viabackwards/protocol/v1_21_4to1_21_2/rewriter/EntityPacketRewriter1_21_4.java#L109
-                user.getProtocolInfo().setClientState(State.PLAY); // Wrong, but needed because ViaBackwards expects this and would otherwise send the player loaded packet in configuration state.
+            if (user.getProtocolInfo().protocolVersion().betweenInclusive(ProtocolVersion.v1_20_2, ProtocolVersion.v1_21_2)) { // VB 兼容性
+                // 有问题的代码：https://github.com/ViaVersion/ViaBackwards/blob/b90b573f1d6f4d59841a3243e5bd072a43ec78e5/common/src/main/java/com/viaversion/viabackwards/protocol/v1_21_4to1_21_2/rewriter/EntityPacketRewriter1_21_4.java#L109
+                user.getProtocolInfo().setClientState(State.PLAY); // 虽然不正确，但 ViaBackwards 依赖它，否则会在 configuration 状态下发送 player loaded 数据包。
             }
             user.get(InventoryBootstrapQueue.class).onPlayReady();
-            // Replay the world packets NetEase sent during the Java configuration phase. This must
-            // happen after the state transition (so the pre-play guard lets them through) and after
-            // the START_GAME storages above were installed (so the handlers can use them).
+            // 重放网易在 Java 配置阶段发送的世界数据包。这必须在状态切换之后
+            // （这样 pre-play 守卫才会放行），并且在上面的 START_GAME 存储
+            // 安装完成之后（这样处理器才能使用它们）。
             final PlayStateTransitionQueue transitionQueue = user.get(PlayStateTransitionQueue.class);
             if (transitionQueue != null) {
                 transitionQueue.replayPackets();
@@ -1159,33 +1174,33 @@ public class JoinPackets {
         final ClientPlayerEntity clientPlayer = user.get(EntityTracker.class).getClientPlayer();
 
         final PacketWrapper joinGame = PacketWrapper.create(ClientboundPackets26_1.LOGIN, user);
-        joinGame.write(Types.INT, clientPlayer.javaId()); // entity id
-        joinGame.write(Types.BOOLEAN, gameSession.isHardcoreMode()); // hardcore
-        joinGame.write(Types.STRING_ARRAY, Dimension.getDimensionKeys()); // dimension types
-        joinGame.write(Types.VAR_INT, 100); // max players
-        joinGame.write(Types.VAR_INT, clientSettingsStorage.viewDistance()); // view distance
-        joinGame.write(Types.VAR_INT, joinGameStorage.chunkTickRange()); // simulation distance
-        joinGame.write(Types.BOOLEAN, ViaBedrock.getConfig().shouldTranslateShowCoordinatesGameRule() && !gameRulesStorage.<Boolean>getGameRule("showCoordinates")); // reduced debug info
-        joinGame.write(Types.BOOLEAN, !gameRulesStorage.<Boolean>getGameRule("doImmediateRespawn")); // show death screen
-        joinGame.write(Types.BOOLEAN, gameRulesStorage.getGameRule("doLimitedCrafting")); // limited crafting
-        joinGame.write(Types.VAR_INT, chunkTracker.getDimension().ordinal()); // dimension id
-        joinGame.write(Types.STRING, chunkTracker.getDimension().getKey()); // dimension name
-        joinGame.write(Types.LONG, 0L); // hashed seed
-        joinGame.write(Types.BYTE, (byte) clientPlayer.javaGameMode().ordinal()); // game mode
-        joinGame.write(Types.BYTE, (byte) -1); // previous game mode
-        joinGame.write(Types.BOOLEAN, false); // is debug
-        joinGame.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // is flat
-        joinGame.write(Types.OPTIONAL_GLOBAL_POSITION, null); // last death location
-        joinGame.write(Types.VAR_INT, 0); // portal cooldown
-        joinGame.write(Types.VAR_INT, 64); // sea level
-        joinGame.write(Types.BOOLEAN, false); // enforce secure chat
+        joinGame.write(Types.INT, clientPlayer.javaId()); // 实体 ID
+        joinGame.write(Types.BOOLEAN, gameSession.isHardcoreMode()); // 极限模式
+        joinGame.write(Types.STRING_ARRAY, Dimension.getDimensionKeys()); // 维度类型
+        joinGame.write(Types.VAR_INT, 100); // 最大玩家数
+        joinGame.write(Types.VAR_INT, clientSettingsStorage.viewDistance()); // 视距
+        joinGame.write(Types.VAR_INT, joinGameStorage.chunkTickRange()); // 模拟距离
+        joinGame.write(Types.BOOLEAN, ViaBedrock.getConfig().shouldTranslateShowCoordinatesGameRule() && !gameRulesStorage.<Boolean>getGameRule("showCoordinates")); // 精简调试信息
+        joinGame.write(Types.BOOLEAN, !gameRulesStorage.<Boolean>getGameRule("doImmediateRespawn")); // 显示死亡界面
+        joinGame.write(Types.BOOLEAN, gameRulesStorage.getGameRule("doLimitedCrafting")); // 受限合成
+        joinGame.write(Types.VAR_INT, chunkTracker.getDimension().ordinal()); // 维度 ID
+        joinGame.write(Types.STRING, chunkTracker.getDimension().getKey()); // 维度名称
+        joinGame.write(Types.LONG, 0L); // 哈希种子
+        joinGame.write(Types.BYTE, (byte) clientPlayer.javaGameMode().ordinal()); // 游戏模式
+        joinGame.write(Types.BYTE, (byte) -1); // 上一个游戏模式
+        joinGame.write(Types.BOOLEAN, false); // 是否为调试世界
+        joinGame.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // 是否为超平坦
+        joinGame.write(Types.OPTIONAL_GLOBAL_POSITION, null); // 上次死亡位置
+        joinGame.write(Types.VAR_INT, 0); // 传送门冷却
+        joinGame.write(Types.VAR_INT, 64); // 海平面
+        joinGame.write(Types.BOOLEAN, false); // 强制安全聊天
         joinGame.send(BedrockProtocol.class);
 
         final String serverBrand = gameSession.getServerBrand();
         if (serverBrand != null) {
             final PacketWrapper brandCustomPayload = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            brandCustomPayload.write(Types.STRING, "minecraft:brand"); // channel
-            brandCustomPayload.write(Types.STRING, serverBrand); // content
+            brandCustomPayload.write(Types.STRING, "minecraft:brand"); // 通道
+            brandCustomPayload.write(Types.STRING, serverBrand); // 内容
             brandCustomPayload.send(BedrockProtocol.class);
         }
 
@@ -1204,27 +1219,27 @@ public class JoinPackets {
         chunkTracker.sendCurrentCacheSettingsToJava();
 
         final PacketWrapper initializeBorder = PacketWrapper.create(ClientboundPackets26_1.INITIALIZE_BORDER, user);
-        initializeBorder.write(Types.DOUBLE, 0D); // center x
-        initializeBorder.write(Types.DOUBLE, 0D); // center z
-        initializeBorder.write(Types.DOUBLE, 0D); // old size
-        initializeBorder.write(Types.DOUBLE, 60_000_000D); // new size
-        initializeBorder.write(Types.VAR_LONG, 0L); // lerp time
-        initializeBorder.write(Types.VAR_INT, 60_000_000); // new absolute max size
-        initializeBorder.write(Types.VAR_INT, 0); // warning blocks
-        initializeBorder.write(Types.VAR_INT, 0); // warning time
+        initializeBorder.write(Types.DOUBLE, 0D); // 中心 x
+        initializeBorder.write(Types.DOUBLE, 0D); // 中心 z
+        initializeBorder.write(Types.DOUBLE, 0D); // 旧尺寸
+        initializeBorder.write(Types.DOUBLE, 60_000_000D); // 新尺寸
+        initializeBorder.write(Types.VAR_LONG, 0L); // 插值时间
+        initializeBorder.write(Types.VAR_INT, 60_000_000); // 新的绝对最大尺寸
+        initializeBorder.write(Types.VAR_INT, 0); // 警告方块距离
+        initializeBorder.write(Types.VAR_INT, 0); // 警告时间
         initializeBorder.send(BedrockProtocol.class);
 
         final PacketWrapper updateAttributes = PacketWrapper.create(ClientboundPackets26_1.UPDATE_ATTRIBUTES, user);
-        updateAttributes.write(Types.VAR_INT, clientPlayer.javaId()); // entity id
-        updateAttributes.write(Types.VAR_INT, 1); // attribute count
-        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.ATTACK_SPEED)); // attribute id
-        updateAttributes.write(Types.DOUBLE, 20D); // base value
-        updateAttributes.write(Types.VAR_INT, 0); // modifier count
+        updateAttributes.write(Types.VAR_INT, clientPlayer.javaId()); // 实体 ID
+        updateAttributes.write(Types.VAR_INT, 1); // 属性数量
+        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.ATTACK_SPEED)); // 属性 ID
+        updateAttributes.write(Types.DOUBLE, 20D); // 基础值
+        updateAttributes.write(Types.VAR_INT, 0); // 修饰符数量
         updateAttributes.send(BedrockProtocol.class);
 
         final PacketWrapper serverDifficulty = PacketWrapper.create(ClientboundPackets26_1.CHANGE_DIFFICULTY, user);
-        serverDifficulty.write(Types.VAR_INT, joinGameStorage.difficulty().getValue()); // difficulty
-        serverDifficulty.write(Types.BOOLEAN, false); // locked
+        serverDifficulty.write(Types.VAR_INT, joinGameStorage.difficulty().getValue()); // 难度
+        serverDifficulty.write(Types.BOOLEAN, false); // 已锁定
         serverDifficulty.send(BedrockProtocol.class);
 
         final ViaBedrockConfig config = ViaBedrock.getConfig();
@@ -1238,15 +1253,15 @@ public class JoinPackets {
         }
 
         final PacketWrapper playerInfoUpdate = PacketWrapper.create(ClientboundPackets26_1.PLAYER_INFO_UPDATE, user);
-        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_GAME_MODE, PlayerInfoUpdateAction.UPDATE_LATENCY)); // actions
-        playerInfoUpdate.write(Types.VAR_INT, 1); // length
-        playerInfoUpdate.write(Types.UUID, clientPlayer.javaUuid()); // uuid
-        playerInfoUpdate.write(Types.STRING, StringUtil.encodeUUID(clientPlayer.javaUuid())); // username
-        playerInfoUpdate.write(Types.PROFILE_PROPERTY_ARRAY, new GameProfile.Property[0]); // properties
-        playerInfoUpdate.write(Types.VAR_INT, clientPlayer.javaGameMode().ordinal()); // game mode
+        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_GAME_MODE, PlayerInfoUpdateAction.UPDATE_LATENCY)); // 动作
+        playerInfoUpdate.write(Types.VAR_INT, 1); // 长度
+        playerInfoUpdate.write(Types.UUID, clientPlayer.javaUuid()); // UUID
+        playerInfoUpdate.write(Types.STRING, StringUtil.encodeUUID(clientPlayer.javaUuid())); // 用户名
+        playerInfoUpdate.write(Types.PROFILE_PROPERTY_ARRAY, new GameProfile.Property[0]); // 属性
+        playerInfoUpdate.write(Types.VAR_INT, clientPlayer.javaGameMode().ordinal()); // 游戏模式
         final PacketSyncStorage packetSyncStorage = user.get(PacketSyncStorage.class);
         final int latency = packetSyncStorage.latencyMillis();
-        playerInfoUpdate.write(Types.VAR_INT, latency); // latency
+        playerInfoUpdate.write(Types.VAR_INT, latency); // 延迟
         final PlayerListStorage playerListStorage = user.get(PlayerListStorage.class);
         if (!playerListStorage.containsPlayer(clientPlayer.javaUuid())) {
             playerListStorage.addPlayer(clientPlayer.javaUuid(), clientPlayer.uniqueId(), user.getProtocolInfo().getUsername());
@@ -1267,7 +1282,7 @@ public class JoinPackets {
         }
 
         final PacketWrapper setTime = PacketWrapper.create(ClientboundBedrockPackets.SET_TIME, user);
-        setTime.write(BedrockTypes.VAR_INT, joinGameStorage.currentTime()); // time of day
+        setTime.write(BedrockTypes.VAR_INT, joinGameStorage.currentTime()); // 一天中的时间
         setTime.send(BedrockProtocol.class, false);
     }
 

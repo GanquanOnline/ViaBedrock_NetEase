@@ -1,6 +1,4 @@
-/*
- * Validated and locally degraded immutable profile derived from a custom mapping snapshot.
- */
+/* 由自定义映射快照派生、经过校验并在本地降级的不可变配置。 */
 package net.raphimc.viabedrock.experimental.custommapping;
 
 import net.raphimc.viabedrock.ViaBedrock;

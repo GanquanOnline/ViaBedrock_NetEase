@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Opt-in local soak; the 30-minute production-equivalent duration is 1800 seconds. */
+/** 可选的本地浸泡测试；等同生产环境的 30 分钟时长即 1800 秒。 */
 @Tag("performance")
 @EnabledIfEnvironmentVariable(named = "VIABEDROCK_GC_SOAK", matches = "(?i)true")
 class ResourcePackGcSoakTest {

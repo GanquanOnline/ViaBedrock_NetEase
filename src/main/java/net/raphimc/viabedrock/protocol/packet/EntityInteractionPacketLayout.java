@@ -42,9 +42,9 @@ public final class EntityInteractionPacketLayout {
 
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            BedrockTypes.VAR_INT.write(buffer, 0); // legacy request id
+            BedrockTypes.VAR_INT.write(buffer, 0); // 旧版请求 ID
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, ComplexInventoryTransaction_Type.ItemUseOnEntityTransaction.getValue());
-            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // actions count
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 动作数量
             BedrockTypes.UNSIGNED_VAR_LONG.write(buffer, entityRuntimeId);
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, actionType);
             BedrockTypes.VAR_INT.write(buffer, hotbarSlot);

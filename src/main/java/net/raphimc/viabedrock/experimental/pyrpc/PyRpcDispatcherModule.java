@@ -32,39 +32,39 @@ import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Shared JE PY_RPC transport. Bedrock PY_RPC bytes are forwarded unchanged
- * through floodgate:netease; JE C2S bytes are wrapped back into PY_RPC.
+ * JE 共享的 PY_RPC 传输通道。基岩的 PY_RPC 字节经 floodgate:netease
+ * 原样转发；JE 的客户端→服务端字节则重新包装成 PY_RPC。
  * <p>
- * NukkitMaster {@code ClientEventListener} waits for the engine call
- * {@code ClientLoadAddonsFinishedFromGac} before it will send
- * {@code GetClientPlayerUidEvent} / HUD. Vanilla NetEase clients emit that
- * after addons load; Java clients never do, so this module synthesizes it
- * after MOT {@code SET_LOCAL_PLAYER_AS_INITIALIZED} (which fires
- * {@code PlayerJoinEvent} and allocates {@code PlayerInfo}).
+ * NukkitMaster 的 {@code ClientEventListener} 会等待引擎调用
+ * {@code ClientLoadAddonsFinishedFromGac}，然后才发送
+ * {@code GetClientPlayerUidEvent} / HUD。原版网易客户端在插件加载完成
+ * 后会发出该调用；Java 客户端从不发出，因此本模块在 MOT 的
+ * {@code SET_LOCAL_PLAYER_AS_INITIALIZED}（该事件触发
+ * {@code PlayerJoinEvent} 并分配 {@code PlayerInfo}）之后合成它。
  */
 public class PyRpcDispatcherModule implements FeatureModule {
 
-    // ModUIClient payload channel handshake: the client registers "moduiclient:confirm"
-    // (minecraft:register) and exchanges data on "moduiclient:data". The old
-    // "floodgate:netease" name matched nothing in the client jar, so both directions
-    // of the bridge were dead.
+    // ModUIClient 负载通道握手：客户端注册 "moduiclient:confirm"
+    // （minecraft:register），并在 "moduiclient:data" 上交换数据。旧的
+    // "floodgate:netease" 名称在客户端 jar 中匹配不到任何东西，因此桥接的
+    // 两个方向都不通。
     public static final String CONFIRM_CHANNEL = "moduiclient:confirm";
     public static final String DATA_CHANNEL = "moduiclient:data";
 
-    // NukkitMaster's PyRpcMessageListener only accepts this magic msgId (the NetEase client
-    // always sends it). S2C uses PyRpcPacket.DEFAULT_MSG_ID = 9753608 instead.
+    // NukkitMaster 的 PyRpcMessageListener 只接受这个魔法 msgId（网易客户端
+    // 总是发送它）。服务端→客户端方向则改用 PyRpcPacket.DEFAULT_MSG_ID = 9753608。
     static final int MSG_ID = 98247598;
-    /** NukkitMaster {@code ClientEventListener} engine-call gate for HUD / player-info. */
+    /** NukkitMaster {@code ClientEventListener} 中 HUD / 玩家信息的引擎调用开关。 */
     public static final String CLIENT_LOAD_ADDONS_FINISHED = "ClientLoadAddonsFinishedFromGac";
-    /** Delay after SET_LOCAL_PLAYER_AS_INITIALIZED so MOT can finish PlayerJoinEvent first. */
+    /** SET_LOCAL_PLAYER_AS_INITIALIZED 之后的延迟，好让 MOT 先处理完 PlayerJoinEvent。 */
     static final long ADDONS_FINISHED_DELAY_MS = 250L;
 
     private static void sendPyRpc(final com.viaversion.viaversion.api.connection.UserConnection user, final byte[] msgpackData) {
         try {
             final PacketWrapper pyRpc = PacketWrapper.create(ServerboundBedrockPackets.PY_RPC, user);
-            // Layout per Nukkit-MOT PyRpcPacket.decode(): [BYTE_ARRAY payload][uint32 LE msgId].
-            // msgId must be the magic 98247598 — anything else is logged as "invalid PyRpc msgId"
-            // and the batch containing it fails to decode ("Sent malformed packet").
+            // 布局按 Nukkit-MOT 的 PyRpcPacket.decode()：[BYTE_ARRAY payload][uint32 LE msgId]。
+            // msgId 必须是魔法值 98247598 —— 其他值会被记录为 "invalid PyRpc msgId"，
+            // 并且包含它的批次解码失败（"Sent malformed packet"）。
             pyRpc.write(BedrockTypes.BYTE_ARRAY, msgpackData);
             pyRpc.write(BedrockTypes.INT_LE, MSG_ID);
             pyRpc.scheduleSendToServer(BedrockProtocol.class);
@@ -74,10 +74,10 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * Builds ["ModEventC2S", [modName, systemName, eventName, {}], nil] exactly like the
-     * reference ModUIClient packer: fixarray(3), MsgPack StringValue strings (NOT bin8 —
-     * the server decodes via Value.toJson() and binary values base64-encode, breaking
-     * string matching), fixmap(0) for empty event data, and a trailing nil.
+     * 完全按参考实现 ModUIClient 的打包器构造 ["ModEventC2S", [modName, systemName, eventName, {}], nil]：
+     * fixarray(3)、MsgPack StringValue 字符串（不是 bin8 —— 服务端通过 Value.toJson() 解码，
+     * 二进制值会被 base64 编码，导致字符串匹配失败）、空事件数据用 fixmap(0)，
+     * 以及结尾的 nil。
      */
     private static byte[] buildC2sEvent(final String modName, final String systemName, final String eventName, final byte[] ignoredEventData) {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(128);
@@ -93,10 +93,10 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * ScreenInfoEvent C2S mirroring the reference ModUIClient packer:
-     * {screen: {width, height}, view: {width, height, offsetX, offsetY}} with 1920x1080
-     * logical and 2x physical, typical NetEase PC client geometry. HUD systems
-     * wait for screen info before they will serve HUD node data.
+     * 客户端→服务端的 ScreenInfoEvent，与参考实现 ModUIClient 的打包器一致：
+     * {screen: {width, height}, view: {width, height, offsetX, offsetY}}，采用 1920x1080
+     * 逻辑分辨率和 2 倍物理分辨率，即典型的网易 PC 客户端几何参数。HUD 系统
+     * 要等到屏幕信息后才会提供 HUD 节点数据。
      */
     private static byte[] buildScreenInfoC2s() {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(128);
@@ -122,7 +122,7 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     private static void writeInt(final java.io.ByteArrayOutputStream out, final int value) {
-        // MsgPack int32 big-endian
+        // MsgPack int32 大端序
         out.write(0xd2);
         out.write(value >>> 24);
         out.write(value >>> 16);
@@ -135,10 +135,10 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * MOT {@code PyRpcProtocol.asString} accepts MessagePack str (fixstr / str8 / str16).
-     * Keep this path — bin8 would base64-encode in some Master JSON helpers.
-     * {@code ClientLoadAddonsFinishedFromGac} is 31 bytes (fits fixstr); keep str8
-     * for any longer engine-call names.
+     * MOT 的 {@code PyRpcProtocol.asString} 接受 MessagePack 的 str 类型（fixstr / str8 / str16）。
+     * 保持这条路径 —— bin8 在 Master 的某些 JSON 辅助代码里会被 base64 编码。
+     * {@code ClientLoadAddonsFinishedFromGac} 是 31 字节（可放入 fixstr）；更长的引擎调用名
+     * 一律用 str8。
      */
     static void writeMsgPackStr(final java.io.ByteArrayOutputStream out, final String s) {
         final byte[] b = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -158,9 +158,9 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * Engine callback envelope used by NukkitMaster {@code processEngineCallback}:
-     * MessagePack array of {@code [method]} (no argument array). MOT regression
-     * {@code testPyRpcPacketDecodesStoreBuySuccessSubPacket} uses the same shape.
+     * NukkitMaster {@code processEngineCallback} 使用的引擎回调信封：
+     * {@code [method]} 的 MessagePack 数组（不带参数数组）。MOT 回归测试
+     * {@code testPyRpcPacketDecodesStoreBuySuccessSubPacket} 使用相同的结构。
      */
     public static byte[] buildEngineCall(final String method) {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(64);
@@ -174,14 +174,14 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * MOT {@code SetLocalPlayerAsInitializedProcessor} calls {@code doFirstSpawn()},
-     * which fires {@code PlayerJoinEvent}. NukkitMaster then allocates
-     * {@code PlayerInfo}. Send the engine-call one tick later so
-     * {@code getPlayerInfo(player) != null} when HUD is pushed.
+     * MOT 的 {@code SetLocalPlayerAsInitializedProcessor} 会调用 {@code doFirstSpawn()}，
+     * 后者触发 {@code PlayerJoinEvent}。NukkitMaster 随后分配
+     * {@code PlayerInfo}。把引擎调用推迟一刻发送，这样推送 HUD 时
+     * {@code getPlayerInfo(player) != null} 才成立。
      * <p>
-     * Do not mark the one-shot as sent until the payload actually leaves. A
-     * CONFIGURATION-state PlayerSpawn or a still-inactive Netty channel used
-     * to store the flag and return, so later PLAY retries never fired.
+     * 在负载真正发出之前不要标记一次性调用已发送。以前在 CONFIGURATION 阶段的
+     * PlayerSpawn 或 Netty 通道尚未激活时会写入标志并返回，
+     * 导致后续 PLAY 阶段的重试再也不会触发。
      */
     public static void scheduleClientLoadAddonsFinished(final com.viaversion.viaversion.api.connection.UserConnection user) {
         if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
@@ -233,9 +233,9 @@ public class PyRpcDispatcherModule implements FeatureModule {
     }
 
     /**
-     * MOT {@code PyRpcWriter.writeBinaryString} encodes method names as MessagePack
-     * bin ({@code 0xC4} + length). Some Master / third-party senders use str
-     * ({@code fixstr}/{@code str8}). Accept both so HUD lifecycle still starts.
+     * MOT 的 {@code PyRpcWriter.writeBinaryString} 把方法名编码成 MessagePack
+     * 的 bin（{@code 0xC4} + 长度）。部分 Master / 第三方发送方使用 str
+     * （{@code fixstr}/{@code str8}）。两者都接受，以保证 HUD 生命周期仍能启动。
      */
     static boolean isModEventS2C(final byte[] data) {
         return "ModEventS2C".equals(readFirstMsgPackString(data));
@@ -277,15 +277,14 @@ public class PyRpcDispatcherModule implements FeatureModule {
     public void onPacketRegistration(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PY_RPC, null, wrapper -> {
             wrapper.cancel();
-            // S2C layout is [payload][int32 LE msgId] (payload-first), the opposite of C2S.
-            // msgId-first decoding strips 4 bytes and breaks isModEventS2C().
-            final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // MsgPack data
-            final int msgId = wrapper.read(BedrockTypes.INT_LE); // msgId (not needed for S2C forwarding)
+            // 服务端→客户端方向的布局是 [payload][int32 LE msgId]（负载在前），与客户端→服务端相反。
+            // 按 msgId 在前解码会剥掉 4 个字节，使 isModEventS2C() 失效。
+            final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // MsgPack 数据
+            final int msgId = wrapper.read(BedrockTypes.INT_LE); // msgId（转发服务端→客户端时不需要）
             if (ViaBedrock.getConfig().shouldEmulateNetEaseClient() && isModEventS2C(data)) {
-                // NetEase HUD systems push VertexHudUpdate over ModEventS2C and expect the client
-                // to participate in the ModUI protocol. Drive the lifecycle from the proxy itself
-                // (ScreenInfoEvent then RequestHudNodeDataEvent) so join no longer depends on the
-                // Java client having ModUIClient installed.
+                // 网易 HUD 系统通过 ModEventS2C 推送 VertexHudUpdate，并期望客户端参与
+                // ModUI 协议。改由代理自己驱动该生命周期（先 ScreenInfoEvent，再
+                // RequestHudNodeDataEvent），这样进服不再依赖 Java 客户端安装 ModUIClient。
                 if (!wrapper.user().has(ModUiLifecycleStorage.class)) {
                     wrapper.user().put(new ModUiLifecycleStorage());
                     sendPyRpc(wrapper.user(), buildScreenInfoC2s());
@@ -310,9 +309,9 @@ public class PyRpcDispatcherModule implements FeatureModule {
                 return;
             }
 
-            // ModUIClient payload format: int32 type ordinal prefix, then the raw bytes.
-            // 0=CONFIRM, 1=PY_RPC_DATA, 2=ENTITY_MAPPING. Without the prefix the client's
-            // STREAM_CODEC decoder throws and the payload is silently dropped.
+            // ModUIClient 负载格式：先写 int32 类型序号前缀，再写原始字节。
+            // 0=CONFIRM，1=PY_RPC_DATA，2=ENTITY_MAPPING。缺少前缀时客户端的
+            // STREAM_CODEC 解码器会抛异常，负载被静默丢弃。
             final PacketWrapper msg = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, wrapper.user());
             msg.write(Types.STRING, targetChannel);
             if (DATA_CHANNEL.equals(targetChannel)) {
@@ -325,10 +324,10 @@ public class PyRpcDispatcherModule implements FeatureModule {
 
     @Override
     public void onChannelRegistered(final com.viaversion.viaversion.api.connection.UserConnection user, final java.util.Set<String> channels) {
-        // ModUIClient only registers "moduiclient:confirm" (minecraft:register). Fabric's
-        // payload registration then makes "moduiclient:data" usable, so treat confirm as the
-        // capability signal and answer the handshake with an empty CONFIRM payload — the
-        // client's UIManager.setConnected(true) will not run without it.
+        // ModUIClient 只注册 "moduiclient:confirm"（minecraft:register）。Fabric 的
+        // 负载注册随后使 "moduiclient:data" 可用，因此把 confirm 当作能力信号，
+        // 用一个空的 CONFIRM 负载回应握手 —— 没有它客户端的
+        // UIManager.setConnected(true) 不会执行。
         if (!channels.contains(CONFIRM_CHANNEL) || user.get(ChannelStorage.class).hasChannel(DATA_CHANNEL)) {
             return;
         }
@@ -348,13 +347,13 @@ public class PyRpcDispatcherModule implements FeatureModule {
         }
 
         try {
-            final int payloadType = wrapper.read(Types.INT); // PayloadType ordinal
-            if (payloadType != 1) { // PY_RPC_DATA; CONFIRM/ENTITY_MAPPING are client-internal
+            final int payloadType = wrapper.read(Types.INT); // PayloadType 序号
+            if (payloadType != 1) { // PY_RPC_DATA；CONFIRM/ENTITY_MAPPING 属客户端内部使用
                 return true;
             }
             final byte[] msgpackData = wrapper.read(Types.REMAINING_BYTES);
             final PacketWrapper pyRpc = PacketWrapper.create(ServerboundBedrockPackets.PY_RPC, wrapper.user());
-            pyRpc.write(BedrockTypes.BYTE_ARRAY, msgpackData); // payload first, msgId last — see sendPyRpc
+            pyRpc.write(BedrockTypes.BYTE_ARRAY, msgpackData); // 负载在前，msgId 在后 —— 见 sendPyRpc
             pyRpc.write(BedrockTypes.INT_LE, MSG_ID);
             pyRpc.sendToServer(BedrockProtocol.class);
         } catch (final Exception e) {

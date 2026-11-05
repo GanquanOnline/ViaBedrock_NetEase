@@ -79,18 +79,18 @@ import java.util.zip.GZIPInputStream;
 
 public class BedrockMappingData extends MappingDataBase {
 
-    // Bedrock misc
+    // 基岩杂项
     private Map<ResourcePack.Key, ResourcePack> bedrockResourcePacks;
     private Map<ResourcePack.Key, ResourcePack> bedrockSkinPacks;
     private List<ResourcePack> bedrockVanillaResourcePacks;
     private Map<String, Object> bedrockGameRules;
 
-    // Java misc
+    // Java 杂项
     private CompoundTag javaRegistries;
     private CompoundTag javaTags;
     private BiMap<String, Integer> javaCommandArgumentTypes;
 
-    // Block states
+    // 方块状态
     private BlockStateUpgrader bedrockBlockStateUpgrader;
     private BiMap<String, Integer> javaBlocks;
     private BiMap<BlockState, Integer> javaBlockStates;
@@ -109,15 +109,15 @@ public class BedrockMappingData extends MappingDataBase {
     private byte[] javaBlockStateFilterLight;
     private Int2IntMap customBlockEmitLight;
     private Int2IntMap customBlockFilterLight;
-    private Int2IntMap customBlockFallbacks; // java_state_id -> fallback java_state_id
+    private Int2IntMap customBlockFallbacks; // java_state_id -> 回退 java_state_id
 
-    // Biomes
+    // 生物群系
     private CompoundTag bedrockBiomeDefinitions;
     private BiMap<String, Integer> bedrockBiomes;
     private BiMap<String, Integer> javaBiomes;
     private Map<String, Map<String, Object>> bedrockToJavaBiomeExtraData;
 
-    // Items
+    // 物品
     private ItemUpgrader bedrockItemUpgrader;
     private BiMap<String, Integer> javaItems;
     private Map<String, Integer> bedrockLegacyItems;
@@ -134,7 +134,7 @@ public class BedrockMappingData extends MappingDataBase {
     private int javaDoubleChestMenuId;
     private int javaShulkerBoxMenuId;
 
-    // Entities
+    // 实体
     private BiMap<String, Integer> bedrockEntities;
     private Map<ActorDataIDs, DataItemType> bedrockEntityDataTypes;
     private Map<ActorFlags, String> bedrockEntityFlagMoLangQueries;
@@ -147,12 +147,12 @@ public class BedrockMappingData extends MappingDataBase {
     private int vanillaBlockEntityCount;
     private NeighborAwareBlockRewriter neighborRewriter;
 
-    // Entity Effects
+    // 实体效果
     private BiMap<String, Integer> javaEffects;
     private BiMap<String, Integer> bedrockEffects;
     private Map<String, String> bedrockToJavaEffects;
 
-    // World Effects
+    // 世界效果
     private BiMap<String, Integer> javaSounds;
     private BiMap<String, Integer> javaParticles;
     private Map<String, String> bedrockBlockSounds;
@@ -163,7 +163,7 @@ public class BedrockMappingData extends MappingDataBase {
     private Map<LevelEvent, LevelEventMapping> bedrockToJavaLevelEvents;
     private Map<ParticleType, JavaParticle> bedrockToJavaLevelEventParticles;
 
-    // Other stuff
+    // 其他内容
     private BiMap<String, String> bedrockToJavaExperimentalFeatures;
     private BiMap<String, String> bedrockToJavaBannerPatterns;
     private BiMap<String, String> bedrockToJavaPaintings;
@@ -182,7 +182,7 @@ public class BedrockMappingData extends MappingDataBase {
 
         final JsonObject javaViaMappingJson = this.readJson("java/via_mappings.json");
 
-        { // Bedrock misc
+        { // 基岩杂项
             this.bedrockResourcePacks = new HashMap<>();
             try {
                 for (Map.Entry<Path, byte[]> entry : FileSystemUtil.getFilesInDirectory("assets/viabedrock/resource_packs").entrySet()) {
@@ -220,7 +220,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // Java misc
+        { // Java 杂项
             this.javaRegistries = this.readNBT("java/registries.nbt");
             this.javaTags = this.readNBT("java/tags.nbt");
             addBedrockProjectileTags(this.javaTags, javaViaMappingJson.getAsJsonArray("entities"));
@@ -234,7 +234,7 @@ public class BedrockMappingData extends MappingDataBase {
         }
 
         final Multimap<String, BedrockBlockState> bedrockBlockStatesByIdentifier;
-        { // Block states
+        { // 方块状态
             this.bedrockBlockStateUpgrader = new BlockStateUpgrader();
 
             final JsonArray javaBlocksJson = javaViaMappingJson.getAsJsonArray("blocks");
@@ -412,7 +412,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // Biomes
+        { // 生物群系
             this.bedrockBiomeDefinitions = this.readNBT("bedrock/biome_definitions.nbt");
 
             final JsonObject bedrockBiomesJson = this.readJson("bedrock/biomes.json", JsonObject.class);
@@ -459,13 +459,13 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // Items
+        { // 物品
             this.bedrockItemUpgrader = new ItemUpgrader();
 
-            // MOT NBTIO.putItemHelper writes unsigned short id (or Name for custom 255).
-            // The MOT jar table has 18 alias pairs (boat/oak_boat, scute/turtle_scute, ...);
-            // HashBiMap cannot hold duplicate values. Keep every name→id alias and let the
-            // last (modern) identifier win for reverse lookup.
+            // MOT 的 NBTIO.putItemHelper 写入 unsigned short 类型的 id（自定义物品 id 255 时写 Name）。
+            // MOT jar 的表里有 18 组别名对（boat/oak_boat、scute/turtle_scute 等）；
+            // HashBiMap 无法保存重复的 value，因此保留每个 name→id 别名，让
+            // 最后一个（现代）标识符在反向查找中生效。
             final JsonObject bedrockLegacyItemsJson = this.readJson("bedrock/legacy_item_ids.json");
             this.bedrockLegacyItems = new HashMap<>(bedrockLegacyItemsJson.size());
             this.bedrockLegacyItemIdentifiers = new Int2ObjectOpenHashMap<>(bedrockLegacyItemsJson.size());
@@ -670,7 +670,7 @@ public class BedrockMappingData extends MappingDataBase {
 
             for (String bedrockIdentifier : bedrockItems) {
                 if (!this.bedrockToJavaBlockItems.containsKey(bedrockIdentifier) && !this.bedrockToJavaMetaItems.containsKey(bedrockIdentifier)) {
-                    //throw new RuntimeException("Missing bedrock -> java item mapping for " + bedrockIdentifier); // TODO: Waiting for Java Edition 26.2
+                    // throw new RuntimeException("Missing bedrock -> java item mapping for " + bedrockIdentifier); // TODO: 等待 Java Edition 26.2
                 }
             }
 
@@ -712,7 +712,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // Entities
+        { // 实体
             final CompoundTag entityIdentifiersTag = this.readNBT("bedrock/entity_identifiers.nbt");
             final ListTag<CompoundTag> entityIdentifiersListTag = entityIdentifiersTag.getListTag("idlist", CompoundTag.class);
             this.bedrockEntities = HashBiMap.create(entityIdentifiersListTag.size());
@@ -783,7 +783,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
             for (String bedrockIdentifier : this.bedrockEntities.keySet()) {
                 if (!this.bedrockToJavaEntities.containsKey(bedrockIdentifier) && !unmappedEntities.contains(bedrockIdentifier)) {
-                    //throw new RuntimeException("Missing bedrock -> java entity mapping for " + bedrockIdentifier); // TODO: Waiting for Java Edition 26.2
+                    // throw new RuntimeException("Missing bedrock -> java entity mapping for " + bedrockIdentifier); // TODO: 等待 Java Edition 26.2
                 }
             }
 
@@ -832,7 +832,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // Entity Effects
+        { // 实体效果
             final JsonArray javaEffectsJson = this.readJson("java/effects.json", JsonArray.class);
             this.javaEffects = HashBiMap.create(javaEffectsJson.size());
             for (int i = 0; i < javaEffectsJson.size(); i++) {
@@ -865,7 +865,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
         }
 
-        { // World Effects
+        { // 世界效果
             final JsonArray javaSoundsJson = javaViaMappingJson.get("sounds").getAsJsonArray();
             this.javaSounds = HashBiMap.create(javaSoundsJson.size());
             for (int i = 0; i < javaSoundsJson.size(); i++) {
@@ -912,7 +912,7 @@ public class BedrockMappingData extends MappingDataBase {
                             throw new RuntimeException("Unknown bedrock block sound: " + keySplit[1]);
                         }
                     } else if (keySplit[0].isEmpty()) {
-                        // No validation
+                        // 不做校验
                     } else {
                         throw new RuntimeException("Unknown bedrock level sound event definition: " + soundEventEntry.getKey());
                     }
@@ -983,7 +983,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
             for (String bedrockIdentifier : bedrockSounds.keySet()) {
                 if (!this.bedrockToJavaSounds.containsKey(bedrockIdentifier)) {
-                    //throw new IllegalStateException("Missing bedrock -> java sound mapping for " + bedrockIdentifier); // TODO: Waiting for Java Edition 26.2
+                    // throw new IllegalStateException("Missing bedrock -> java sound mapping for " + bedrockIdentifier); // TODO: 等待 Java Edition 26.2
                 }
             }
 
@@ -1016,7 +1016,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
             for (String bedrockIdentifier : bedrockParticles) {
                 if (!this.bedrockToJavaParticles.containsKey(bedrockIdentifier) && !unmappedParticles.contains(bedrockIdentifier)) {
-                    //throw new IllegalStateException("Missing bedrock -> java particle mapping for " + bedrockIdentifier); // TODO: Waiting for Java Edition 26.2
+                    // throw new IllegalStateException("Missing bedrock -> java particle mapping for " + bedrockIdentifier); // TODO: 等待 Java Edition 26.2
                 }
             }
 
@@ -1080,12 +1080,12 @@ public class BedrockMappingData extends MappingDataBase {
             }
             for (ParticleType particleType : ParticleType.values()) {
                 if (!this.bedrockToJavaLevelEventParticles.containsKey(particleType) && !unmappedParticleTypes.contains(particleType)) {
-                    //throw new RuntimeException("Missing bedrock -> java level event particle mapping for " + particleType.name()); // TODO: Waiting for Java Edition 26.2
+                    // throw new RuntimeException("Missing bedrock -> java level event particle mapping for " + particleType.name()); // TODO: 等待 Java Edition 26.2
                 }
             }
         }
 
-        { // Other stuff
+        { // 其他内容
             final JsonObject bedrockToJavaExperimentalFeatureMappingsJson = this.readJson("custom/experimental_feature_mappings.json");
             this.bedrockToJavaExperimentalFeatures = HashBiMap.create(bedrockToJavaExperimentalFeatureMappingsJson.size());
             for (Map.Entry<String, JsonElement> entry : bedrockToJavaExperimentalFeatureMappingsJson.entrySet()) {

@@ -138,7 +138,7 @@ public class SoundDefinitions {
                         final JsonObject entitySounds = interactiveSounds.getAsJsonObject("entity_sounds");
                         final JsonObject entities = entitySounds.getAsJsonObject("entities");
                         mergeDefaults(entitySounds, entities);
-                        // Entries can have different sounds for each block sound. Keep the default path.
+                        // 条目可以为每种方块音效使用不同声音。保留默认路径。
                         for (Map.Entry<String, JsonElement> entityEntry : entities.entrySet()) {
                             final JsonObject events = entityEntry.getValue().getAsJsonObject().getAsJsonObject("events");
                             for (Map.Entry<String, JsonElement> eventEntry : events.entrySet()) {

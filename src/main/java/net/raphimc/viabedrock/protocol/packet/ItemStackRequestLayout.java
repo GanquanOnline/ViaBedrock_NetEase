@@ -30,16 +30,16 @@ import net.raphimc.viabedrock.protocol.types.model.ContainerSlotTypeLayout;
 import java.util.List;
 
 /**
- * Wire-layout helpers for Bedrock ITEM_STACK_REQUEST (packet 0x93).
+ * 基岩 ITEM_STACK_REQUEST（数据包 0x93）的线上布局辅助工具。
  * <p>
- * Nukkit only switches action types to unsigned varints (plus a trailing byte)
- * and stack-network ids to little-endian ints at protocol 2168. Official 975 and
- * NetEase / Nukkit-MOT 860 both still use the pre-2168 layout: action type as a
- * raw byte and stack-network id as a signed varint.
+ * Nukkit 只在协议 2168 才把动作类型切换为无符号 varint（外加一个尾部字节），
+ * 并把 stack-network id 切换为小端 int。官方 975 和
+ * 网易 / Nukkit-MOT 860 都仍使用 2168 之前的布局：动作类型为
+ * 原始字节，stack-network id 为有符号 varint。
  * <p>
- * Writing the 2168 shape into a 860/975 SAI server makes Nukkit fail the request
- * as an unknown action type, so Java clicks never leave the cursor. Official 975
- * must keep the byte action-type layout; only protocol 2168+ uses the new shape.
+ * 把 2168 的形状写入 860/975 的 SAI 服务器会让 Nukkit 以未知动作类型
+ * 拒绝该请求，Java 的点击就永远离不开光标。官方 975
+ * 必须保留字节动作类型布局；只有协议 2168+ 才用新形状。
  */
 public final class ItemStackRequestLayout {
 
@@ -56,8 +56,8 @@ public final class ItemStackRequestLayout {
     }
 
     public static boolean usesUnsignedActionType(final boolean emulateNetEase, final int protocol) {
-        // Nukkit only switches to unsigned-varint action types at protocol 2168.
-        // Official 975 and NetEase 860 both still write a raw byte.
+        // Nukkit 只在协议 2168 才切换为无符号 varint 动作类型。
+        // 官方 975 和网易 860 都仍写入原始字节。
         return protocol >= UNSIGNED_ACTION_TYPE_PROTOCOL;
     }
 

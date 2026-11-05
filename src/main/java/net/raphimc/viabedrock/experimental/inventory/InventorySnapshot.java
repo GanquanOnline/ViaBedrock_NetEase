@@ -22,9 +22,8 @@ import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
 /**
- * Pre-click copy of the SAI mirror. A rejected request restores this only when
- * no newer authoritative INVENTORY_CONTENT/INVENTORY_SLOT has already corrected
- * the mirror. Open-container contents are also tied to the captured window.
+ * SAI 镜像在点击前的副本。只有在之后没有更新的权威 INVENTORY_CONTENT/INVENTORY_SLOT 纠正过镜像时，被拒绝的请求才会恢复它。
+ * 已打开容器的内容也与捕获时的窗口绑定。
  */
 public final class InventorySnapshot {
 

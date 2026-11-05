@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
-/** Tracks each progressive sub-chunk request from enqueue through exactly one terminal outcome. */
+/** 跟踪每个渐进式子区块请求，从入队到恰好一个终态结果。 */
 final class SubChunkRequestTracker<O> {
 
     private final int maxRetries;

@@ -31,8 +31,8 @@ import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 import java.util.Set;
 
 /**
- * Java {@code SET_BEACON} becomes MOT {@code BeaconPayment} plus Destroy of
- * payment slot 0. 1.20.2+ Java effect ids are 0-based; MOT is 1-based.
+ * Java 的 {@code SET_BEACON} 会变成 MOT {@code BeaconPayment} 加上对支付槽位 0 的 Destroy。
+ * 1.20.2+ 的 Java 效果 id 从 0 开始；MOT 从 1 开始。
  */
 public final class BeaconPayment {
 

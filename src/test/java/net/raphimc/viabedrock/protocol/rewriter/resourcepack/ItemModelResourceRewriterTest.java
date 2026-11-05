@@ -12,6 +12,7 @@ package net.raphimc.viabedrock.protocol.rewriter.resourcepack;
 import com.viaversion.viaversion.libs.gson.JsonArray;
 import com.viaversion.viaversion.libs.gson.JsonElement;
 import com.viaversion.viaversion.libs.gson.JsonObject;
+import com.viaversion.viaversion.libs.gson.JsonParser;
 import com.viaversion.viaversion.libs.gson.JsonPrimitive;
 import net.raphimc.viabedrock.api.resourcepack.content.InMemoryContent;
 import org.cube.converter.converter.enums.RotationType;
@@ -88,7 +89,9 @@ class ItemModelResourceRewriterTest {
         ItemModelResourceRewriter.prepareModelForClient(model, false);
 
         assertTrue(model.getScale() > 1F);
-        final JsonObject compiled = model.compile();
+        // CubeConverter 1.3 编译到未重定位的 gson 类型；通过打包的
+        // gson 重新读取模型，好让下面的断言始终基于同一种 JsonObject。
+        final JsonObject compiled = JsonParser.parseString(model.compile().toString()).getAsJsonObject();
         final JsonObject element = compiled.getAsJsonArray("elements").get(0).getAsJsonObject();
         assertLegacyGoogleVectorIsValid(element.getAsJsonArray("from"));
         assertLegacyGoogleVectorIsValid(element.getAsJsonArray("to"));

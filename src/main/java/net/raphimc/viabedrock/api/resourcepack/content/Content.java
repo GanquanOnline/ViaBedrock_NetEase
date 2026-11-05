@@ -64,19 +64,19 @@ public abstract class Content implements PackContentView {
 
     public abstract byte[] get(final String path);
 
-    /** Opens one entry for streaming. Disk-backed content overrides this to avoid a full byte array. */
+    /** 打开一个条目用于流式读取。磁盘支撑的内容会覆写此方法以避免整块字节数组。 */
     public InputStream open(final String path) throws IOException {
         final byte[] data = this.get(path);
         return data == null ? null : new ByteArrayInputStream(data);
     }
 
-    /** Returns the exact entry size, or {@code -1} if the path does not exist. */
+    /** 返回条目的确切大小，若路径不存在则返回 {@code -1}。 */
     public long size(final String path) throws IOException {
         final byte[] data = this.get(path);
         return data == null ? -1L : data.length;
     }
 
-    /** Visits selected entries in order while allowing disk-backed implementations to reuse one archive handle. */
+    /** 按顺序访问选中的条目，同时允许磁盘支撑的实现复用一个归档句柄。 */
     public void visitFiles(final List<String> paths, final FileVisitor visitor) throws IOException {
         for (String path : paths) {
             final long size = this.size(path);
@@ -86,7 +86,7 @@ public abstract class Content implements PackContentView {
         }
     }
 
-    /** Runs related reads in one implementation-defined session. */
+    /** 在一次由实现定义的会话中执行相关读取。 */
     public <T> T withReadSession(final java.util.function.Supplier<T> action) {
         return action.get();
     }
@@ -132,7 +132,7 @@ public abstract class Content implements PackContentView {
         });
     }
 
-    /** Releases parsing helpers that must not become part of a shared pack's retained runtime. */
+    /** 释放解析辅助对象，它们不能成为共享包保留运行时的一部分。 */
     public void releaseTransientCaches() {
         this.langCache.clear();
     }

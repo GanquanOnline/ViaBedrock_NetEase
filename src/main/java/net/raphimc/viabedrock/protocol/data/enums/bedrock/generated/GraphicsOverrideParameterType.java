@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,213 +6,109 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum GraphicsOverrideParameterType {
 
-    /**
-     * Sent to set the sky zenith color
-     */
+    /** 用于设置天空天顶颜色 */
     SkyZenithColor(0),
-    /**
-     * Sent to set the sky horizon color
-     */
+    /** 用于设置天空地平线颜色 */
     SkyHorizonColor(1),
-    /**
-     * Sent to set the horizon blend min
-     */
+    /** 用于设置地平线混合最小值 */
     HorizonBlendMin(2),
-    /**
-     * Sent to set the horizon blend max
-     */
+    /** 用于设置地平线混合最大值 */
     HorizonBlendMax(3),
-    /**
-     * Sent to set the horizon blend start
-     */
+    /** 用于设置地平线混合起点 */
     HorizonBlendStart(4),
-    /**
-     * Sent to set the horizon blend mie start
-     */
+    /** 用于设置地平线米氏混合起点 */
     HorizonBlendMieStart(5),
-    /**
-     * Sent to set the rayleigh strength
-     */
+    /** 用于设置瑞利强度 */
     RayleighStrength(6),
-    /**
-     * Sent to set the sun mie strength
-     */
+    /** 用于设置太阳米氏强度 */
     SunMieStrength(7),
-    /**
-     * Sent to set the moon mie strength
-     */
+    /** 用于设置月亮米氏强度 */
     MoonMieStrength(8),
-    /**
-     * Sent to set the sun glare shape
-     */
+    /** 用于设置太阳眩光形状 */
     SunGlareShape(9),
-    /**
-     * Sent to set the water chlorophyll value
-     */
+    /** 用于设置水体叶绿素值 */
     Chlorophyll(10),
-    /**
-     * Sent to set the water CDOM value
-     */
+    /** 用于设置水体 CDOM 值 */
     CDOM(11),
-    /**
-     * Sent to set the water SuspendedSediment value
-     */
+    /** 用于设置水体悬浮沉积物值 */
     SuspendedSediment(12),
-    /**
-     * Sent to set the water waves depth value
-     */
+    /** 用于设置水波深度值 */
     WavesDepth(13),
-    /**
-     * Sent to set the water waves frequency value
-     */
+    /** 用于设置水波频率值 */
     WavesFrequency(14),
-    /**
-     * Sent to set the water waves frequency scaling value
-     */
+    /** 用于设置水波频率缩放值 */
     WavesFrequencyScaling(15),
-    /**
-     * Sent to set the water waves speed value
-     */
+    /** 用于设置水波速度值 */
     WavesSpeed(16),
-    /**
-     * Sent to set the water waves speed scaling value
-     */
+    /** 用于设置水波速度缩放值 */
     WavesSpeedScaling(17),
-    /**
-     * Sent to set the water waves shape value
-     */
+    /** 用于设置水波形状值 */
     WavesShape(18),
-    /**
-     * Sent to set the water waves octaves value
-     */
+    /** 用于设置水波倍频值 */
     WavesOctaves(19),
-    /**
-     * Sent to set the water waves mix value
-     */
+    /** 用于设置水波混合值 */
     WavesMix(20),
-    /**
-     * Sent to set the water waves pull value
-     */
+    /** 用于设置水波牵引值 */
     WavesPull(21),
-    /**
-     * Sent to set the water waves direction increment value
-     */
+    /** 用于设置水波方向增量值 */
     WavesDirectionIncrement(22),
-    /**
-     * Sent to set the color grading midtones contrast value
-     */
+    /** 用于设置调色中间调对比度值 */
     MidtonesContrast(23),
-    /**
-     * Sent to set the color grading highlights contrast value
-     */
+    /** 用于设置调色高光对比度值 */
     HighlightsContrast(24),
-    /**
-     * Sent to set the color grading shadows contrast value
-     */
+    /** 用于设置调色阴影对比度值 */
     ShadowsContrast(25),
-    /**
-     * Sent to set the color grading highlights gain value
-     */
+    /** 用于设置调色高光增益值 */
     HighlightsGain(26),
-    /**
-     * Sent to set the color grading highlights gamma value
-     */
+    /** 用于设置调色高光伽马值 */
     HighlightsGamma(27),
-    /**
-     * Sent to set the color grading highlights offset value
-     */
+    /** 用于设置调色高光偏移值 */
     HighlightsOffset(28),
-    /**
-     * Sent to set the color grading highlights saturation value
-     */
+    /** 用于设置调色高光饱和度值 */
     HighlightsSaturation(29),
-    /**
-     * Sent to set the color grading midtones gain value
-     */
+    /** 用于设置调色中间调增益值 */
     MidtonesGain(30),
-    /**
-     * Sent to set the color grading midtones gamma value
-     */
+    /** 用于设置调色中间调伽马值 */
     MidtonesGamma(31),
-    /**
-     * Sent to set the color grading midtones offset value
-     */
+    /** 用于设置调色中间调偏移值 */
     MidtonesOffset(32),
-    /**
-     * Sent to set the color grading midtones saturation value
-     */
+    /** 用于设置调色中间调饱和度值 */
     MidtonesSaturation(33),
-    /**
-     * Sent to set the color grading shadows gain value
-     */
+    /** 用于设置调色阴影增益值 */
     ShadowsGain(34),
-    /**
-     * Sent to set the color grading shadows gamma value
-     */
+    /** 用于设置调色阴影伽马值 */
     ShadowsGamma(35),
-    /**
-     * Sent to set the color grading shadows offset value
-     */
+    /** 用于设置调色阴影偏移值 */
     ShadowsOffset(36),
-    /**
-     * Sent to set the color grading shadows saturation value
-     */
+    /** 用于设置调色阴影饱和度值 */
     ShadowsSaturation(37),
-    /**
-     * Sent to set the color grading highlights min value
-     */
+    /** 用于设置调色高光最小值 */
     HighlightsMin(38),
-    /**
-     * Sent to set the color grading shadows max value
-     */
+    /** 用于设置调色阴影最大值 */
     ShadowsMax(39),
-    /**
-     * Sent to set the color grading temperature value
-     */
+    /** 用于设置调色色温值 */
     Temperature(40),
-    /**
-     * Sent to set the lighting sun color value
-     */
+    /** 用于设置光照太阳颜色值 */
     SunColor(41),
-    /**
-     * Sent to set the lighting sun illuminance value
-     */
+    /** 用于设置光照太阳照度值 */
     SunIlluminance(42),
-    /**
-     * Sent to set the lighting moon color value
-     */
+    /** 用于设置光照月亮颜色值 */
     MoonColor(43),
-    /**
-     * Sent to set the lighting moon illuminance value
-     */
+    /** 用于设置光照月亮照度值 */
     MoonIlluminance(44),
-    /**
-     * Sent to set the lighting flash color value
-     */
+    /** 用于设置光照闪电颜色值 */
     FlashColor(45),
-    /**
-     * Sent to set the lighting flash illuminance value
-     */
+    /** 用于设置光照闪电照度值 */
     FlashIlluminance(46),
-    /**
-     * Sent to set the lighting ambient color value
-     */
+    /** 用于设置光照环境颜色值 */
     AmbientColor(47),
-    /**
-     * Sent to set the lighting ambient illuminance value
-     */
+    /** 用于设置光照环境照度值 */
     AmbientIlluminance(48),
-    /**
-     * Sent to set the lighting emissive desaturation value
-     */
+    /** 用于设置光照自发光去饱和度值 */
     EmissiveDesaturation(49),
-    /**
-     * Sent to set the lighting sky intensity value
-     */
+    /** 用于设置光照天空强度值 */
     SkyIntensity(50),
-    /**
-     * Sent to set the lighting orbital offset degrees value
-     */
+    /** 用于设置光照轨道偏移角度值 */
     OrbitalOffsetDegrees(51),
     ;
 

@@ -59,7 +59,7 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
 
     @Override
     public String artifactFingerprint() {
-        return "3"; // Version 3 also exposes mapped Bedrock sounds as Java event aliases.
+        return "3"; // 版本 3 还会把已映射的基岩声音暴露为 Java 事件别名。
     }
 
     private Set<String> collectCustomSoundNames(final ResourcePackStorage resourcePackStorage, final Content javaContent) {
@@ -76,9 +76,9 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
                 continue;
             }
 
-            // Every playable Bedrock identifier gets a stable bedrock:<identifier> Java event.
-            // Custom OGGs stay files; definitions that reuse a vanilla Bedrock sample point at
-            // the existing mapped Java event with type=event instead of copying native FSB data.
+            // 每个可播放的基岩标识符都会得到一个稳定的 bedrock:<identifier> Java 事件。
+            // 自定义 OGG 仍作为文件保留；复用原版基岩采样点的定义则指向
+            // 已有的映射 Java 事件并用 type=event，而不是复制原生 FSB 数据。
             final JsonArray javaSoundEntries = new JsonArray();
             final BedrockMappingData.JavaSound directMapping =
                     soundMappings().get(soundName);
@@ -88,7 +88,7 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
                 final String bedrockOggPath = soundFile.path() + ".ogg";
                 final String javaOggPath = "assets/bedrock/sounds/" + soundFile.path() + ".ogg";
 
-                // Search through pack stack for the .ogg file
+                // 在资源包栈中搜索 .ogg 文件
                 boolean found = false;
                 for (ResourcePack pack : resourcePackStorage.getPackStackTopToBottom()) {
                     if (pack.content().contains(bedrockOggPath)) {
@@ -121,8 +121,8 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
                 }
             }
 
-            // A directly mapped Bedrock event is already responsible for its own variants. Add one
-            // event reference only when no custom OGG overrode the definition.
+            // 直接映射的基岩事件本身已负责自己的变体。仅当没有自定义 OGG 覆盖该定义时，
+            // 才添加一条事件引用。
             if (javaSoundEntries.isEmpty() && directMapping != null) {
                 if (javaContent != null) {
                     javaSoundEntries.add(javaSoundEntry(directMapping.identifier(), null, true));
@@ -143,9 +143,9 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
             }
         }
 
-        // Publish aliases for all authoritative Bedrock-to-Java mappings even when the downloaded
-        // stack omits vanilla sound_definitions.json. In-process consumers can therefore always
-        // address the same bedrock:<identifier> event names as resource-pack custom sounds.
+        // 即使下载的栈缺少原版 sound_definitions.json，也要为所有权威的基岩→Java 映射
+        // 发布别名。这样进程内消费者总能引用与资源包自定义声音相同的
+        // bedrock:<identifier> 事件名。
         soundMappings().forEach((bedrockName, javaSound) -> {
             if (javaContent != null && !javaSoundsJson.has(bedrockName)) {
                 final JsonArray aliases = new JsonArray();
@@ -197,9 +197,9 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
         final BedrockMappingData.JavaSound exact = mappedSoundFiles.get(path);
         if (exact != null) return exact;
 
-        // Vanilla definitions conventionally map sounds/foo/bar to the event foo.bar. This also
-        // covers references to native FSB samples when the vanilla definition is not in the
-        // downloaded pack stack (for example sounds/note/pling -> note.pling).
+        // 原版定义习惯上把 sounds/foo/bar 映射到事件 foo.bar。当原版定义不在
+        // 下载的资源包栈中时，这也能覆盖对原生 FSB 采样点的引用
+        // （例如 sounds/note/pling -> note.pling）。
         final String candidate = path.startsWith("sounds/") ? path.substring("sounds/".length()) : path;
         return soundMappings().get(candidate.replace('/', '.'));
     }
@@ -210,7 +210,7 @@ public class CustomSoundResourceRewriter implements ResourcePackRewriter.Rewrite
         return mappings != null ? mappings : Map.of();
     }
 
-    /** Computes stack-derived sound names while runtime construction still owns its temporary pack stack. */
+    /** 在运行时构建仍持有临时资源包栈时，计算由栈派生的声音名称。 */
     public static Set<String> findCustomSoundNames(final SoundDefinitions sounds,
                                                    final Collection<ResourcePack> packsTopToBottom) {
         final Set<String> customSoundNames = new HashSet<>();

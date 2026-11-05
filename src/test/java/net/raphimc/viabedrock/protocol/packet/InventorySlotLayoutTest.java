@@ -76,9 +76,9 @@ class InventorySlotLayoutTest {
         final ByteBuf buffer = Unpooled.buffer();
         try {
             InventorySlotLayout.writeRequiredContainerFields(buffer, 0, 36, EMPTY_CONTAINER, BedrockItem.empty(), item, LEGACY_ITEM_TYPE);
-            // Production NetEase still uses the legacy item codec, so a 974-style packet
-            // reader consumes the empty storage item as the slot item and leaves the real
-            // payload unread. Those leftover bytes are what 1.21.11 rejects as extra data.
+            // 线上网易仍使用旧版物品编解码器，所以 974 风格的包
+            // 读取器会把空的存储物品当成槽位物品消费掉，真正的
+            // 负载因此没有被读取。这些残留字节就是 1.21.11 视为多余数据而拒绝的内容。
             InventorySlotLayout.read(buffer, LEGACY_ITEM_TYPE, LEGACY_ITEM_TYPE, false, 975);
             assertTrue(buffer.isReadable(), "974/optional layout must not consume a NetEase 860 inventory slot");
         } finally {

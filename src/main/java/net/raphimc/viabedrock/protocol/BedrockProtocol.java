@@ -119,7 +119,7 @@ public class BedrockProtocol extends StatelessTransitionProtocol<ClientboundBedr
             ExperimentalFeatures.registerPacketTranslators(this);
         }
 
-        // Fallback for unhandled packets (Temporary)
+        // 未处理数据包的回退（临时）
         for (ClientboundBedrockPackets packet : this.unmappedClientboundPacketType.getEnumConstants()) {
             if (!this.hasRegisteredClientbound(packet)) {
                 this.cancelClientbound(packet);
@@ -198,7 +198,7 @@ public class BedrockProtocol extends StatelessTransitionProtocol<ClientboundBedr
 
     @Override
     public void transform(Direction direction, State state, PacketWrapper wrapper) throws InformativeException, CancelException {
-        if (state == State.STATUS) { // Status doesn't exist in the Bedrock protocol and is instead handled by the transport layer
+        if (state == State.STATUS) { // 基岩协议中不存在 Status，它由传输层处理
             super.transform(direction, state, wrapper);
             return;
         }
@@ -215,23 +215,23 @@ public class BedrockProtocol extends StatelessTransitionProtocol<ClientboundBedr
             if (inventoryBootstrapQueue != null && inventoryBootstrapQueue.deferIfNeeded(packet, wrapper, serverState)) {
                 throw CancelException.generate();
             }
-            if (shouldSynthesizeLoginSuccess(serverState, packet)) { // Bedrock client can skip the login state
+            if (shouldSynthesizeLoginSuccess(serverState, packet)) { // 基岩客户端可以跳过登录状态
                 ViaBedrock.getPlatform().getLogger().warning("Skipping LOGIN state");
                 final PacketWrapper playStatus = PacketWrapper.create(ClientboundBedrockPackets.PLAY_STATUS, wrapper.user());
-                playStatus.write(Types.INT, PlayStatus.LoginSuccess.getValue()); // status
+                playStatus.write(Types.INT, PlayStatus.LoginSuccess.getValue()); // 状态
                 playStatus.send(BedrockProtocol.class, false);
                 wrapper.user().getProtocolInfo().setServerState(State.CONFIGURATION);
                 serverState = State.CONFIGURATION;
             }
-            // PLAY_STATUS lives in the login whitelist, so the whitelist check below would let
-            // NetEase's early PlayerSpawn through to the CONFIGURATION handler, which cancels it
-            // without initializing the player -> the client never sends PLAYER_AUTH_INPUT and the
-            // backend times it out. Defer it here, ahead of the whitelist, so it replays in PLAY.
+            // PLAY_STATUS 位于登录白名单中，因此下面的白名单检查会让
+            // 网易提前发送的 PlayerSpawn 通过，进入 CONFIGURATION 处理器，而该处理器会取消它
+            // 却不初始化玩家 -> 客户端永远不发送 PLAYER_AUTH_INPUT，后端将其超时。
+            // 因此在这里于白名单之前拦截它，让它在 PLAY 阶段重放。
             if (serverState == State.CONFIGURATION && packet == ClientboundBedrockPackets.PLAY_STATUS
                     && PlayStateTransitionQueue.deferIfNeeded(wrapper.user(), packet, wrapper)) {
                 throw CancelException.generate();
             }
-            if (serverState != State.PLAY && !BEFORE_PLAY_STATE_WHITELIST.contains(packet)) { // Bedrock client ignores most packets before receiving the START_GAME packet
+            if (serverState != State.PLAY && !BEFORE_PLAY_STATE_WHITELIST.contains(packet)) { // 基岩客户端在收到 START_GAME 数据包之前会忽略大多数数据包
                 if (serverState == State.CONFIGURATION && PlayStateTransitionQueue.deferIfNeeded(wrapper.user(), packet, wrapper)) {
                     throw CancelException.generate();
                 }
@@ -256,9 +256,9 @@ public class BedrockProtocol extends StatelessTransitionProtocol<ClientboundBedr
         }
         try {
             super.transform(direction, state, wrapper);
-            // PacketWrapper copies unread Bedrock bytes onto the rewritten Java packet.
-            // Drop any leftover trailer after the layout-aware remap so 1.21.11 is not
-            // kicked with extra data. Official packets with no trailer are a no-op.
+            // PacketWrapper 会把未读取的基岩字节复制到重写后的 Java 数据包上。
+            // 在按布局重映射之后丢弃任何残余尾部，以免 1.21.11 因多余数据被
+            // 踢出。没有尾部的官方数据包是空操作。
             if (direction == Direction.CLIENTBOUND && !wrapper.isCancelled()) {
                 PacketLeftoverLayout.discardUnreadInput(wrapper);
             }
@@ -319,12 +319,12 @@ public class BedrockProtocol extends StatelessTransitionProtocol<ClientboundBedr
         }
     }
 
-    // Only used for experimental features
+    // 仅用于实验性功能
     public PacketMappings getClientboundMappings() {
         return this.clientboundMappings;
     }
 
-    // Only used for experimental features
+    // 仅用于实验性功能
     public PacketMappings getServerboundMappings() {
         return this.serverboundMappings;
     }

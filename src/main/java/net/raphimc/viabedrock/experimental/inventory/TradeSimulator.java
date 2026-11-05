@@ -38,9 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java merchant result clicks become MOT {@code CraftRecipe} with
- * {@code netId >= 0x20000000}, Consume of TRADE2 ingredient slots 0/1, then
- * Take from HUD created-output slot 50.
+ * Java 的商人结果点击会变成 MOT {@code CraftRecipe}（{@code netId >= 0x20000000}），
+ * 加上对 TRADE2 材料槽位 0/1 的 Consume，然后从 HUD created-output 槽位 50 Take。
  */
 public final class TradeSimulator {
 

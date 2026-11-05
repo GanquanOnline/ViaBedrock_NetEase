@@ -28,14 +28,14 @@ import net.raphimc.viabedrock.protocol.model.Position3f;
 
 public interface InventoryTransactionData {
 
-    // NormalTransactionData represents an inventory transaction data object for normal transactions, such as crafting. It has no content.
+    // NormalTransactionData 表示普通物品栏事务（例如合成）的事务数据对象，不含任何内容。
     record NormalTransactionData() implements InventoryTransactionData {}
 
-    // MismatchTransactionData represents a mismatched inventory transaction's data object.
+    // MismatchTransactionData 表示不匹配的物品栏事务的数据对象。
     record MismatchTransactionData() implements InventoryTransactionData {}
 
 
-    // UseItemTransactionData represents an inventory transaction data object sent when the client uses an item on a block.
+    // UseItemTransactionData 表示客户端对方块使用物品时发送的物品栏事务数据对象。
     record UseItemTransactionData(
             ItemUseInventoryTransaction_ActionType actionType,
             ItemUseInventoryTransaction_TriggerType triggerType,
@@ -50,7 +50,7 @@ public interface InventoryTransactionData {
             byte clientCooldownState
     ) implements InventoryTransactionData {}
 
-    // UseItemOnEntityTransactionData represents an inventory transaction data object sent when the client uses an item on an entity.
+    // UseItemOnEntityTransactionData 表示客户端对实体使用物品时发送的物品栏事务数据对象。
     record UseItemOnEntityTransactionData(
             long entityRuntimeId,
             ItemUseOnActorInventoryTransaction_ActionType actionType,
@@ -60,8 +60,8 @@ public interface InventoryTransactionData {
             Position3f clickPosition
     ) implements InventoryTransactionData {}
 
-    // ReleaseItemTransactionData represents an inventory transaction data object sent when the client releases the item it was using,
-    // for example when stopping while eating or stopping the charging of a bow.
+    // ReleaseItemTransactionData 表示客户端松开正在使用的物品时发送的物品栏事务数据对象，
+    // 例如进食中途停止或停止拉弓。
     record ReleaseItemTransactionData(
             ItemReleaseInventoryTransaction_ActionType actionType,
             int hotbarSlot,

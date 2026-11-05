@@ -117,7 +117,7 @@ public class ResourcePackLoadStateTracker extends StoredObject {
         return this.requests.get(key);
     }
 
-    /** Resolves the protocol's optional-version transfer name to one announced resource pack identity. */
+    /** 把协议中带可选版本的传输名解析成某个已通告的资源包身份。 */
     public ResolvedRequest resolveTransferRequest(final String transferName) {
         Objects.requireNonNull(transferName, "transferName");
         final int versionSeparator = transferName.indexOf('_');
@@ -291,8 +291,8 @@ public class ResourcePackLoadStateTracker extends StoredObject {
                 ViaBedrock.getPlatform().getLogger().log(Level.INFO, "Downloading " + downloadList.size() + " resource packs over the game protocol");
                 final PacketWrapper resourcePackClientResponse = PacketWrapper.create(
                         ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, tracker.user());
-                resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.Downloading.getValue()); // status
-                resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, downloadList.stream().map(ResourcePack.Key::toString).toArray(String[]::new)); // downloading packs
+                resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.Downloading.getValue()); // 状态
+                resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, downloadList.stream().map(ResourcePack.Key::toString).toArray(String[]::new)); // 正在下载的包
                 resourcePackClientResponse.scheduleSendToServer(BedrockProtocol.class);
             } else {
                 sessionLoadFuture.complete(null);
@@ -369,7 +369,7 @@ public class ResourcePackLoadStateTracker extends StoredObject {
     }
 
     boolean mayUseBundledResourcePack(final ResourcePack.Key key, final boolean sharedCache) {
-        // A stack-only built-in is local input; an INFO declaration with the same key is untrusted input.
+        // 仅来自资源包栈的内置项是本地输入；带相同键的 INFO 声明是不可信输入。
         return !sharedCache || !this.requests.containsKey(key);
     }
 
@@ -644,7 +644,7 @@ public class ResourcePackLoadStateTracker extends StoredObject {
         }
     }
 
-    /** Claims the single cancellation task, including a lookup which completes after the claim. */
+    /** 认领唯一的取消任务，包括在认领之后才完成的查询。 */
     public synchronized CompletableFuture<RemotePackServiceClient.Lookup> claimRemotePackCancellationFuture() {
         if (this.remoteDeliveryPhase == RemoteDeliveryPhase.NOT_APPLICABLE
                 || this.remoteDeliveryPhase == RemoteDeliveryPhase.UNDECIDED

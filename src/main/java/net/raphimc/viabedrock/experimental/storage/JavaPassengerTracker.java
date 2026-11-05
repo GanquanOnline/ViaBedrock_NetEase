@@ -61,8 +61,8 @@ public class JavaPassengerTracker extends StoredObject {
         }
 
         final PacketWrapper setPassengers = PacketWrapper.create(ClientboundPackets26_1.SET_PASSENGERS, this.user());
-        setPassengers.write(Types.VAR_INT, vehicleJavaId); // vehicle entity id
-        setPassengers.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[0]); // passenger entity ids
+        setPassengers.write(Types.VAR_INT, vehicleJavaId); // 载具实体 ID
+        setPassengers.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[0]); // 乘客实体 ID
         setPassengers.send(BedrockProtocol.class);
     }
 
@@ -119,8 +119,8 @@ public class JavaPassengerTracker extends StoredObject {
         }
 
         final PacketWrapper setPassengers = PacketWrapper.create(ClientboundPackets26_1.SET_PASSENGERS, this.user());
-        setPassengers.write(Types.VAR_INT, vehicleJavaId); // vehicle entity id
-        setPassengers.write(Types.VAR_INT_ARRAY_PRIMITIVE, passengers.toIntArray()); // passenger entity ids
+        setPassengers.write(Types.VAR_INT, vehicleJavaId); // 载具实体 ID
+        setPassengers.write(Types.VAR_INT_ARRAY_PRIMITIVE, passengers.toIntArray()); // 乘客实体 ID
         setPassengers.send(BedrockProtocol.class);
     }
 

@@ -324,8 +324,8 @@ public final class SpectatorMenuProjection extends StoredObject {
         final Set<UUID> unique = new LinkedHashSet<>();
         final UUID ownUuid = this.profileSource.ownUuid();
         for (UUID uuid : uuids) {
-            // LocalPlayer caches its PlayerInfo object. Removing and re-adding the
-            // local profile leaves that cache pointing at a stale game mode.
+            // LocalPlayer 会缓存它的 PlayerInfo 对象。移除并重新添加
+            // 本地档案会让该缓存指向过期的游戏模式。
             if (uuid.equals(ownUuid)) continue;
             unique.add(uuid);
         }

@@ -32,9 +32,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * MOT {@code UpdateTradePacket.offers} is a network little-endian compound whose
- * {@code Recipes} list is built by {@code RecipeBuildUtils}. Java 1.21.11
- * {@code MERCHANT_OFFERS} then needs ItemCost/result plus the 1.14.3 trailer.
+ * MOT {@code UpdateTradePacket.offers} 是网络小端复合标签，其
+ * {@code Recipes} 列表由 {@code RecipeBuildUtils} 构建。Java 1.21.11 的
+ * {@code MERCHANT_OFFERS} 还需要 ItemCost / 结果以及 1.14.3 尾部。
  */
 public final class TradeOfferLayout {
 

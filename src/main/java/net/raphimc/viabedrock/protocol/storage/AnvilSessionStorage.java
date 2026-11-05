@@ -22,9 +22,9 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import net.raphimc.viabedrock.protocol.packet.FilterTextLayout;
 
 /**
- * Last Java anvil rename string for the currently open anvil.
- * MOT applies the name from {@code ItemStackRequest.filterStrings} when the
- * player takes the result, not from FILTER_TEXT itself.
+ * 当前打开的铁砧最近一次 Java 铁砧重命名字符串。
+ * MOT 在玩家取走结果时从 {@code ItemStackRequest.filterStrings} 应用名称，
+ * 而不是从 FILTER_TEXT 本身。
  */
 public final class AnvilSessionStorage extends StoredObject {
 

@@ -64,15 +64,15 @@ public class CommandDataArrayType extends Type<CommandData[]> {
     }
 
     public static CommandData[] readClassic(ByteBuf buffer, final boolean netEaseLegacy) {
-        final String[] enumLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // enum literals
-        final String[] subCommandLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // sub command literals
-        final String[] postFixLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // post fix literals
+        final String[] enumLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 枚举字面量
+        final String[] subCommandLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 子命令字面量
+        final String[] postFixLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 后缀字面量
 
         final CommandData.EnumData[] enumPalette = new CommandData.EnumData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
         final Map<String, CommandData.EnumData> enumPaletteMap = new HashMap<>(enumPalette.length);
         for (int i = 0; i < enumPalette.length; i++) {
-            final String name = BedrockTypes.STRING.read(buffer); // name
-            final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // values count
+            final String name = BedrockTypes.STRING.read(buffer); // 名称
+            final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 值数量
             final Set<String> values = new HashSet<>(Math.max(16, Math.min(count, 1024)));
             for (int j = 0; j < count; j++) {
                 final int index = CommandPacketLayout.readEnumValueIndex(buffer, enumLiterals.length, !netEaseLegacy);
@@ -96,12 +96,12 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         final CommandData.SubCommandData[] subCommands = new CommandData.SubCommandData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
         final Map<String, CommandData.SubCommandData> subCommandMap = new HashMap<>(subCommands.length);
         for (int i = 0; i < subCommands.length; i++) {
-            final String name = BedrockTypes.STRING.read(buffer); // name
-            final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // values count
+            final String name = BedrockTypes.STRING.read(buffer); // 名称
+            final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 值数量
             final Map<String, Integer> values = new HashMap<>(Math.max(16, Math.min(count, 1024)));
             for (int j = 0; j < count; j++) {
-                final int index = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // value
-                final int type = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // type
+                final int index = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // 值
+                final int type = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // 类型
                 if (index >= 0 && index < subCommandLiterals.length) {
                     values.put(subCommandLiterals[index], type);
                 }
@@ -121,11 +121,11 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         final CommandData[] commands = new CommandData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
         final Map<String, CommandData> commandMap = new HashMap<>(commands.length);
         for (int i = 0; i < commands.length; i++) {
-            final String name = BedrockTypes.STRING.read(buffer); // name
-            final String description = BedrockTypes.STRING.read(buffer); // description
-            final int flags = buffer.readUnsignedShortLE(); // flags
-            final byte permission = (byte) CommandPacketLayout.readPermission(buffer, !netEaseLegacy).getValue(); // permission
-            final int aliasIndex = buffer.readIntLE(); // alias
+            final String name = BedrockTypes.STRING.read(buffer); // 名称
+            final String description = BedrockTypes.STRING.read(buffer); // 描述
+            final int flags = buffer.readUnsignedShortLE(); // 标志
+            final byte permission = (byte) CommandPacketLayout.readPermission(buffer, !netEaseLegacy).getValue(); // 权限
+            final int aliasIndex = buffer.readIntLE(); // 别名
             final boolean validAliasPointer = aliasIndex >= 0 && aliasIndex < enumPalette.length;
             final CommandData.EnumData alias;
             if (validAliasPointer) {
@@ -136,7 +136,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
 
             final int subCommandCount = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
             for (int j = 0; j < subCommandCount; j++) {
-                CommandPacketLayout.readSubCommandOffset(buffer, !netEaseLegacy); // subcommand index
+                CommandPacketLayout.readSubCommandOffset(buffer, !netEaseLegacy); // 子命令索引
             }
 
             final CommandData.OverloadData[] overloads = new CommandData.OverloadData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
@@ -144,10 +144,10 @@ public class CommandDataArrayType extends Type<CommandData[]> {
                 final boolean chaining = buffer.readBoolean();
                 final CommandData.OverloadData.ParamData[] params = new CommandData.OverloadData.ParamData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
                 for (int k = 0; k < params.length; k++) {
-                    final String paramName = BedrockTypes.STRING.read(buffer); // name
-                    final int param = buffer.readIntLE(); // param
-                    final boolean optional = buffer.readBoolean(); // optional
-                    final short paramFlags = buffer.readUnsignedByte(); // flags
+                    final String paramName = BedrockTypes.STRING.read(buffer); // 名称
+                    final int param = buffer.readIntLE(); // 参数
+                    final boolean optional = buffer.readBoolean(); // 可选
+                    final short paramFlags = buffer.readUnsignedByte(); // 标志
                     CommandRegistry_HardNonTerminal type = null;
                     CommandData.EnumData enumData = null;
                     CommandData.SubCommandData subCommandData = null;
@@ -199,8 +199,8 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         final CommandData.EnumData[] softEnumPalette = new CommandData.EnumData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
         final Map<String, CommandData.EnumData> softEnumPaletteMap = new HashMap<>(softEnumPalette.length);
         for (int i = 0; i < softEnumPalette.length; i++) {
-            final String name = BedrockTypes.STRING.read(buffer); // name
-            final Set<String> values = Sets.newHashSet(BedrockTypes.STRING_ARRAY.read(buffer)); // values
+            final String name = BedrockTypes.STRING.read(buffer); // 名称
+            final Set<String> values = Sets.newHashSet(BedrockTypes.STRING_ARRAY.read(buffer)); // 值
 
             final CommandData.EnumData enumData;
             if (softEnumPaletteMap.containsKey(name)) {
@@ -217,20 +217,20 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         if (!buffer.isReadable()) {
             return commands;
         }
-        final int enumFlagsCount = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // enum flags count
+        final int enumFlagsCount = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 枚举标志数量
         if (netEaseLegacy) {
-            // MOT always writes count 0 and never emits constraint records. Live NetEase
-            // 860 still appends 3 leftover bytes after that empty count. Those bytes are
-            // not a full official {int32, int32, byte[]} record; reading them as one is
-            // the historical 55592-of-55595 IndexOutOfBoundsException that dropped the
-            // command tree. Skip the trailer instead of inventing a 3-byte field.
+            // MOT 总是写入 count 0，且从不发出约束记录。线上网易
+            // 860 在该空 count 之后仍会追加 3 个残留字节。这些字节
+            // 不是完整的官方 {int32, int32, byte[]} 记录；把它当作一条记录读取
+            // 就是历史上导致命令树被丢弃的 55592-of-55595 IndexOutOfBoundsException。
+            // 跳过这段尾部数据，而不是凭空造一个 3 字节字段。
             CommandPacketLayout.skipNetEaseEnumConstraintTrailer(buffer);
             return commands;
         }
         for (int i = 0; i < enumFlagsCount; i++) {
-            final int valueIndex = buffer.readIntLE(); // value index
-            final int enumIndex = buffer.readIntLE(); // enum index
-            final byte[] constraints = BedrockTypes.BYTE_ARRAY.read(buffer); // constraints
+            final int valueIndex = buffer.readIntLE(); // 值索引
+            final int enumIndex = buffer.readIntLE(); // 枚举索引
+            final byte[] constraints = BedrockTypes.BYTE_ARRAY.read(buffer); // 约束
             if (valueIndex < 0 || valueIndex >= enumLiterals.length || enumIndex < 0 || enumIndex >= enumPalette.length) {
                 continue;
             }

@@ -22,12 +22,12 @@ class EntityPropertiesTypeTest {
     void readsIndexedIntegerAndFloatValuesFromMotWireLayout() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            writeUnsignedVarInt(buffer, 2); // integer property count
+            writeUnsignedVarInt(buffer, 2); // 整数属性数量
             writeUnsignedVarInt(buffer, 0);
             writeSignedVarInt(buffer, 17);
             writeUnsignedVarInt(buffer, 3);
             writeSignedVarInt(buffer, -4);
-            writeUnsignedVarInt(buffer, 1); // float property count
+            writeUnsignedVarInt(buffer, 1); // 浮点属性数量
             writeUnsignedVarInt(buffer, 2);
             buffer.writeFloatLE(1.25F);
 

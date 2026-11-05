@@ -82,8 +82,8 @@ class ClientAuthInventoryModuleTest {
 
     @Test
     void javaHotbarDropNeedsOpenThenCloseHandshake() {
-        // Interact.OpenInventory is still required for MOT SAI Drop/Swap, then
-        // closeTransientBedrockPlayerInventory must run so inventoryOpen does not stick.
+        // Interact.OpenInventory 仍是 MOT SAI 丢弃/交换所必需的，之后
+        // 必须运行 closeTransientBedrockPlayerInventory，这样 inventoryOpen 才不会卡住。
         assertTrue(ClientAuthInventoryModule.needsBedrockPlayerInventoryOpen(
                 ContainerID.CONTAINER_ID_INVENTORY.getValue(), false));
         assertFalse(ClientAuthInventoryModule.needsBedrockPlayerInventoryOpen(

@@ -35,11 +35,10 @@ import java.util.*;
 import java.util.logging.Level;
 
 /**
- * Async light computation engine implementing ChunkLightProvider.
- * Manages all light-related state and computation that was previously in ChunkTracker.
+ * 实现 ChunkLightProvider 的异步光照计算引擎。
+ * 管理此前位于 ChunkTracker 中的全部光照相关状态与计算。
  * <p>
- * Light is computed asynchronously using GlobalLightCache's thread pool,
- * with results delivered back to the Netty event loop for safe packet sending.
+ * 光照通过 GlobalLightCache 的线程池异步计算，结果回送到 Netty 事件循环，以便安全地发送数据包。
  */
 public class AsyncLightEngine implements ChunkLightProvider {
 
@@ -70,13 +69,13 @@ public class AsyncLightEngine implements ChunkLightProvider {
         final int lightSectionCount = chunk.getSections().length + 2;
         final long chunkKey = ChunkPosition.chunkKey(chunkX, chunkZ);
 
-        // Strip disallowed custom data before taking the immutable light snapshot.
+        // 在生成不可变光照快照之前剥离不允许的自定义数据。
         if (!tracker.stripCustomBlockData(chunk)) {
             return true;
         }
 
-        // Sending the chunk runs it through ViaVersion, which mutates palette ids in-place.
-        // Keep an immutable-to-us snapshot with ViaBedrock/source ids for async light calculations.
+        // 发送区块会让它经过 ViaVersion，而后者会就地修改调色板 id。
+        // 保留一份对我们不可变、带 ViaBedrock/源 id 的快照，用于异步光照计算。
         final SectionSnapshot sectionSnapshot = copySectionsForLight(chunk.getSections());
 
         final ChunkLightState state = this.chunkStates.computeIfAbsent(chunkKey, key -> new ChunkLightState());
@@ -367,24 +366,24 @@ public class AsyncLightEngine implements ChunkLightProvider {
         }
     }
 
-    // --- Light computation methods ---
+    // --- 光照计算方法 ---
 
-    // neighborSections: [0]=-X, [1]=+X, [2]=-Z, [3]=+Z; elements may be null
-    // neighborRealSkyLight: completed real sky light from already-sent neighbors; elements may be null
+    // neighborSections：[0]=-X，[1]=+X，[2]=-Z，[3]=+Z；元素可能为 null
+    // neighborRealSkyLight：来自已发送邻居的完整真实天空光；元素可能为 null
     private static byte[][] computeSkyLight(final ChunkSection[] sections, final ChunkSection[][] neighborSections, final byte[][][] neighborRealSkyLight, final CustomMappingAccess mappings) {
         final int sectionCount = sections.length;
         final int lightSectionCount = sectionCount + 2;
 
-        // lightData[0] = below bottom section, lightData[1..sectionCount] = actual sections, lightData[sectionCount+1] = above top
+        // lightData[0] = 最底层段之下，lightData[1..sectionCount] = 实际区段，lightData[sectionCount+1] = 最顶层段之上
         final byte[][] lightData = new byte[lightSectionCount][];
         for (int i = 0; i < lightSectionCount; i++) {
             lightData[i] = new byte[ChunkSectionLight.LIGHT_LENGTH];
         }
 
-        // Above-top section: all 15
+        // 顶层之上的区段：全部为 15
         Arrays.fill(lightData[sectionCount + 1], (byte) 0xFF);
 
-        // Phase 1: Column-based sky light initialization (top to bottom)
+        // 阶段 1：基于列的天空光初始化（自上而下）
         final int[][] skyLevel = new int[16][16];
         for (int[] row : skyLevel) Arrays.fill(row, 15);
 
@@ -428,7 +427,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
             }
         }
 
-        // Below-bottom section: continue from skyLevel
+        // 底层之下的区段：从 skyLevel 继续
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 final int level = skyLevel[x][z];
@@ -440,13 +439,13 @@ public class AsyncLightEngine implements ChunkLightProvider {
             }
         }
 
-        // Phase 2: BFS horizontal propagation
+        // 阶段 2：BFS 水平传播
         final IntQueue queue = new IntQueue();
 
-        // Inject neighbor cached sky light at borders
+        // 在边界注入邻居缓存的天空光
         injectNeighborLight(lightData, sections, neighborRealSkyLight, queue, mappings);
 
-        // Seed the queue from internal positions
+        // 用内部位置作为队列种子
         for (int sIdx = 0; sIdx < sectionCount; sIdx++) {
             final byte[] sectionLight = lightData[sIdx + 1];
             for (int y = 0; y < 16; y++) {
@@ -463,7 +462,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
             }
         }
 
-        // BFS propagation
+        // BFS 传播
         spreadLight(lightData, sections, neighborSections, queue, mappings);
 
         return lightData;
@@ -483,18 +482,18 @@ public class AsyncLightEngine implements ChunkLightProvider {
     }
 
     /**
-     * Inject completed real neighbor light values at chunk borders as BFS seeds.
-     * neighborRealLight: [0]=-X, [1]=+X, [2]=-Z, [3]=+Z; elements may be null.
-     * Each element is byte[][] with the same lightSectionCount layout as lightData.
+     * 把已完成的真实邻居光照值注入区块边界，作为 BFS 种子。
+     * neighborRealLight：[0]=-X，[1]=+X，[2]=-Z，[3]=+Z；元素可能为 null。
+     * 每个元素是 byte[][]，其光照区段数量布局与 lightData 相同。
      */
     private static void injectNeighborLight(final byte[][] lightData, final ChunkSection[] sections,
             final byte[][][] neighborRealLight, final IntQueue queue, final CustomMappingAccess mappings) {
         if (neighborRealLight == null) return;
         final int sectionCount = sections.length;
 
-        // Direction definitions: [neighborIdx, neighborBorderCoord, targetBorderCoord, isXAxis]
-        // -X: neighbor's x=15 → our x=0;  +X: neighbor's x=0 → our x=15
-        // -Z: neighbor's z=15 → our z=0;  +Z: neighbor's z=0 → our z=15
+        // 方向定义：[neighborIdx, neighborBorderCoord, targetBorderCoord, isXAxis]
+        // -X：邻居的 x=15 → 我们的 x=0；  +X：邻居的 x=0 → 我们的 x=15
+        // -Z：邻居的 z=15 → 我们的 z=0；  +Z：邻居的 z=0 → 我们的 z=15
         final int[][] directions = {
             {0, 15, 0, 1},   // -X
             {1, 0, 15, 1},   // +X
@@ -511,7 +510,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
             if (neighborRealLight[neighborIdx] == null) continue;
 
             for (int sIdx = 0; sIdx < sectionCount; sIdx++) {
-                final byte[] neighborLight = neighborRealLight[neighborIdx][sIdx + 1]; // +1 for below-bottom offset
+                final byte[] neighborLight = neighborRealLight[neighborIdx][sIdx + 1]; // +1 用于底层之下的偏移
                 if (neighborLight == null) continue;
 
                 final DataPalette currentPalette = sections[sIdx].palette(PaletteType.BLOCKS);
@@ -546,9 +545,8 @@ public class AsyncLightEngine implements ChunkLightProvider {
     }
 
     /**
-     * BFS light propagation shared by both sky light and block light.
-     * Spreads light within the current chunk. When hitting chunk borders,
-     * reads neighbor filterLight to correctly attenuate but does NOT write to neighbor light data.
+     * 天空光与方块光共用的 BFS 光照传播。在当前区块内扩散光照。
+     * 碰到区块边界时读取邻居的 filterLight 以正确衰减，但不写入邻居的光照数据。
      */
     private static void spreadLight(final byte[][] lightData, final ChunkSection[] sections,
             final ChunkSection[][] neighborSections, final IntQueue queue, final CustomMappingAccess mappings) {
@@ -569,7 +567,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
                 int nz = z + dir[2];
                 int nSIdx = sIdx;
 
-                // Handle vertical section boundary
+                // 处理垂直区段边界
                 if (ny < 0) {
                     nSIdx--;
                     ny = 15;
@@ -580,10 +578,10 @@ public class AsyncLightEngine implements ChunkLightProvider {
 
                 if (nSIdx < 0 || nSIdx >= sectionCount) continue;
 
-                // Handle horizontal chunk boundary
+                // 处理水平区块边界
                 if (nx < 0 || nx > 15 || nz < 0 || nz > 15) {
-                    // Light exits the chunk — don't write, but this is fine.
-                    // Neighbor updates will be handled by updateNeighborLight().
+                    // 光照离开该区块 — 不写入，但这是正常的。
+                    // 邻居更新将由 updateNeighborLight() 处理。
                     continue;
                 }
 
@@ -605,16 +603,16 @@ public class AsyncLightEngine implements ChunkLightProvider {
         }
     }
 
-    // neighborSections: [0]=-X, [1]=+X, [2]=-Z, [3]=+Z; elements may be null
-    // neighborRealBlockLight: completed real block light from already-sent neighbors; elements may be null
+    // neighborSections：[0]=-X，[1]=+X，[2]=-Z，[3]=+Z；元素可能为 null
+    // neighborRealBlockLight：来自已发送邻居的完整真实方块光；元素可能为 null
     private static byte[][] computeBlockLight(final ChunkSection[] sections, final ChunkSection[][] neighborSections, final byte[][][] neighborRealBlockLight, final CustomMappingAccess mappings) {
         final int sectionCount = sections.length;
         final int lightSectionCount = sectionCount + 2;
 
-        // null means empty (no block light); only allocate sections that have light sources
+        // null 表示空（无方块光）；只为存在光源的区段分配空间
         final byte[][] lightData = new byte[lightSectionCount][];
 
-        // Phase 1: Find all light-emitting blocks in this chunk
+        // 阶段 1：找出本区块内所有发光方块
         final IntQueue queue = new IntQueue();
 
         for (int sIdx = 0; sIdx < sectionCount; sIdx++) {
@@ -646,20 +644,20 @@ public class AsyncLightEngine implements ChunkLightProvider {
             }
         }
 
-        // Inject neighbor cached block light at borders
+        // 在边界注入邻居缓存的方块光
         injectNeighborLight(lightData, sections, neighborRealBlockLight, queue, mappings);
 
         if (queue.isEmpty()) {
             return lightData;
         }
 
-        // Phase 2: BFS propagation (shared with sky light)
+        // 阶段 2：BFS 传播（与天空光共用）
         spreadLight(lightData, sections, neighborSections, queue, mappings);
 
         return lightData;
     }
 
-    // --- Neighbor light management ---
+    // --- 邻居光照管理 ---
 
     private ChunkSection[][] collectNeighborSections(final int chunkX, final int chunkZ) {
         final ChunkSection[][] neighborSections = new ChunkSection[4][];
@@ -728,10 +726,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
         return result;
     }
 
-    /**
-     * Mark already-sent neighbors as needing a light update. The actual re-computation
-     * is deferred to tick() where updates are de-duplicated and batched.
-     */
+    /** 把已发送的邻居标记为需要光照更新。实际的重新计算推迟到 tick()，在那里会去重并批量处理更新。 */
     private void markNeighborLightDirty(final int chunkX, final int chunkZ) {
         for (int i = 0; i < 4; i++) {
             final int nx = chunkX + NEIGHBOR_OFFSETS[i][0];
@@ -745,9 +740,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
         }
     }
 
-    /**
-     * Re-compute light for a single already-sent neighbor chunk and send LIGHT_UPDATE if changed.
-     */
+    /** 重新计算单个已发送邻居区块的光照，若发生变化则发送 LIGHT_UPDATE。 */
     private void updateSingleNeighborLight(final long neighborKey) {
         final ChunkLightState state = this.chunkStates.get(neighborKey);
         if (state == null || !state.sentToClient || state.sections == null) return;
@@ -756,11 +749,9 @@ public class AsyncLightEngine implements ChunkLightProvider {
         this.scheduleLightComputation(pos.chunkX(), pos.chunkZ(), neighborKey, state);
     }
 
-    // --- Packet sending ---
+    // --- 数据包发送 ---
 
-    /**
-     * Send a LIGHT_UPDATE packet to update a chunk's light without resending block data.
-     */
+    /** 发送 LIGHT_UPDATE 数据包以更新某个区块的光照，而不重发方块数据。 */
     private void sendLightUpdate(final int chunkX, final int chunkZ, final byte[][] skyLight, final byte[][] blockLight) {
         if (!this.allowsProxyComputation()) {
             return;
@@ -788,19 +779,19 @@ public class AsyncLightEngine implements ChunkLightProvider {
         }
 
         final PacketWrapper lightUpdate = PacketWrapper.create(ClientboundPackets26_1.LIGHT_UPDATE, this.user);
-        lightUpdate.write(Types.VAR_INT, chunkX); // chunk x
-        lightUpdate.write(Types.VAR_INT, chunkZ); // chunk z
-        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, skyLightMask.toLongArray()); // sky light mask
-        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, blockLightMask.toLongArray()); // block light mask
-        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, emptySkyLightMask.toLongArray()); // empty sky light mask
-        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, emptyBlockLightMask.toLongArray()); // empty block light mask
-        lightUpdate.write(Types.VAR_INT, skyLightArrays.size()); // sky light length
+        lightUpdate.write(Types.VAR_INT, chunkX); // 区块 x
+        lightUpdate.write(Types.VAR_INT, chunkZ); // 区块 Z
+        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, skyLightMask.toLongArray()); // 天空光照掩码
+        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, blockLightMask.toLongArray()); // 方块光照掩码
+        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, emptySkyLightMask.toLongArray()); // 空天空光照掩码
+        lightUpdate.write(Types.LONG_ARRAY_PRIMITIVE, emptyBlockLightMask.toLongArray()); // 空方块光照掩码
+        lightUpdate.write(Types.VAR_INT, skyLightArrays.size()); // 天空光照长度
         for (byte[] array : skyLightArrays) {
-            lightUpdate.write(Types.BYTE_ARRAY_PRIMITIVE, array); // sky light
+            lightUpdate.write(Types.BYTE_ARRAY_PRIMITIVE, array); // 天空光照
         }
-        lightUpdate.write(Types.VAR_INT, blockLightArrays.size()); // block light length
+        lightUpdate.write(Types.VAR_INT, blockLightArrays.size()); // 方块光照长度
         for (byte[] array : blockLightArrays) {
-            lightUpdate.write(Types.BYTE_ARRAY_PRIMITIVE, array); // block light
+            lightUpdate.write(Types.BYTE_ARRAY_PRIMITIVE, array); // 方块光照
         }
         lightUpdate.send(BedrockProtocol.class);
     }
@@ -829,7 +820,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
                 || (storage.allowsProxyComputation() && storage.modeGeneration() == clientLightGeneration));
     }
 
-    // --- Utility methods ---
+    // --- 工具方法 ---
 
     private static int encodeLightPos(final int sectionIdx, final int x, final int y, final int z) {
         return (sectionIdx << 12) | (z << 8) | (y << 4) | x;
@@ -867,7 +858,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
         return false;
     }
 
-    // --- Hash functions for light cache ---
+    // --- 光照缓存的哈希函数 ---
 
     private static long computeLightCacheKey(
             final long customMappingLightProfileKey,

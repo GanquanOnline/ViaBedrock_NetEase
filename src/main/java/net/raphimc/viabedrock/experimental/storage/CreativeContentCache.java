@@ -33,10 +33,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Caches Bedrock CREATIVE_CONTENT so Java creative-tab clicks can be turned into
- * Nukkit 860 SAI CraftCreative requests. Lookup is by the Java item produced from
- * each Bedrock creative entry, because ViaBedrock still cannot translate arbitrary
- * Java items back to Bedrock.
+ * 缓存基岩的 CREATIVE_CONTENT，使 Java 创造模式标签页的点击可以转换成
+ * Nukkit 860 的 SAI CraftCreative 请求。查找键是由每个基岩创造条目
+ * 生成的 Java 物品，因为 ViaBedrock 仍无法把任意的 Java 物品反向转换成基岩物品。
  */
 public class CreativeContentCache extends StoredObject {
 
@@ -70,9 +69,9 @@ public class CreativeContentCache extends StoredObject {
             if (!entry.item().isDifferent(item)) {
                 return entry.netId();
             }
-            // MOT CraftCreative looks up by creative netId, not NBT. Java creative
-            // clicks often reverse-map without matching blockRuntimeId/tag, so id+data
-            // is enough to spawn the same creative entry.
+            // MOT 的 CraftCreative 按创造模式 netId 查找，而不是按 NBT。Java 的创造模式
+            // 点击反向映射后常常匹配不上 blockRuntimeId/tag，所以用 id+data
+            // 就足以生成同一个创造条目。
             if (fallback == null && sameCreativeIdentity(entry.item(), item)) {
                 fallback = entry.netId();
             }
@@ -105,8 +104,8 @@ public class CreativeContentCache extends StoredObject {
         if (itemRewriter == null || javaItem == null || javaItem.isEmpty()) {
             return null;
         }
-        // JE creative clicks never carry viabedrock:bedrock_item shadow. Prefer restoring the
-        // Bedrock identity first so potion/meta variants do not collapse to the first same id.
+        // JE 的创造模式点击从不携带 viabedrock:bedrock_item 影子数据。优先还原
+        // 基岩身份，以免药水/元数据变体都塌缩成同一 id 的第一个条目。
         final BedrockItem restored = itemRewriter.bedrockItem(javaItem);
         if (restored != null && !restored.isEmpty()) {
             final Integer exact = this.findExactNetId(restored);
@@ -135,10 +134,10 @@ public class CreativeContentCache extends StoredObject {
     }
 
     /**
-     * Compare JE creative clicks against mapped creative entries while ignoring the private
-     * {@code viabedrock:bedrock_item} shadow. StructuredDataContainer has no equals(), so the
-     * previous container.equals() path never matched and every spawn fell through to fallback /
-     * unsupported.
+     * 把 JE 的创造模式点击与已映射的创造条目比较，同时忽略私有的
+     * {@code viabedrock:bedrock_item} 影子数据。StructuredDataContainer 没有 equals()，
+     * 因此原先的 container.equals() 路径从不匹配，每次生成都落到回退 /
+     * 不支持分支。
      */
     static boolean sameEffectiveComponents(final Item left, final Item right) {
         final StructuredDataContainer leftData = safeDataContainer(left);

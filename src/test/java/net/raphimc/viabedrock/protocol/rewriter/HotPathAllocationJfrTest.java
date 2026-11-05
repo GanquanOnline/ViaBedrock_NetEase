@@ -43,9 +43,7 @@ import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Opt-in runtime allocation gate. Run with {@code VIABEDROCK_JFR_ALLOCATIONS=true} on JDK 21.
- */
+/** 可选的运行时分配门禁。在 JDK 21 上用 {@code VIABEDROCK_JFR_ALLOCATIONS=true} 运行。 */
 @Tag("performance")
 @EnabledIfEnvironmentVariable(named = "VIABEDROCK_JFR_ALLOCATIONS", matches = "(?i)true")
 class HotPathAllocationJfrTest {

@@ -30,10 +30,10 @@ import net.raphimc.viabedrock.protocol.rewriter.blockentity.ChestPairing;
 import java.util.Map;
 
 /**
- * Chests (including trapped and copper) store double-chest pairing only in Bedrock NBT ({@code pairx}/{@code pairz}).
- * Java needs that as the {@code type} block-state property, but the static mapping always emits {@code type=single}
- * and {@link net.raphimc.viabedrock.protocol.storage.ChunkTracker#getJavaBlockState} is palette-only. Each chest is
- * recomputed from its own block entity so {@code UPDATE_BLOCK} cannot wipe a previously baked {@code left}/{@code right}.
+ * 箱子（含陷阱箱和铜箱）只在基岩 NBT（{@code pairx}/{@code pairz}）中保存双箱配对。
+ * Java 需要把它作为 {@code type} 方块状态属性，但静态映射总是输出 {@code type=single}，
+ * 而 {@link net.raphimc.viabedrock.protocol.storage.ChunkTracker#getJavaBlockState} 只查调色板。每个箱子都
+ * 从自己的方块实体重新计算，这样 {@code UPDATE_BLOCK} 就无法抹掉先前烘焙的 {@code left}/{@code right}。
  */
 public final class ChestPairingRule implements NeighborAwareBlockRule {
 

@@ -21,17 +21,17 @@ package net.raphimc.viabedrock.protocol.packet;
 import net.raphimc.viabedrock.ViaBedrock;
 
 /**
- * Wire-layout helpers for Bedrock {@code BlockVector3}.
+ * 基岩 {@code BlockVector3} 的线格式布局辅助。
  * <p>
- * Official Bedrock / Nukkit-MOT protocol 944+ ({@code V1_26_10}) encode Y as a
- * zigzag varint. NetEase 860 still uses the pre-944 layout:
- * {@code zigzag X, unsigned-varint Y, zigzag Z}. Writing three zigzag varints
- * into USE_ITEM / CONTAINER_OPEN on 860 turns Y=64 into Y=32, so chests and
- * right-click block use land on air.
+ * 官方基岩 / Nukkit-MOT 协议 944+（{@code V1_26_10}）把 Y 编码为
+ * zigzag varint。网易 860 仍使用 944 之前的布局：
+ * {@code zigzag X, unsigned-varint Y, zigzag Z}。把三个 zigzag varint 写进
+ * 860 的 USE_ITEM / CONTAINER_OPEN 会把 Y=64 变成 Y=32，于是箱子和
+ * 右键使用方块会落在空气上。
  * <p>
- * Nukkit {@code getSignedBlockPosition()} / entity metadata POS always stay on
- * three zigzag varints on both 860 and official 975. Those packets must keep
- * using {@code SIGNED_BLOCK_POSITION}.
+ * Nukkit {@code getSignedBlockPosition()} / 实体元数据 POS 在 860 和官方 975 上
+ * 始终是三个 zigzag varint。这些包必须继续
+ * 使用 {@code SIGNED_BLOCK_POSITION}。
  */
 public final class BlockPositionLayout {
 

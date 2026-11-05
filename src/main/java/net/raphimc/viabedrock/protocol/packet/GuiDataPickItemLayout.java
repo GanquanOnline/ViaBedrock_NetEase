@@ -22,12 +22,11 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock GUI_DATA_PICK_ITEM (packet 54).
+ * Bedrock GUI_DATA_PICK_ITEM（数据包 54）的线上布局辅助方法。
  * <p>
- * Official Bedrock writes {@code string itemName + string itemEffects +
- * little-endian hotbar slot}. Nukkit-MOT {@code GUIDataPickItemPacket.encode()}
- * is only {@code putLInt(hotbarSlot)} on every protocol including 860; reading
- * two strings from those four bytes throws and kicks Java 1.21.11.
+ * 官方 Bedrock 写入 {@code string itemName + string itemEffects + little-endian hotbar slot}。
+ * Nukkit-MOT 的 {@code GUIDataPickItemPacket.encode()} 在包括 860 在内的所有协议上都只写 {@code putLInt(hotbarSlot)}；
+ * 从这四个字节里读两个字符串会抛异常并踢掉 Java 1.21.11。
  */
 public final class GuiDataPickItemLayout {
 

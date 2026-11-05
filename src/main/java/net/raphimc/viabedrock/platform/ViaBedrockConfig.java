@@ -26,74 +26,50 @@ import java.util.function.Supplier;
 
 public interface ViaBedrockConfig extends Config {
 
-    /**
-     * @return If true, enables experimental features. These features are almost certainly not fully stable/tested and may cause unexpected issues
-     */
+    /** @return 如果为 true，则启用实验性功能。这些功能几乎可以肯定尚未完全稳定/经过测试，可能导致意外问题 */
     boolean shouldEnableExperimentalFeatures();
 
-    /**
-     * @return If true, Java swords receive a client-only blocking use animation. Requires experimental features.
-     */
+    /** @return 如果为 true，Java 剑会获得仅客户端可见的格挡使用动画。需要启用实验性功能。 */
     boolean shouldEnableSwordBlockingAnimation();
 
-    /**
-     * @return If true, bridges Java Edition custom payloads and Bedrock ScriptMessages in both directions.
-     */
+    /** @return 如果为 true，则在两个方向上桥接 Java 版自定义载荷与基岩 ScriptMessage。 */
     default boolean shouldBridgeJavaCustomPayloads() {
         return false;
     }
 
-    /**
-     * @return Maximum accepted Java custom-payload body size in bytes.
-     */
+    /** @return 接受的最大 Java 自定义载荷正文大小，单位为字节。 */
     default int getJavaCustomPayloadMaxPayloadBytes() {
         return 8 * 1024;
     }
 
-    /**
-     * @return Maximum accepted UTF-8 custom-payload channel size in bytes.
-     */
+    /** @return 接受的最大 UTF-8 自定义载荷通道大小，单位为字节。 */
     default int getJavaCustomPayloadMaxChannelBytes() {
         return 128;
     }
 
-    /**
-     * @return Maximum forwarded custom payload messages per connection in a fixed one-minute window.
-     */
+    /** @return 每个连接在固定的一分钟窗口内可转发的自定义载荷消息数上限。 */
     default int getJavaCustomPayloadMaxMessagesPerMinute() {
         return 120;
     }
 
-    /**
-     * @return Maximum forwarded custom-payload bytes per connection in a fixed one-minute window.
-     */
+    /** @return 每个连接在固定的一分钟窗口内可转发的自定义载荷字节数上限。 */
     default int getJavaCustomPayloadMaxBytesPerMinute() {
         return 256 * 1024;
     }
 
-    /**
-     * @return The blob cache mode to use.
-     */
+    /** @return 要使用的 blob 缓存模式。 */
     BlobCacheMode getBlobCacheMode();
 
-    /**
-     * @return If true, starts the resource pack HTTP server and enables resource pack translation
-     */
+    /** @return 如果为 true，则启动资源包 HTTP 服务器并启用资源包转换 */
     boolean shouldTranslateResourcePacks();
 
-    /**
-     * @return The host to use for the resource pack HTTP server.
-     */
+    /** @return 资源包 HTTP 服务器使用的主机。 */
     String getResourcePackHost();
 
-    /**
-     * @return The port to use for the resource pack HTTP server.
-     */
+    /** @return 资源包 HTTP 服务器使用的端口。 */
     int getResourcePackPort();
 
-    /**
-     * @return The URL to use for the resource pack HTTP server.
-     */
+    /** @return 资源包 HTTP 服务器使用的 URL。 */
     String getResourcePackUrl();
 
     default ResourcePackDeliveryMode getResourcePackDeliveryMode() {
@@ -120,9 +96,7 @@ public interface ViaBedrockConfig extends Config {
         return 10_000;
     }
 
-    /**
-     * @return The pack cache mode to use.
-     */
+    /** @return 要使用的包缓存模式。 */
     PackCacheMode getPackCacheMode();
 
     default boolean isSharedResourcePackCacheEnabled() {
@@ -130,8 +104,8 @@ public interface ViaBedrockConfig extends Config {
     }
 
     /**
-     * Compatibility setting reserved for a future fully scoped observation cache. It never enables
-     * the legacy UUID/version provider fast path while the shared resource-pack cache is active.
+     * 为将来完全限定作用域的观察缓存预留的兼容性设置。在共享的
+     * 资源包缓存启用期间，它绝不会启用旧的 UUID/版本提供器快速路径。
      */
     default boolean shouldTrustDeclaredPackAlias() {
         return false;
@@ -193,88 +167,73 @@ public interface ViaBedrockConfig extends Config {
         return 200;
     }
 
-    /**
-     * @return If true, translates bedrock's showCoordinates game rule to java's reduced debug info flag
-     */
+    /** @return 如果为 true，则把基岩版的 showCoordinates 游戏规则转换为 Java 的 reduced debug info 标志 */
     boolean shouldTranslateShowCoordinatesGameRule();
 
-    /**
-     * @return If true, disables the internal server blacklist. This will allow you to connect to any server, even if it's known to ban ViaBedrock clients
-     */
+    /** @return 如果为 true，则禁用内部服务器黑名单。这样你可以连接任何服务器，即使该服务器已知会封禁 ViaBedrock 客户端 */
     boolean shouldDisableServerBlacklist();
 
-    /**
-     * @return The language code to send to the bedrock server (e.g. "en_us", "zh_cn"). Empty = "en_us"
-     */
+    /** @return 要发送给基岩服务器的语言代码（例如 "en_us"、"zh_cn"）。空 = "en_us" */
     String getLanguage();
 
     /**
-     * @return The shared secret for ViaProxy authentication bridge. When set, generates HMAC-signed identity tokens in the skin JWT. Empty = disabled
+     * @return 用于 ViaProxy 认证桥的共享密钥。设置后会在皮肤 JWT 中生成
+     * HMAC 签名的身份令牌。空 = 禁用
      */
     String getViaProxyAuthSecret();
 
-    /**
-     * @return If true, ViaBedrock pretends to be a NetEase / China Edition Bedrock client.
-     */
+    /** @return 如果为 true，ViaBedrock 会伪装成网易 / 中国版基岩客户端。 */
     default boolean shouldEmulateNetEaseClient() {
         return false;
     }
 
     /**
-     * @return Bedrock protocol version written into REQUEST_NETWORK_SETTINGS and LOGIN.
-     *         0 keeps the Java handshake protocol number (upstream behaviour).
+     * @return 写入 REQUEST_NETWORK_SETTINGS 和 LOGIN 的基岩协议版本。
+     * 0 表示保留 Java 握手的协议号（上游行为）。
      */
     default int getNetEaseProtocolVersion() {
         return 0;
     }
 
-    /**
-     * @return GameVersion string written into the skin JWT when NetEase emulation is enabled.
-     */
+    /** @return 启用网易仿真时写入皮肤 JWT 的 GameVersion 字符串。 */
     default String getNetEaseGameVersion() {
         return "1.21.124";
     }
 
     /**
-     * @return RakNet protocol version used when connecting to a Bedrock / NetEase server.
-     *         0 keeps ProtocolConstants.BEDROCK_RAKNET_PROTOCOL_VERSION.
+     * @return 连接基岩 / 网易服务器时使用的 RakNet 协议版本。
+     * 0 表示保留 ProtocolConstants.BEDROCK_RAKNET_PROTOCOL_VERSION。
      */
     default int getNetEaseRakNetProtocolVersion() {
         return 0;
     }
 
     /**
-     * @return If true, enables server-side entity animation using Display Entities when ViaBedrockUtility mod is not present.
-     * When disabled, custom entities will only show as invisible interaction boxes (upstream behavior).
-     * This setting has no effect when ViaBedrockUtility mod is installed (client-side rendering is always used).
+     * @return 如果为 true，则在未安装 ViaBedrockUtility mod 时启用基于 Display Entity 的服务端实体动画。
+     * 禁用时，自定义实体只会显示为不可见的交互碰撞箱（上游行为）。
+     * 安装了 ViaBedrockUtility mod 时该设置无效（始终使用客户端渲染）。
      */
     boolean shouldEnableServerEntityAnimation();
 
     /**
-     * @return The timeout in milliseconds for fetching Java Edition skin from Mojang API during login.
-     * Set to 0 to disable Java skin fetching (always use Steve).
+     * @return 登录期间从 Mojang API 获取 Java 版皮肤的毫秒超时时间。
+     * 设为 0 可禁用 Java 皮肤获取（始终使用 Steve）。
      */
     int getJavaSkinFetchTimeout();
 
-    /**
-     * @return If true, sends a custom Java tab list header and footer when joining the server.
-     */
+    /** @return 如果为 true，则在加入服务器时发送自定义的 Java 玩家列表页眉和页脚。 */
     boolean shouldSendTabList();
 
-    /**
-     * @return The Java tab list header template.
-     */
+    /** @return Java 玩家列表页眉模板。 */
     String getTabListHeader();
 
-    /**
-     * @return The Java tab list footer template.
-     */
+    /** @return Java 玩家列表页脚模板。 */
     String getTabListFooter();
 
     /**
-     * @return If true, applies Floyd-Steinberg dithering when converting Bedrock map pixels (true ARGB) to the
-     * limited Java map color palette. This trades hard color banding for fine noise, which greatly improves
-     * smooth gradients such as faces/portraits. Requires experimental features.
+     * @return 如果为 true，则在把基岩地图像素（真 ARGB）转换为有限的 Java 地图
+     * 调色板时应用 Floyd-Steinberg 抖动。这会用精细噪点换掉生硬的色带，
+     * 大幅改善人脸/肖像之类的平滑渐变。需要启用实验性功能。
      */
     boolean shouldDitherMaps();
 
@@ -301,28 +260,24 @@ public interface ViaBedrockConfig extends Config {
     boolean shouldSendCustomMappingSyncResult();
 
     /**
-     * @return The movement watchdog mode. A fail-safe net for the rare case where the backend never sends the
-     * packet that would unlock movement after a world/dimension/server switch (see ViaBedrock movement docs).
-     * OFF = disabled (behaviour identical to upstream); OBSERVE = only log when a lock stays stuck past the
-     * timeout, without changing behaviour (default, most conservative); ACTIVE = additionally perform the
-     * conservative, idempotent recovery (re-send the standard handshake finalization the backend omitted).
+     * @return 移动看门狗模式。用于在世界/维度/服务器切换后，后端从不发送
+     * 解锁移动所需数据包的罕见情况下的失效保护（见 ViaBedrock 移动相关文档）。
+     * OFF = 禁用（行为与上游完全一致）；OBSERVE = 仅当锁超过超时仍然卡住时记录日志，
+     * 不改变行为（默认，最保守）；ACTIVE = 额外执行保守、幂等的恢复
+     * （重发后端遗漏的标准握手收尾）。
      */
     MovementWatchdogMode getMovementWatchdogMode();
 
     /**
-     * @return Ticks (20/s) a dimension change may stay un-finalized before the watchdog acts. Default 200 (10s),
-     * far above any normal handshake so normal players never trigger it.
+     * @return 维度切换最多可以保持未收尾的刻数（20 刻/秒），超过后看门狗才会动作。默认 200（10 秒），
+     * 远高于任何正常握手，因此正常玩家永远不会触发它。
      */
     int getMovementWatchdogDimensionChangeTimeoutTicks();
 
-    /**
-     * @return Ticks the player may stay stuck in an unloaded chunk section before the watchdog re-requests chunks.
-     */
+    /** @return 玩家可以卡在未加载区块区段中的刻数，超过后看门狗会重新请求区块。 */
     int getMovementWatchdogChunkStuckTimeoutTicks();
 
-    /**
-     * @return Throttle (in ticks) between repeated chunk-radius re-requests while stuck in an unloaded chunk.
-     */
+    /** @return 卡在未加载区块时，重复请求区块半径之间的节流（单位：刻）。 */
     int getMovementWatchdogChunkRadiusRequestIntervalTicks();
 
     enum MovementWatchdogMode {
@@ -356,17 +311,11 @@ public interface ViaBedrockConfig extends Config {
 
     enum BlobCacheMode {
 
-        /**
-         * The blob cache will be disabled.
-         */
+        /** blob 缓存将被禁用。 */
         DISABLED(NoOpBlobCacheProvider::new),
-        /**
-         * The blob cache will be enabled and blobs will be stored in memory.
-         */
+        /** blob 缓存将被启用，且 blob 存储在内存中。 */
         MEMORY(InMemoryBlobCacheProvider::new),
-        /**
-         * The blob cache will be enabled and blobs will be stored on disk.
-         */
+        /** blob 缓存将被启用，且 blob 存储在磁盘上。 */
         DISK(DiskBlobCacheProvider::new);
 
         private final Supplier<BlobCacheProvider> providerSupplier;
@@ -393,17 +342,11 @@ public interface ViaBedrockConfig extends Config {
 
     enum PackCacheMode {
 
-        /**
-         * The pack cache will be disabled.
-         */
+        /** 包缓存将被禁用。 */
         DISABLED(NoOpResourcePackProvider::new),
-        /**
-         * The pack cache will be enabled and packs will be stored in memory.
-         */
+        /** 包缓存将被启用，且包存储在内存中。 */
         MEMORY(InMemoryResourcePackProvider::new),
-        /**
-         * The pack cache will be enabled and packs will be stored on disk.
-         */
+        /** 包缓存将被启用，且包存储在磁盘上。 */
         DISK(DiskResourcePackProvider::new);
 
         private final Supplier<ResourcePackProvider> providerSupplier;

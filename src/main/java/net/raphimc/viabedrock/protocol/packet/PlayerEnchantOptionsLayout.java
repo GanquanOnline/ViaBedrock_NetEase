@@ -29,19 +29,19 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Wire layout for Bedrock PLAYER_ENCHANT_OPTIONS (packet 146 / 0x92).
+ * 基岩 PLAYER_ENCHANT_OPTIONS（146 / 0x92 号包）的线路布局。
  * <p>
- * MOT {@code PlayerEnchantOptionsPacket} forks on {@code gameVersion.isNetEase()}
- * and protocol 974:
+ * MOT {@code PlayerEnchantOptionsPacket} 依据 {@code gameVersion.isNetEase()}
+ * 和协议 974 分支出两种布局：
  * <ul>
- *     <li>NetEase 860 and official &lt;974: unsigned-varint minLevel, then three
- *     enchant lists as {@code {byte type, byte level}} plus a fourth custom list
- *     and per-enchant {@code modEnchantIdentifier} string on NetEase only.</li>
- *     <li>Official 974+: byte minLevel, no custom list, and each enchant is
- *     {@code {unsigned-varint type, byte level}}.</li>
+ * <li>网易 860 与官方 &lt;974：无符号 varint minLevel，随后三个
+ * 附魔列表 {@code {byte type, byte level}}，外加第四个自定义列表
+ * 以及仅在网易上出现的每附魔 {@code modEnchantIdentifier} 字符串。</li>
+ * <li>官方 974+：byte minLevel，没有自定义列表，每个附魔为
+ * {@code {unsigned-varint type, byte level}}。</li>
  * </ul>
- * Leaving the packet unregistered would cancel it, so Java never receives
- * {@code CONTAINER_SET_DATA} XP costs / clues and cannot click an option.
+ * 不注册该包会被取消，于是 Java 永远收不到
+ * {@code CONTAINER_SET_DATA} 的经验消耗 / 提示，也就无法点击选项。
  */
 public final class PlayerEnchantOptionsLayout {
 

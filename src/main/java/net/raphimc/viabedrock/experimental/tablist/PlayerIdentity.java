@@ -21,8 +21,8 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 
 /**
- * Edition + version shown next to a TAB name. Remote identities come from a
- * Waterdog plugin snapshot; the local Java player is always JE.
+ * 显示在玩家列表名称旁的版本类型与版本号。远端身份来自
+ * Waterdog 插件快照；本地 Java 玩家始终是 JE。
  */
 public record PlayerIdentity(boolean javaEdition, String version) {
 

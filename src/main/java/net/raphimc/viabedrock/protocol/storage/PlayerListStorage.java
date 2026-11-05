@@ -146,9 +146,9 @@ public class PlayerListStorage implements StorableObject {
     }
 
     /**
-     * PLAYER_LIST / PLAYER_SKIN carry {@code skinResourcePatch} and {@code ArmSize}.
-     * MOT ConfirmSkin does not. Keep the last explicit arm hint so a later dual-template
-     * ConfirmSkin cannot flatten every player to Steve.
+     * PLAYER_LIST / PLAYER_SKIN 携带 {@code skinResourcePatch} 与 {@code ArmSize}。
+     * MOT 的 ConfirmSkin 不带。保留最后一次显式的臂型提示，这样之后带双模板的
+     * ConfirmSkin 不会把所有玩家都压平成 Steve。
      */
     public SkinData rememberAndApplyArmHint(final UUID uuid, final SkinData skin) {
         if (uuid == null || skin == null) {

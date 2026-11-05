@@ -93,7 +93,7 @@ public final class ResourcePackCacheMetrics implements ResourcePackCacheMXBean {
                 server.registerMBean(new StandardMBean(this, ResourcePackCacheMXBean.class, true), name);
             }
         } catch (Throwable ignored) {
-            // Metrics must never prevent ViaBedrock from starting.
+            // 指标采集绝不能阻止 ViaBedrock 启动。
         }
     }
 
@@ -108,7 +108,7 @@ public final class ResourcePackCacheMetrics implements ResourcePackCacheMXBean {
                 }
             }
         } catch (Throwable ignored) {
-            // Metrics teardown must never prevent ViaBedrock from stopping.
+            // 指标拆除绝不能阻止 ViaBedrock 停止。
         }
     }
 

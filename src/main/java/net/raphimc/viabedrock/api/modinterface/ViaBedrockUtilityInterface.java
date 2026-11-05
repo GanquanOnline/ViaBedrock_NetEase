@@ -43,7 +43,7 @@ import java.util.UUID;
 
 public class ViaBedrockUtilityInterface {
 
-    // This channel WILL ONLY be used to confirm that ViaBedrockUtility is present, the server will use viabedrockutility:data to respond
+    // 此通道仅用于确认 ViaBedrockUtility 是否存在，服务器将使用 viabedrockutility:data 回应
     public static final String CONFIRM_CHANNEL = "viabedrockutility:confirm";
 
     public static final String CHANNEL = "viabedrockutility:data";
@@ -57,9 +57,9 @@ public class ViaBedrockUtilityInterface {
     public static final String CUSTOM_ENTITY_MOTION_V1_CAPABILITY = "viabedrockutility:custom_entity_motion_v1";
     public static final String WITHER_SKULL_MOTION_V1_CAPABILITY = "viabedrockutility:wither_skull_motion_v1";
     public static final String CUSTOM_SPECTATOR_PROPERTY = "easecation:custom_spectator";
-    /** Client capability: unmapped Bedrock particle effects can use anchor-aware V2 requests. */
+    /** 客户端能力：未映射的基岩粒子效果可以使用感知锚点的 V2 请求。 */
     public static final String PARTICLE_RUNTIME_V2_CAPABILITY = "viabedrockutility:particle_runtime_v2";
-    /** Client capability: local MOT spectator can stay Java ADVENTURE while VBU forces Entity.noClip. */
+    /** 客户端能力：本地 MOT 旁观者可以保持 Java ADVENTURE，同时由 VBU 强制 Entity.noClip。 */
     public static final String SPECTATOR_NOCLIP_CAPABILITY = "viabedrockutility:spectator_noclip";
     static final int MAX_PAYLOAD_SIZE = 1_048_576;
     static final int SKIN_DATA_HEADER_SIZE = Integer.BYTES + 2 * Long.BYTES + Integer.BYTES;
@@ -69,14 +69,14 @@ public class ViaBedrockUtilityInterface {
 
     public static void confirmPresence(final UserConnection user) {
         final PacketWrapper pluginMessage = PacketWrapper.create(customPayloadType(user), user);
-        pluginMessage.write(Types.STRING, CHANNEL); // Channel
-        pluginMessage.write(Types.INT, PayloadType.CONFIRM.ordinal()); // Type
+        pluginMessage.write(Types.STRING, CHANNEL); // 通道
+        pluginMessage.write(Types.INT, PayloadType.CONFIRM.ordinal()); // 类型
         pluginMessage.send(BedrockProtocol.class);
     }
 
     private static PacketType customPayloadType(final UserConnection user) {
-        // FINISH_CONFIGURATION advances the outbound stream before its acknowledgement arrives.
-        // clientState can still be CONFIGURATION after the client has switched to PLAY.
+        // FINISH_CONFIGURATION 会在其确认到达之前推进出站流。
+        // 客户端已切换到 PLAY 之后，clientState 仍可能处于 CONFIGURATION。
         return user.getProtocolInfo().getServerState() == State.CONFIGURATION
                 ? ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD
                 : ClientboundPackets26_1.CUSTOM_PAYLOAD;
@@ -90,8 +90,8 @@ public class ViaBedrockUtilityInterface {
 
     public static void spawnCustomEntity(final UserConnection user, final UUID uuid, final String identifier, final Map<ActorDataIDs, EntityData> entityData) {
         final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-        pluginMessage.write(Types.STRING, CHANNEL); // Channel
-        pluginMessage.write(Types.INT, PayloadType.MODEL_REQUEST.ordinal()); // Type
+        pluginMessage.write(Types.STRING, CHANNEL); // 通道
+        pluginMessage.write(Types.INT, PayloadType.MODEL_REQUEST.ordinal()); // 类型
 
         pluginMessage.write(Types.UUID, uuid);
         writeString(pluginMessage, identifier);
@@ -145,7 +145,7 @@ public class ViaBedrockUtilityInterface {
 
         {
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, PayloadType.SKIN_INFORMATION.ordinal());
             pluginMessage.write(Types.UUID, uuid);
             pluginMessage.write(Types.INT, skin.skinData().getWidth());
@@ -162,11 +162,11 @@ public class ViaBedrockUtilityInterface {
         }
         for (int i = 0; i < chunkCount; i++) {
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, PayloadType.SKIN_DATA.ordinal());
             pluginMessage.write(Types.UUID, uuid);
             pluginMessage.write(Types.INT, i);
-            if (chunkCount == 1) { // Fast path
+            if (chunkCount == 1) { // 快速路径
                 pluginMessage.write(Types.REMAINING_BYTES, skinData);
             } else {
                 pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(skinData, i * SKIN_DATA_CHUNK_SIZE, Math.min((i + 1) * SKIN_DATA_CHUNK_SIZE, skinData.length)));
@@ -177,7 +177,7 @@ public class ViaBedrockUtilityInterface {
             final byte[] capeData = ImageType.getImageData(skin.capeData());
 
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, PayloadType.CAPE.ordinal());
             pluginMessage.write(Types.UUID, uuid);
             pluginMessage.write(Types.INT, skin.capeData().getWidth());
@@ -398,8 +398,8 @@ public class ViaBedrockUtilityInterface {
     }
 
     /**
-     * Sends a V2 particle request without reinterpreting SpawnParticleEffect coordinates. XYZ is
-     * absolute for a world anchor and an entity-local offset for an entity anchor.
+     * 发送 V2 粒子请求，且不重新解释 SpawnParticleEffect 的坐标。当锚点为世界时
+     * XYZ 是绝对坐标，当锚点为实体时则是实体局部偏移。
      */
     public static void spawnParticleV2(final UserConnection user, final String identifier,
                                        final int anchorKind, final UUID ownerUuid,
@@ -481,8 +481,8 @@ public class ViaBedrockUtilityInterface {
     }
 
     static void writeAnimateEntity(final PacketWrapper pluginMessage, final UUID uuid, final String animationName) {
-        pluginMessage.write(Types.STRING, CHANNEL); // Channel
-        pluginMessage.write(Types.INT, PayloadType.ANIMATE.ordinal()); // Type
+        pluginMessage.write(Types.STRING, CHANNEL); // 通道
+        pluginMessage.write(Types.INT, PayloadType.ANIMATE.ordinal()); // 类型
         pluginMessage.write(Types.UUID, uuid);
         writeString(pluginMessage, animationName);
     }

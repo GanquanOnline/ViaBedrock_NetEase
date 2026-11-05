@@ -21,20 +21,23 @@ import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
-/** Proxy-side light engine contract used only while a connection is in server-computed mode. */
+/** 代理侧光照引擎契约，仅在连接处于服务端计算模式时使用。 */
 public interface ChunkLightProvider {
 
     /**
-     * Process light data and send the chunk to the Java client.
-     * A false result means the provider became stale or the negotiated mode changed before it
-     * could take ownership; the caller must revalidate the connection state instead of sending a
-     * fallback packet through this path.
+     * 处理光照数据并把区块发送给 Java 客户端。
+     * 返回 false 表示提供器已失效，或协商模式在它能接管之前发生了变化；
+     * 调用方必须重新校验连接状态，而不是通过这条路径发送回退数据包。
      *
-     * @param tracker the chunk tracker for the current connection
-     * @param chunkX  chunk X coordinate
-     * @param chunkZ  chunk Z coordinate
-     * @param chunk   the remapped Java chunk ready for sending
-     * @return true if this provider handled sending the chunk, false if it no longer owns the mode
+     * @param tracker 当前连接的区块跟踪器
+     *
+     * @param chunkX  区块 X 坐标
+     *
+     * @param chunkZ  区块 Z 坐标
+     *
+     * @param chunk   已重映射、可直接发送的 Java 区块
+     *
+     * @return 该提供器完成了区块发送时返回 true，已不再拥有该模式时返回 false
      */
     boolean processAndSendChunk(ChunkTracker tracker, int chunkX, int chunkZ, Chunk chunk);
 
@@ -42,15 +45,13 @@ public interface ChunkLightProvider {
     void onBlockChange(BlockPosition position, int javaBlockStateId);
 
     /**
-     * Called when a chunk is unloaded. Implementations should clean up any cached state.
+     * 区块卸载时调用。实现应清理所有缓存状态。
      *
-     * @param chunkKey the packed chunk key (ChunkTracker.chunkKey(x, z))
+     * @param chunkKey 打包后的区块键 (ChunkTracker.chunkKey(x, z))
      */
     void onChunkUnload(long chunkKey);
 
-    /**
-     * Called once per tick to process pending async light updates.
-     */
+    /** 每刻调用一次，处理待处理的异步光照更新。 */
     void tick();
 
 }

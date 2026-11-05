@@ -32,8 +32,8 @@ class PlayStateTransitionQueueTest {
 
     @Test
     void defersMot860ProcessLoginAbilitiesCreativeAndHeldItem() {
-        // MOT Player.processLogin() after START_GAME: adventureSettings.update(),
-        // sendCreativeContents(), sendHeldItemIfNotAir(), TrimDataPacket.
+        // MOT 的 Player.processLogin() 在 START_GAME 之后：adventureSettings.update()、
+        // sendCreativeContents()、sendHeldItemIfNotAir()、TrimDataPacket。
         assertTrue(PlayStateTransitionQueue.shouldDefer(ClientboundBedrockPackets.UPDATE_ABILITIES));
         assertTrue(PlayStateTransitionQueue.shouldDefer(ClientboundBedrockPackets.UPDATE_ADVENTURE_SETTINGS));
         assertTrue(PlayStateTransitionQueue.shouldDefer(ClientboundBedrockPackets.TRIM_DATA));

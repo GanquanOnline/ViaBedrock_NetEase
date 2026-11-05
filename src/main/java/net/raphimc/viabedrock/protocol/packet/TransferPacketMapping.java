@@ -22,10 +22,10 @@ import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import io.netty.buffer.ByteBuf;
 
 /**
- * MOT 1.21.30+ writes {@code reloadWorld}; 1.26.40+ may append gatherings leftover.
- * Official ViaBedrock cancelled the mapped Java TRANSFER when {@code reloadWorld}
- * was true, which also misfired on leftover bytes. Consume those fields and keep
- * the Java TRANSFER so ViaProxy can rewrite it onto itself.
+ * MOT 1.21.30+ 写入 {@code reloadWorld}；1.26.40+ 可能追加 gatherings 残留。
+ * 官方 ViaBedrock 在 {@code reloadWorld} 为 true 时会取消已映射的 Java TRANSFER，
+ * 这在残留字节上也会误触发。消费这些字段并保留
+ * Java TRANSFER，以便 ViaProxy 把它重写到自身。
  */
 public final class TransferPacketMapping {
 
@@ -36,7 +36,7 @@ public final class TransferPacketMapping {
         if (wrapper instanceof PacketWrapperImpl packetWrapper) {
             final ByteBuf input = packetWrapper.getInputBuffer();
             if (input != null && input.isReadable()) {
-                input.readBoolean(); // optional reload world
+                input.readBoolean(); // 可选的 reload world
             }
         }
         PacketLeftoverLayout.discardUnreadInput(wrapper);

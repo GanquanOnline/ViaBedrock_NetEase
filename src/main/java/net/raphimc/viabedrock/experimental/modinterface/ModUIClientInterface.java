@@ -35,7 +35,7 @@ public class ModUIClientInterface {
     public static final String CONFIRM_CHANNEL = "moduiclient:confirm";
     public static final String ENTITY_MAPPING_CHANNEL = "netease_bridge:entity_mapping";
 
-    // --- Entity ID Mapping ---
+    // --- 实体 ID 映射 ---
 
     private static final byte OP_ADD = 0;
     private static final byte OP_REMOVE = 1;

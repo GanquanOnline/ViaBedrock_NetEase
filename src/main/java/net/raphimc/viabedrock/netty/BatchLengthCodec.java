@@ -40,7 +40,7 @@ public class BatchLengthCodec extends ByteToMessageCodec<ByteBuf> {
             final int length = BedrockTypes.UNSIGNED_VAR_INT.readPrimitive(in);
             if (in.isReadable(length)) {
                 out.add(in.readRetainedSlice(length));
-            } else { // Bedrock client drops the packet if the length is invalid
+            } else { // 长度无效时基岩客户端会丢弃该数据包
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Dropping packet with invalid length: " + length + " (readable bytes: " + in.readableBytes() + ")");
                 in.skipBytes(in.readableBytes());
             }

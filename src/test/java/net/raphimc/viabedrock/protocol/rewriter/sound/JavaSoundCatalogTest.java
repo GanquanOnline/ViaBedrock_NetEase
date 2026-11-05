@@ -37,7 +37,7 @@ class JavaSoundCatalogTest {
 
         for (long seed = 0; seed < 32; seed++) {
             final Random expectedRandom = new Random(seed);
-            expectedRandom.nextInt(4); // Outer event selection consumes its own random value.
+            expectedRandom.nextInt(4); // 外层事件选择会消耗它自己的随机值。
             final boolean first = expectedRandom.nextInt(4) == 0;
             final JavaSoundCatalog.Variant variant = catalog.resolve("outer", seed);
 

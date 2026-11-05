@@ -25,8 +25,8 @@ import net.raphimc.viabedrock.api.chunk.BedrockBlockEntity;
 import net.raphimc.viabedrock.protocol.rewriter.BlockEntityRewriter;
 
 /**
- * Rewriter for Nukkit ModBlock block entities.
- * Produces minimal Java NBT to trigger FabricRock's BlockEntityDataDriven rendering.
+ * Nukkit ModBlock 方块实体的重写器。
+ * 生成最小的 Java NBT，以触发 FabricRock 的 BlockEntityDataDriven 渲染。
  */
 public class ModBlockBlockEntityRewriter implements BlockEntityRewriter.Rewriter {
 

@@ -593,7 +593,7 @@ class ItemRewriterTest {
                 TextUtil.stringToNbt("First line"),
                 TextUtil.stringToNbt("Second line")
         });
-        javaSword.dataContainer().set(StructuredDataKey.MAX_STACK_SIZE, 1); // Not representable in legacy Bedrock item NBT.
+        javaSword.dataContainer().set(StructuredDataKey.MAX_STACK_SIZE, 1); // 无法在旧版基岩物品 NBT 中表示。
 
         final BedrockItem bedrockItem = this.rewriter.bedrockItem(javaSword);
         final CompoundTag bedrockTag = assertDoesNotThrow(bedrockItem::tag);
@@ -623,8 +623,8 @@ class ItemRewriterTest {
 
     @Test
     void motNumericNbtIdResolvesThroughLegacyTable() {
-        // MOT NBTIO.putItemHelper writes Count (byte), Damage (short aux/meta), and
-        // unsigned short id. Java durability lives in the nested tag compound, not root Damage.
+        // MOT 的 NBTIO.putItemHelper 写入 Count（byte）、Damage（short aux/meta）和
+        // 无符号 short id。Java 的耐久度存放在嵌套标签复合体中，而不是根 Damage。
         final CompoundTag motArrow = new CompoundTag();
         motArrow.putShort("id", (short) MOT_ARROW_LEGACY_ID);
         motArrow.putByte("Count", (byte) 1);

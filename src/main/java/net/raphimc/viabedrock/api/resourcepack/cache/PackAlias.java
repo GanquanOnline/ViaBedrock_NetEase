@@ -17,8 +17,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * A resource-pack declaration scoped to one backend. This is only a candidate locator: content identity is always
- * established by {@link ContentDigest} after decrypting and canonicalizing the pack.
+ * 作用域限定到单个后端的资源包声明。它只是候选定位符：内容标识始终在
+ * 解密并规范化该包后由 {@link ContentDigest} 确定。
  */
 public record PackAlias(String backendScope, UUID id, String version, long announcedSize, String contentId,
                         String contentKeyFingerprint) {
@@ -43,9 +43,7 @@ public record PackAlias(String backendScope, UUID id, String version, long annou
         contentKeyFingerprint = DigestSupport.requireSha256Hex(contentKeyFingerprint);
     }
 
-    /**
-     * Compatibility alias with no backend or announcement metadata. It must never be used for trusted lookup.
-     */
+    /** 没有后端与公告元数据的兼容性别名。绝不能把它用于可信查找。 */
     public PackAlias(final UUID id, final String version) {
         this("", id, version, -1L, "", EMPTY_CONTENT_KEY_FINGERPRINT);
     }

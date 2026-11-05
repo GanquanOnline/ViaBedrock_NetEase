@@ -33,9 +33,9 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Consumes {@code waterdog:player_identity_v1} so Java TAB can mark each
- * remote player as JE/BE plus version. MOT PlayerList has no such field;
- * Waterdog/ViaProxyAuth-WDPE must broadcast login-chain identities.
+ * 消费 {@code waterdog:player_identity_v1}，使 Java 玩家列表能把每个
+ * 远程玩家标记为 JE/BE 及版本。MOT PlayerList 没有这样的字段；
+ * 必须由 Waterdog/ViaProxyAuth-WDPE 广播登录链身份。
  */
 public final class PlayerIdentityPackets {
 

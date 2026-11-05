@@ -53,7 +53,7 @@ public final class SpectatorCameraPackets {
             case ATTACH -> tracker.attachLegacy(message.targetRuntimeId());
             case DETACH -> tracker.detachLegacy();
             case DETACH_REQUEST -> {
-                // This action is only valid in the proxy-to-server direction.
+                // 该动作仅在代理→服务端方向有效。
             }
         }
     }
@@ -81,7 +81,7 @@ public final class SpectatorCameraPackets {
             case DETACH_TARGET -> tracker.detachTarget(message.sessionId(), message.generation());
             case END_SESSION -> tracker.endSession(message.sessionId());
             case SESSION_READY, DETACH_REQUEST, TARGET_REQUEST -> {
-                // These actions are only valid in the proxy-to-server direction.
+                // 这些动作仅在代理→服务端方向有效。
             }
         }
     }

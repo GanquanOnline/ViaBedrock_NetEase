@@ -201,7 +201,7 @@ class JoinPacketsTest {
         try {
             final PacketWrapper incoming = new PacketWrapperImpl(
                     ClientboundBedrockPackets.START_GAME, sourcePayload, user);
-            incoming.setId(-1); // StatelessTransitionProtocol applies its unmapped transition id first.
+            incoming.setId(-1); // StatelessTransitionProtocol 会先应用它未映射的过渡 id。
             incoming.cancel();
 
             assertEquals(-1, incoming.getId());

@@ -22,9 +22,7 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.packet.JoinPackets;
 import net.raphimc.viabedrock.protocol.storage.ClientChannelDiscoveryStorage;
 
-/**
- * Triggers NeoForge's vanilla-server channel advertisement once per configuration cycle.
- */
+/** 每个配置周期触发一次 NeoForge 的原版服务器通道通告。 */
 public final class ClientChannelDiscovery {
 
     private ClientChannelDiscovery() {

@@ -37,8 +37,8 @@ import java.util.Map;
 import java.util.logging.Level;
 
 /**
- * Loads custom entity type ID mappings from config/bedrock-loader/custom_entity_type_ids.json
- * and resolves them during ADD_ENTITY processing.
+ * 从 config/bedrock-loader/custom_entity_type_ids.json 加载自定义实体类型 ID 映射，
+ * 并在处理 ADD_ENTITY 时解析它们。
  */
 public class CustomEntityTypeResolver implements FeatureModule {
 

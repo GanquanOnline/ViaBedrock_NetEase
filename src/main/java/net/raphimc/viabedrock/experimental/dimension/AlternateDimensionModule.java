@@ -22,21 +22,20 @@ import net.raphimc.viabedrock.protocol.data.enums.Dimension;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
 /**
- * Handles same-dimension teleport by toggling between normal and alternate dimension keys,
- * forcing the Java client to reload chunks when the server sends a CHANGE_DIMENSION
- * to the same dimension the player is already in.
+ * 处理同维度传送：在正常与备用维度键之间切换，
+ * 当服务器把 CHANGE_DIMENSION 发往玩家当前所在的维度时，强制 Java 客户端重新加载区块。
  */
 public class AlternateDimensionModule implements FeatureModule {
 
     @Override
     public String resolveDimensionKey(final Dimension dimension, final ChunkTracker oldChunkTracker) {
         if (oldChunkTracker != null && dimension == oldChunkTracker.getDimension()) {
-            // Same dimension: toggle between normal and alt key for Java client chunk reload
+            // 同维度：在正常键与备用键之间切换，以触发 Java 客户端重新加载区块
             return oldChunkTracker.getDimensionKey().equals(dimension.getKey())
                     ? dimension.getAltKey()
                     : dimension.getKey();
         }
-        return null; // Different dimension: use default key
+        return null; // 不同维度：使用默认键
     }
 
 }

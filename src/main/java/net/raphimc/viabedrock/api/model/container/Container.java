@@ -111,8 +111,8 @@ public abstract class Container {
     public boolean setItems(final BedrockItem[] items) {
         BedrockItem[] applied = items;
         if (applied.length != this.items.length) {
-            // Nukkit 860 HUD/CONTENT arrays can be shorter or longer than the Java menu.
-            // Pad or truncate in place so a length mismatch cannot drop the whole screen.
+            // Nukkit 860 的 HUD/CONTENT 数组可能比 Java 菜单更短或更长。
+            // 就地补齐或截断，避免长度不匹配导致整个界面被丢弃。
             applied = this.copyItemsToSize(applied);
         }
 
@@ -160,7 +160,7 @@ public abstract class Container {
 
     public boolean isValidBlockTag(final String tag) {
         if (this.validBlockTags.isEmpty()) {
-            // Vehicle chests / hoppers still send a block position, but they have no block tag.
+            // 载具箱子 / 漏斗仍会发送方块位置，但它们没有方块标签。
             return true;
         }
         if (tag == null) {
@@ -170,8 +170,8 @@ public abstract class Container {
     }
 
     /**
-     * True when this menu is bound to a world block that {@link #isValidBlockTag(String)} can check.
-     * Empty tag sets are vehicle / plugin inventories and must not be closed by world-origin air.
+     * 当此菜单绑定到世界中的方块、且该方块可由 {@link #isValidBlockTag(String)} 校验时返回 true。
+     * 空标签集表示载具 / 插件物品栏，不得因世界来源的空气而关闭。
      */
     public boolean isWorldBacked() {
         return !this.validBlockTags.isEmpty();

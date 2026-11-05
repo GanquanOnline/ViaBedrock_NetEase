@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-/** Read-only effective view where one Bedrock subpack overrides the pack's base files. */
+/** 只读有效视图，其中一个基岩子包覆写该包的基础文件。 */
 public final class SelectedSubpackContent extends Content {
 
     private final Content source;

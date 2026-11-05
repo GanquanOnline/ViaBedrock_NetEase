@@ -28,15 +28,15 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Wire layout for NetEase SyncSkin (packet 236 / 0xEC).
+ * 网易 SyncSkin（236 / 0xEC 号包）的线路布局。
  * <p>
- * MOT {@code SyncSkinPacket.decode()} reads an unsigned-varint count, then
- * {@code {flag, uuid, string1} * count}, then {@code string2/3/4 * count}, then
- * the official {@code getSkin(protocol)} blob. For protocol 860 that skin blob
- * matches {@link net.raphimc.viabedrock.protocol.types.model.SkinType}:
- * LInt animation counts, string arm size / skin color, and the 465+/568+
- * boolean trailer. NukkitMaster echoes this packet to the sender after a
- * client skin change; ConfirmSkin remains the broadcast path for other players.
+ * MOT {@code SyncSkinPacket.decode()} 先读取无符号 varint 数量，然后
+ * {@code {flag, uuid, string1} * count}，再 {@code string2/3/4 * count}，最后
+ * 是官方的 {@code getSkin(protocol)} blob。对协议 860 而言，该皮肤 blob
+ * 与 {@link net.raphimc.viabedrock.protocol.types.model.SkinType} 一致：
+ * LInt 动画数量、string 手臂尺寸 / 皮肤颜色，以及 465+/568+
+ * 布尔尾部。NukkitMaster 在客户端更换皮肤后会把该包回显给发送者；
+ * ConfirmSkin 仍是面向其他玩家的广播路径。
  */
 public final class SyncSkinLayout {
 

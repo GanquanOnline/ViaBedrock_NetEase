@@ -82,14 +82,14 @@ public final class ResourcePackWorkScheduler {
         });
     }
 
-    /** The daemon timer only enqueues work; maintenance itself always runs on the bounded IO executor. */
+    /** 守护定时器只负责入队；维护工作本身始终在有界 IO 执行器上运行。 */
     public ScheduledFuture<?> scheduleIoAtFixedRate(final Runnable task, final long initialDelay,
                                                     final long period, final TimeUnit unit) {
         return this.maintenanceExecutor.scheduleAtFixedRate(() -> {
             try {
                 this.runIo(task);
             } catch (Throwable ignored) {
-                // Keep the fixed-rate trigger alive; submission failures are exposed by executor metrics.
+                // 保持固定频率触发器存活；提交失败会通过执行器指标暴露。
             }
         }, initialDelay, period, unit);
     }

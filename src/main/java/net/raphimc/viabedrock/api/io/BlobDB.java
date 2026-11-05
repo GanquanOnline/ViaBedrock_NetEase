@@ -59,7 +59,7 @@ public class BlobDB implements Closeable {
                         } catch (Throwable e) {
                             Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to write pending blob", e);
                         }
-                        // Always drop the key from the queue: success persisted it, failure must not retry forever
+                        // 始终从队列中移除该键：成功时已持久化，失败时不能无限重试
                         writtenKeys.add(entry.getKey());
                     }
                     writtenKeys.forEach(this.pendingWrites::remove);
@@ -111,7 +111,7 @@ public class BlobDB implements Closeable {
 
     public synchronized void queuePut(final long key, final byte[] value) {
         if (this.index.containsKey(key) || this.pendingWrites.containsKey(key)) {
-            return; // Content-addressed cache: identical key means identical content, skip idempotently
+            return; // 内容寻址缓存：相同的键意味着相同的内容，幂等地跳过
         }
 
         this.pendingWrites.put(key, value);
@@ -119,7 +119,7 @@ public class BlobDB implements Closeable {
 
     public synchronized void putNow(final long key, final byte[] value) throws IOException {
         if (this.index.containsKey(key)) {
-            return; // Already persisted, skip
+            return; // 已持久化，跳过
         }
 
         final byte[] compressedValue = LZ4.compress(value);

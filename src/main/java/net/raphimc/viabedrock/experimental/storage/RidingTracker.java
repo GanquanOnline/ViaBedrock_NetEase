@@ -62,21 +62,21 @@ public class RidingTracker extends StoredObject {
     private static final float JAVA_PLAYER_VEHICLE_ATTACHMENT_Y = 0.6F; // PlayerEntity.VEHICLE_ATTACHMENT_POS
     private static final int PENDING_DISMOUNT_TICKS = 10;
     private static final Position3f BOAT_PLAYER_SEAT_OFFSET = new Position3f(0F, 1.02001F, 0F);
-    // MOT EntityMinecartAbstract: getMountedOffset = height * 0.75 = 0.525. Off-rail adds +0.35 via seat metadata.
-    // Visual sitting stays on JE's 0.1875 passenger attachment; this offset is SAI / dismount only.
+    // MOT EntityMinecartAbstract：getMountedOffset = height * 0.75 = 0.525。离轨时通过座位元数据再加 +0.35。
+    // 视觉上的坐姿仍沿用 JE 的 0.1875 乘客挂载点；这个偏移只用于 SAI / 下车。
     private static final Position3f MINECART_PLAYER_SEAT_OFFSET = new Position3f(0F, 0.525F, 0F);
-    // MOT EntityBoat dimensions. Occupied boats disable wave sim, so ViaBedrock must derive a
-    // resting network Y from the water surface instead of freezing the last tracker snapshot.
+    // MOT EntityBoat 的尺寸。被乘坐的船会禁用波浪模拟，因此 ViaBedrock 必须从
+    // 水面推导出静止的网络 Y，而不是冻结上一次的跟踪器快照。
     private static final float BOAT_WIDTH = 1.4F;
-    // Absolute no-op epsilon for tiny float noise when comparing visual vs sync target.
+    // 比较视觉位置与同步目标时，用于极小微小浮点噪声的绝对空操作阈值。
     private static final float BOAT_CLIENT_SYNC_EPSILON = 0.02F;
-    // Soft vertical approach for SAI/tracker and for rare JE corrections.
+    // 对 SAI/跟踪器以及少见的 JE 纠正做柔和的垂直逼近。
     private static final float BOAT_VERTICAL_APPROACH_STEP = 0.045F;
-    // Dead zone around the FINAL resting foot Y. Inside this band we do not send MOVE_VEHICLE,
-    // otherwise JE buoyancy (~0.045/tick) fights our sync every few ticks and jitters.
+    // 围绕最终静止脚部 Y 的死区。在这个带内我们不发送 MOVE_VEHICLE，
+    // 否则 JE 的浮力（约每刻 0.045）会每隔几刻与我们的同步对抗并产生抖动。
     private static final float BOAT_JAVA_SYNC_TAKEOFF_MARGIN = 0.20F;
     private static final float BOAT_JAVA_SYNC_HOVER_MARGIN = 0.35F;
-    // Reject continuous JE buoyancy climbs while still allowing waterfall / slope drops.
+    // 拒绝 JE 持续的浮力上升，同时仍允许瀑布 / 斜坡下降。
     private static final float BOAT_MAX_JAVA_CLIMB = 0.75F;
 
     private final Long2ObjectMap<LongList> vehiclePassengers = new Long2ObjectOpenHashMap<>();
@@ -227,9 +227,9 @@ public class RidingTracker extends StoredObject {
 
                 final MoveVehicleInput vehicleInput = this.lastMoveVehicleInputFresh ? this.lastMoveVehicleInput : null;
                 if (this.emulateNetEaseRiding()) {
-                    // Soft-follow the water-aware SAI target. Snap JE only when the visual hull
-                    // drifted beyond the larger epsilon so MOVE_VEHICLE does not jitter every tick.
-                    // Keep the ViaBedrock tracker Y aligned with the approached network Y.
+                    // 柔和跟随考虑水面的 SAI 目标。只有当视觉船体
+                    // 漂移超出较大的 epsilon 时才直接对齐 JE，这样 MOVE_VEHICLE 不会每刻抖动。
+                    // 让 ViaBedrock 跟踪器的 Y 与逼近后的网络 Y 保持一致。
                     this.syncPredictedBoatToJavaClient(vehicle, vehicleInput);
                     vehicle.setPosition(new Position3f(authInputPosition.x(), authInputPosition.y(), authInputPosition.z()));
                 }
@@ -295,7 +295,7 @@ public class RidingTracker extends StoredObject {
 
     public void onEntityMoved(final Entity entity) {
         if (this.localVehicleUniqueId != null && this.localVehicleUniqueId == entity.uniqueId()) {
-            // A server vehicle update establishes the current ride position after a correction.
+            // 服务端载具更新在一次纠正之后确立了当前的骑乘位置。
             this.serverPlayerPosition = null;
         }
         this.refreshVehicle(entity.uniqueId());
@@ -408,7 +408,7 @@ public class RidingTracker extends StoredObject {
 
         final Position3f rawOffset = this.rawSeatOffset(vehicle, passenger);
         final float anchorYOffset = this.passengerAnchorYOffset(passenger);
-        // Seat metadata is relative to the Bedrock network origin, including the carrier base offset.
+        // 座位元数据相对基岩网络原点，包含载具的基础偏移。
         final Position3f vehiclePosition = vehicle.position();
         final Position3f position = vehiclePosition.add(this.seatOffset(vehicle, passenger, rawOffset, anchorYOffset));
         if (!anchor.spawned) {
@@ -416,7 +416,7 @@ public class RidingTracker extends StoredObject {
             anchor.spawned = true;
         }
         passengerTracker.setBedrockPassengers(anchor.javaId, passenger.javaId());
-        // Force the client to recalculate the passenger position after the relation and zero-height anchor data arrive.
+        // 在关系与零高度锚点数据到达后，强制客户端重新计算乘客位置。
         RidingAnchorHelper.move(this.user(), anchor.javaId, position, vehicle.rotation(), vehicle.isOnGround());
         this.updateLockedPassengerRotation(vehicle, passenger);
     }
@@ -502,7 +502,7 @@ public class RidingTracker extends StoredObject {
     }
 
     private Position3f seatOffset(final Entity vehicle, final Entity passenger, final Position3f offset, final float anchorYOffset) {
-        // Bedrock seat offsets are local to the vehicle; anchors need absolute Java coordinates.
+        // 基岩座位偏移是相对载具的局部坐标；锚点需要绝对的 Java 坐标。
         final double yaw = Math.toRadians(vehicle.rotation().y());
         final float sin = (float) Math.sin(yaw);
         final float cos = (float) Math.cos(yaw);
@@ -515,8 +515,8 @@ public class RidingTracker extends StoredObject {
 
     private float passengerAnchorYOffset(final Entity passenger) {
         if (passenger instanceof PlayerEntity) {
-            // Bedrock player positions are network/base-offset coordinates (Nukkit EntityHuman#getBaseOffset = 1.62).
-            // Java then subtracts the player's vehicle attachment from the anchor when applying SET_PASSENGERS.
+            // 基岩玩家位置是网络/基础偏移坐标（Nukkit EntityHuman#getBaseOffset = 1.62）。
+            // 应用 SET_PASSENGERS 时，Java 会再从锚点中减去玩家的载具挂载偏移。
             return JAVA_PLAYER_VEHICLE_ATTACHMENT_Y - passenger.eyeOffset();
         }
         return 0F;
@@ -529,11 +529,11 @@ public class RidingTracker extends StoredObject {
 
     private Position3f authInputPosition(final Entity vehicle, final ClientPlayerEntity clientPlayer, final LocalRidingMode mode) {
         if (mode == LocalRidingMode.BOAT_PREDICTED && this.emulateNetEaseRiding()) {
-            // MOT 860 still uses IN_CLIENT_PREDICTED_IN_VEHICLE + EntityBoat.onInput(x,y,z,yaw).
-            // Raw JE buoyancy Y climbs forever if echoed. Hard-pinning to the frozen MOT tracker Y
-            // stopped the fly-up but left the hull hovering/jittering because occupied boats disable
-            // MOT wave sim and never refresh network Y on slopes/waterfalls. Keep XZ/yaw from
-            // MOVE_VEHICLE and choose a water-surface (or grounded) network Y instead.
+            // MOT 860 仍使用 IN_CLIENT_PREDICTED_IN_VEHICLE + EntityBoat.onInput(x,y,z,yaw)。
+            // 如果原样回显，JE 的原始浮力 Y 会一直上升。硬钉到冻结的 MOT 跟踪器 Y
+            // 虽然止住了上飞，却让船体悬停/抖动，因为被乘坐的船禁用了
+            // MOT 波浪模拟，且在斜坡/瀑布上从不刷新网络 Y。保留 MOVE_VEHICLE 的
+            // XZ/偏航角，改为选择一个水面（或着地）网络 Y。
             final Position3f vehicleNetworkPosition = vehicle.position();
             final Position3f javaVehiclePosition = this.lastMoveVehicleInputFresh && this.lastMoveVehicleInput != null
                     ? this.lastMoveVehicleInput.position()
@@ -547,13 +547,13 @@ public class RidingTracker extends StoredObject {
 
         final Position3f vehiclePosition = vehicle.position();
         if (mode == LocalRidingMode.VIRTUAL_INPUT_ONLY || mode == LocalRidingMode.PASSENGER_ONLY) {
-            // MOT SAI riding subtracts riding.getMountedOffset().y (horse 1.2), not player 1.62.
-            // Writing vehicle.y + eyeOffset drops the seat and lands ~0.78 below the passenger
-            // foot, which trips GanAC AntiVehicle.FlyCheck (0.5). Match VIRTUAL_INPUT_ONLY /
-            // safeDismountPosition: vehicle + seat + player eye.
-            // Ref: MOT Player.java clientPosition; Entity.getMountedOffset; EntityHorse height 1.6.
-            // Minecart network Y includes getBaseOffset (0.35); Bedrock player SAI is
-            // internal foot + seat + player 1.62.
+            // MOT SAI 骑乘减去的是 riding.getMountedOffset().y（马 1.2），不是玩家的 1.62。
+            // 写入 vehicle.y + eyeOffset 会让座位下沉，落到比乘客
+            // 脚部低约 0.78 的位置，从而触发 GanAC AntiVehicle.FlyCheck（0.5）。应与 VIRTUAL_INPUT_ONLY /
+            // safeDismountPosition 保持一致：vehicle + seat + 玩家眼睛。
+            // 参考：MOT Player.java clientPosition；Entity.getMountedOffset；EntityHorse 高度 1.6。
+            // 矿车网络 Y 包含 getBaseOffset（0.35）；基岩玩家的 SAI 是
+            // 内部脚部 + 座位 + 玩家 1.62。
             final Position3f authVehiclePosition = usesMinecartRiding(vehicle.javaType())
                     ? new Position3f(vehiclePosition.x(), vehiclePosition.y() - vehicle.eyeOffset(), vehiclePosition.z())
                     : vehiclePosition;
@@ -567,9 +567,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * PASSENGER_ONLY / VIRTUAL_INPUT_ONLY SAI Y is the passenger network position:
-     * vehicle foot + seat offset + player {@code getBaseOffset()} (1.62). MOT then
-     * subtracts {@code riding.getMountedOffset().y}.
+     * PASSENGER_ONLY / VIRTUAL_INPUT_ONLY 的 SAI Y 是乘客网络位置：
+     * 载具脚部 + 座位偏移 + 玩家 {@code getBaseOffset()}（1.62）。MOT 随后
+     * 减去 {@code riding.getMountedOffset().y}。
      */
     static Position3f passengerAuthInputPosition(final Position3f vehiclePosition, final Position3f seatOffset, final float playerEyeOffset) {
         return new Position3f(
@@ -579,11 +579,11 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * Java {@code MOVE_VEHICLE} carries JE client XZ plus a buoyancy-affected Y. MOT predicted-boat
-     * SAI must be the boat network Y ({@code EntityBoat.getBaseOffset()} = 0.375) because
-     * {@code onInput} subtracts that offset. Adding the player eye (1.62), or feeding raw JE
-     * buoyancy Y back through SAI, lifts the boat every tick and trips GanAC AntiVehicle.FlyCheck.
-     * Ref: MOT Player.java IN_CLIENT_PREDICTED_IN_VEHICLE; EntityBoat.onInput / getWaterLevel.
+     * Java 的 {@code MOVE_VEHICLE} 携带 JE 客户端的 XZ 以及受浮力影响的 Y。MOT 预测船的
+     * SAI 必须是船的网络 Y（{@code EntityBoat.getBaseOffset()} = 0.375），因为
+     * {@code onInput} 会减去该偏移。加上玩家眼睛高度（1.62），或把 JE 原始
+     * 浮力 Y 直接回灌 SAI，都会每刻抬升船并触发 GanAC AntiVehicle.FlyCheck。
+     * 参考：MOT Player.java IN_CLIENT_PREDICTED_IN_VEHICLE；EntityBoat.onInput / getWaterLevel。
      */
     static Position3f predictedBoatAuthInputPosition(final Position3f javaVehiclePosition, final float vehicleEyeOffset) {
         return new Position3f(
@@ -612,9 +612,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * MOT ADD/MOVE already stores the boat network Y (foot + {@code getBaseOffset()}). Convert
-     * that tracker position back to the Java boat foot so helpers that still speak in JE foot
-     * space stay consistent with spawn / MOVE sync.
+     * MOT 的 ADD/MOVE 已经存的是船的网络 Y（脚部 + {@code getBaseOffset()}）。把
+     * 该跟踪器位置换回 Java 船的脚部，好让仍以 JE 脚部
+     * 空间表述的辅助方法在生成 / MOVE 同步时保持一致。
      */
     static Position3f predictedBoatJavaFoot(final Position3f vehicleNetworkPosition, final float vehicleEyeOffset) {
         return new Position3f(
@@ -628,16 +628,16 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * Choose the SAI network Y for a predicted boat.
+     * 为预测船选择 SAI 网络 Y。
      * <p>
-     * Priority:
+     * 优先级：
      * <ol>
-     *   <li>Chunk water surface under the steered XZ (occupied MOT boats disable wave sim, so the
-     *       tracker Y never follows slopes / waterfalls by itself).</li>
-     *   <li>Small, physically plausible JE MOVE_VEHICLE corrections around that surface.</li>
-     *   <li>Last MOT tracker network Y when chunks are unloaded.</li>
+     * <li>受控 XZ 下方的区块水面（被乘坐的 MOT 船禁用了波浪模拟，因此
+     * 跟踪器 Y 自身永远不会跟随斜坡 / 瀑布）。</li>
+     * <li>围绕该水面的小幅、物理上合理的 JE MOVE_VEHICLE 纠正。</li>
+     * <li>区块未加载时使用 MOT 跟踪器上一次的网络 Y。</li>
      * </ol>
-     * Large JE buoyancy climbs are rejected so #1-2 fly-up cannot accumulate through onInput.
+     * 大幅的 JE 浮力上升会被拒绝，这样第 1-2 项的上飞无法通过 onInput 累积。
      */
     static float predictedBoatNetworkY(
             final Position3f javaVehiclePosition,
@@ -650,9 +650,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * Final resting network Y (water surface / grounded), without the per-tick approach.
-     * JE MOVE_VEHICLE must aim at this value; syncing to the intermediate approached Y was
-     * fighting JE buoyancy every tick and caused the remaining water jitter.
+     * 最终静止网络 Y（水面 / 着地），不含每刻逼近。
+     * JE 的 MOVE_VEHICLE 必须瞄准这个值；同步到中间逼近的 Y
+     * 会每刻与 JE 浮力对抗，造成剩下的水面抖动。
      */
     static float boatTargetNetworkY(
             final Position3f javaVehiclePosition,
@@ -671,16 +671,16 @@ public class RidingTracker extends StoredObject {
 
         final Float groundNetworkY = resolveBoatGroundNetworkY(world, sampleX, trackerNetworkY, javaOrTrackerNetworkY, sampleZ, vehicleEyeOffset);
         if (groundNetworkY != null) {
-            // Same soft-follow path as water: land cliffs / slopes must not freeze at the old
-            // mount snapshot or the hull hangs in the air.
+            // 与水面相同的柔和跟随路径：陆地悬崖 / 斜坡不能在旧的
+            // 骑乘快照处冻结，否则船体会悬在空中。
             return groundNetworkY;
         }
 
         if (javaVehiclePosition != null) {
             final float javaNetworkY = javaOrTrackerNetworkY;
             final float delta = javaNetworkY - trackerNetworkY;
-            // Chunks unloaded / no solid sample: always allow downward JE motion (cliffs), and
-            // only small upward corrections. Large upward climbs are still the #1-2 fly-up.
+            // 区块未加载 / 没有实心采样：始终允许 JE 向下运动（悬崖），
+            // 只允许小幅向上纠正。大幅向上爬升仍属第 1-2 项的上飞。
             if (delta <= 0.12F) {
                 return javaNetworkY;
             }
@@ -710,9 +710,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * JE foot used to snap the local predicted boat. Keep MOVE_VEHICLE XZ/yaw for steering, and
-     * use the same water-aware network Y that SAI will send so the visual hull and MOT onInput
-     * stay locked together without fighting every tick.
+     * 用于对齐本地预测船的 JE 脚部。保留 MOVE_VEHICLE 的 XZ/偏航角用于操控，并
+     * 使用 SAI 将要发送的同一个考虑水面的网络 Y，使视觉船体与 MOT onInput
+     * 锁在一起，而不必每刻对抗。
      */
     static Position3f predictedBoatJavaSyncPosition(
             final Position3f javaMoveVehiclePosition,
@@ -729,7 +729,7 @@ public class RidingTracker extends StoredObject {
         final float targetNetworkY = boatTargetNetworkY(javaMoveVehiclePosition, vehicleNetworkPosition, vehicleEyeOffset, world);
         final float targetFootY = targetNetworkY - vehicleEyeOffset;
         if (javaMoveVehiclePosition == null) {
-            // No fresh JE sample: keep XZ from the tracker and soft-follow the final foot target.
+            // 没有新的 JE 采样：保留跟踪器的 XZ，并柔和跟随最终的脚部目标。
             final float footY = approachBoatJavaSyncFootY(vehicleNetworkPosition.y() - vehicleEyeOffset, targetFootY);
             return new Position3f(vehicleNetworkPosition.x(), footY, vehicleNetworkPosition.z());
         }
@@ -738,9 +738,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * Sample water under the boat BB the same way MOT {@code EntityBoat.getWaterLevel()} does.
-     * Resting network Y equals the highest water {@code maxY} under the hull
-     * ({@code waterDiff = (footY + baseOffset) - waterMaxY ~= 0}).
+     * 按 MOT {@code EntityBoat.getWaterLevel()} 的方式，对船的包围盒下方采样水面。
+     * 静止网络 Y 等于船体下方最高的水面 {@code maxY}
+     * （{@code waterDiff = (footY + baseOffset) - waterMaxY ~= 0}）。
      */
     /**
      * Sample solid ground under the boat BB. Resting network Y is {@code groundTop + eyeOffset}
@@ -884,7 +884,7 @@ public class RidingTracker extends StoredObject {
                 depth = 0;
             }
         }
-        // MOT BlockLiquid: damage >= 8 is falling water treated as full source for height percent.
+        // MOT BlockLiquid：damage >= 8 是下落的水，计算高度百分比时按满源处理。
         if (depth >= 8) {
             depth = 0;
         }
@@ -921,8 +921,8 @@ public class RidingTracker extends StoredObject {
         final Position3f visual = vehicleInput != null ? vehicleInput.position() : null;
         final float targetNetworkY = boatTargetNetworkY(visual, vehicle.position(), vehicle.eyeOffset(), world);
         final float targetFootY = targetNetworkY - vehicle.eyeOffset();
-        // Near the final resting height, leave JE alone. Syncing to the intermediate approached
-        // tracker Y (or to the exact water foot every few buoyancy ticks) was the remaining jitter.
+        // 接近最终静止高度时，不要干预 JE。同步到中间逼近的
+        // 跟踪器 Y（或每隔几个浮力刻同步到精确的水面脚部）正是残余抖动的来源。
         if (visual != null && !shouldSyncPredictedBoatJavaY(visual.y(), targetFootY)) {
             return;
         }
@@ -1013,7 +1013,7 @@ public class RidingTracker extends StoredObject {
             return;
         }
 
-        // Bedrock paddle flags describe the oar being used: row right to turn left, row left to turn right.
+        // 基岩桨标志描述正在使用哪支桨：右划向左转，左划向右转。
         if (left) {
             clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.PaddlingRight);
         }
@@ -1070,9 +1070,9 @@ public class RidingTracker extends StoredObject {
     }
 
     /**
-     * MOT HorseInventory never sends CONTAINER_CLOSE on dismount; it only
-     * broadcasts SET_ENTITY_LINK type 0. Keep the JE mount screen until unlink.
-     * Ref: MOT Entity.dismountEntity / HorseInventory.onClose.
+     * MOT HorseInventory 在下马时从不发送 CONTAINER_CLOSE；它只
+     * 广播 SET_ENTITY_LINK 类型 0。在解除链接前保持 JE 的骑乘界面。
+     * 参考：MOT Entity.dismountEntity / HorseInventory.onClose。
      */
     private void closeLocalHorseContainer() {
         final InventoryTracker inventoryTracker = this.user().get(InventoryTracker.class);
@@ -1106,7 +1106,7 @@ public class RidingTracker extends StoredObject {
         final ClientPlayerEntity clientPlayer = this.user().get(EntityTracker.class).getClientPlayer();
         final Position3f position = this.dismountPosition(vehicle, clientPlayer);
         this.clearLocalRiding();
-        // Java keeps the client-side passenger attachment position after a server-driven unlink.
+        // 服务端驱动的解除链接之后，Java 会保留客户端侧的乘客挂载位置。
         clientPlayer.setPosition(position);
         clientPlayer.beginPositionSync(Relative.ROTATION);
     }

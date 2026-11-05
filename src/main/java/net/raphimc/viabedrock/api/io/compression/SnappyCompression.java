@@ -31,7 +31,7 @@ public class SnappyCompression implements CompressionAlgorithm {
         if (in.readableBytes() <= Short.MAX_VALUE) {
             this.snappy.encode(in, out, in.readableBytes());
             this.snappy.reset();
-        } else { // Netty's snappy implementation can't handle more than that (https://github.com/netty/netty/issues/13226)
+        } else { // Netty 的 snappy 实现无法处理超过此大小的数据 (https://github.com/netty/netty/issues/13226)
             Types.VAR_INT.writePrimitive(out, in.readableBytes());
 
             int value = in.readableBytes() - 1;

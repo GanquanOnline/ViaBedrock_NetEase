@@ -86,13 +86,13 @@ class InventoryContentLayoutTest {
     private static int leftoverBytesAfterOptionalLayout(final ByteBuf buffer) {
         final int readerIndex = buffer.readerIndex();
         try {
-            net.raphimc.viabedrock.protocol.types.BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // container id
+            net.raphimc.viabedrock.protocol.types.BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 容器 id
             final int itemCount = net.raphimc.viabedrock.protocol.types.BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
             for (int i = 0; i < itemCount; i++) {
                 LEGACY_ITEM_TYPE.read(buffer);
             }
-            buffer.readBoolean(); // optional full container name
-            buffer.readBoolean(); // optional storage item
+            buffer.readBoolean(); // 可选完整容器名
+            buffer.readBoolean(); // 可选存储物品
             return buffer.readableBytes();
         } finally {
             buffer.readerIndex(readerIndex);

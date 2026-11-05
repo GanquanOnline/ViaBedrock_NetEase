@@ -35,8 +35,8 @@ public abstract class ResourcePackProvider implements Provider {
     public abstract void save(final ResourcePack resourcePack) throws Exception;
 
     /**
-     * The legacy provider only receives UUID/version, so it cannot safely distinguish backends or
-     * conflicting announcements. Shared-cache mode must resolve packs through exact CAS identities.
+     * 旧的提供器只收到 UUID/版本，因此无法安全地区分后端或
+     * 相互冲突的声明。共享缓存模式必须通过精确的 CAS 标识来解析资源包。
      */
     public static boolean isLegacyAliasLookupAllowed(final boolean sharedCacheEnabled) {
         return !sharedCacheEnabled;

@@ -38,9 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java smithing result clicks become MOT {@code CraftRecipe}. Trim is hardcoded
- * networkId {@code 1}; netherite upgrades use the matching CRAFTING_DATA recipe.
- * Consume equipment / ingredient / template, then Take HUD created-output 50.
+ * Java 的锻造台结果点击会变成 MOT {@code CraftRecipe}。纹饰的 networkId 硬编码为 {@code 1}；下界合金升级使用 CRAFTING_DATA 中匹配的配方。
+ * 依次 Consume 装备 / 材料 / 模板，然后 Take HUD 的 created-output 50。
  */
 public final class SmithingSimulator {
 

@@ -38,7 +38,7 @@ public class CameraInterface {
     public static final String CHANNEL = "becamera:data";
 
     public static void confirmPresence(final UserConnection user) {
-        // Must use CONFIGURATION packet type since this is called during channel registration (CONFIGURATION state)
+        // 必须使用 CONFIGURATION 数据包类型，因为这段代码在通道注册期间（CONFIGURATION 状态）被调用
         final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundConfigurationPackets1_21_9.CUSTOM_PAYLOAD, user);
         pluginMessage.write(Types.STRING, CHANNEL);
         pluginMessage.write(Types.INT, PayloadType.CONFIRM.ordinal());
@@ -59,9 +59,8 @@ public class CameraInterface {
             sendCameraShake(wrapper.user(), intensity, duration, type, action);
         });
 
-        // UnhandledPackets already cancels CAMERA_PRESETS so leftover bytes cannot abort
-        // a join batch when experimental camera is off. Override that cancel when BECamera
-        // translation is registered (Ref: CameraInterface vs UnhandledPackets).
+        // UnhandledPackets 已经会取消 CAMERA_PRESETS，这样在实验性相机关闭时残留字节不会中断加入批次。
+        // 当 BECamera 转换被注册时，要覆盖这个取消行为（参考：CameraInterface 与 UnhandledPackets）。
         protocol.replaceClientbound(ClientboundBedrockPackets.CAMERA_PRESETS, wrapper -> {
             wrapper.cancel();
             final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
@@ -88,47 +87,46 @@ public class CameraInterface {
                 rotXs[i] = wrapper.read(Types.BOOLEAN) ? wrapper.read(BedrockTypes.FLOAT_LE) : null;
                 rotYs[i] = wrapper.read(Types.BOOLEAN) ? wrapper.read(BedrockTypes.FLOAT_LE) : null;
 
-                // The optional fields are versioned and must be consumed in the
-                // exact order used by Bedrock's CameraPresets packet.
+                // 可选字段是带版本区分的，必须严格按基岩 CameraPresets 数据包使用的顺序读取。
                 if (CameraPacketLayout.usesRotationSpeed(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalFloat(wrapper); // rotation_speed
-                    skipOptionalBoolean(wrapper); // snap_to_target
+                    skipOptionalFloat(wrapper); // rotation_speed（旋转速度）
+                    skipOptionalBoolean(wrapper); // snap_to_target（对齐到目标）
                     if (CameraPacketLayout.usesRotationLimits(emulateNetEase, cameraProtocolVersion)) {
-                        skipOptionalVec2f(wrapper); // horizontal_rotation_limit
-                        skipOptionalVec2f(wrapper); // vertical_rotation_limit
-                        skipOptionalBoolean(wrapper); // continue_targeting
+                        skipOptionalVec2f(wrapper); // horizontal_rotation_limit（水平旋转限制）
+                        skipOptionalVec2f(wrapper); // vertical_rotation_limit（垂直旋转限制）
+                        skipOptionalBoolean(wrapper); // continue_targeting（继续追踪目标）
                     }
                 }
                 if (CameraPacketLayout.usesBlockListeningRadius(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalFloat(wrapper); // block_listening_radius
+                    skipOptionalFloat(wrapper); // block_listening_radius（方块监听半径）
                 }
                 if (CameraPacketLayout.usesBaseCameraOptions(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalVec2f(wrapper); // view_offset
+                    skipOptionalVec2f(wrapper); // view_offset（视角偏移）
                 }
                 if (CameraPacketLayout.usesRotationSpeed(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalVec3f(wrapper); // entity_offset
+                    skipOptionalVec3f(wrapper); // entity_offset（实体偏移）
                 }
                 if (CameraPacketLayout.usesBaseCameraOptions(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalFloat(wrapper); // radius
+                    skipOptionalFloat(wrapper); // radius（半径）
                 }
                 if (CameraPacketLayout.usesYawLimits(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalFloat(wrapper); // yaw_limit_min
-                    skipOptionalFloat(wrapper); // yaw_limit_max
+                    skipOptionalFloat(wrapper); // yaw_limit_min（偏航角下限）
+                    skipOptionalFloat(wrapper); // yaw_limit_max（偏航角上限）
                 }
                 audioListeners[i] = wrapper.read(Types.BOOLEAN) ? wrapper.read(Types.BYTE) : null;
                 playerEffectsArr[i] = wrapper.read(Types.BOOLEAN) ? wrapper.read(Types.BOOLEAN) : null;
                 if (CameraPacketLayout.usesAlignTargetAndCameraForward(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalBoolean(wrapper); // align_target_and_camera_forward
+                    skipOptionalBoolean(wrapper); // align_target_and_camera_forward（对齐目标与相机朝向）
                 }
-                // aim_assist (optional nested)
+                // aim_assist（可选，嵌套）
                 if (CameraPacketLayout.usesAimAssist(emulateNetEase, cameraProtocolVersion) && wrapper.read(Types.BOOLEAN)) {
-                    skipOptionalString(wrapper); // preset_id
-                    skipOptionalIntLE(wrapper); // target_mode
-                    skipOptionalVec2f(wrapper); // angle
-                    skipOptionalFloat(wrapper); // distance
+                    skipOptionalString(wrapper); // preset_id（预设 ID）
+                    skipOptionalIntLE(wrapper); // target_mode（目标模式）
+                    skipOptionalVec2f(wrapper); // angle（角度）
+                    skipOptionalFloat(wrapper); // distance（距离）
                 }
                 if (CameraPacketLayout.usesControlScheme(emulateNetEase, cameraProtocolVersion)) {
-                    skipOptionalByte(wrapper); // control_scheme
+                    skipOptionalByte(wrapper); // control_scheme（控制方案）
                 }
             }
 
@@ -150,7 +148,7 @@ public class CameraInterface {
             boolean hasClear = false;
             boolean hasFade = false;
 
-            // Set instruction fields
+            // Set 指令字段
             int presetRuntimeId = 0;
             byte easingType = 0;
             float easeDuration = 0;
@@ -161,13 +159,13 @@ public class CameraInterface {
             Position3f facing = null;
             boolean isDefault = false;
 
-            // Fade instruction fields
+            // Fade 指令字段
             float fadeIn = 0, fadeStay = 0, fadeOut = 0;
             boolean hasFadeTime = false;
             float fadeR = 0, fadeG = 0, fadeB = 0;
             boolean hasFadeColor = false;
 
-            // CameraSetInstruction (optional)
+            // CameraSetInstruction（可选）
             hasSet = wrapper.read(Types.BOOLEAN);
             if (hasSet) {
                 presetRuntimeId = wrapper.read(BedrockTypes.INT_LE);
@@ -192,25 +190,25 @@ public class CameraInterface {
                     facing = wrapper.read(BedrockTypes.POSITION_3F);
                 }
 
-                skipOptionalVec2f(wrapper); // view_offset
-                skipOptionalVec3f(wrapper); // entity_offset
+                skipOptionalVec2f(wrapper); // view_offset（视角偏移）
+                skipOptionalVec3f(wrapper); // entity_offset（实体偏移）
 
                 if (wrapper.read(Types.BOOLEAN)) {
                     isDefault = wrapper.read(Types.BOOLEAN);
                 }
 
                 if (CameraPacketLayout.usesRemoveIgnoreStartingValues(emulateNetEase(), cameraProtocol())) {
-                    wrapper.read(Types.BOOLEAN); // remove_ignore_starting_values_component
+                    wrapper.read(Types.BOOLEAN); // remove_ignore_starting_values_component（移除忽略起始值组件）
                 }
             }
 
-            // Clear instruction (optional)
+            // Clear 指令（可选）
             hasClear = wrapper.read(Types.BOOLEAN);
             if (hasClear) {
-                wrapper.read(Types.BOOLEAN); // clear value
+                wrapper.read(Types.BOOLEAN); // clear 值
             }
 
-            // Fade instruction (optional)
+            // Fade 指令（可选）
             hasFade = wrapper.read(Types.BOOLEAN);
             if (hasFade) {
                 hasFadeTime = wrapper.read(Types.BOOLEAN);
@@ -227,10 +225,8 @@ public class CameraInterface {
                 }
             }
 
-            // MOT CameraInstructionPacket.decode() keeps reading after fade on
-            // protocol >= 712/827/859. Java BECamera payload still only carries
-            // set/clear/fade, so consume leftover bytes instead of aborting the
-            // join batch (Ref: CameraInstructionPacket).
+            // 在协议 >= 712/827/859 上，MOT CameraInstructionPacket.decode() 在 fade 之后仍会继续读取。
+            // Java 的 BECamera 载荷仍然只携带 set/clear/fade，因此要消费掉剩余字节，而不是中断加入批次（参考：CameraInstructionPacket）。
             skipLeftoverCameraInstruction(wrapper, emulateNetEase(), cameraProtocol());
 
             final CameraAudioTracker cameraAudio = wrapper.user().get(CameraAudioTracker.class);
@@ -250,7 +246,7 @@ public class CameraInterface {
         });
     }
 
-    // --- Payload sending methods ---
+    // --- 载荷发送方法 ---
 
     public static void sendCameraShake(final UserConnection user, final float intensity, final float duration, final byte type, final byte action) {
         final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
@@ -299,7 +295,7 @@ public class CameraInterface {
         pluginMessage.write(Types.STRING, CHANNEL);
         pluginMessage.write(Types.INT, PayloadType.CAMERA_INSTRUCTION.ordinal());
 
-        // Flags
+        // 标志位
         pluginMessage.write(Types.BOOLEAN, hasSet);
         pluginMessage.write(Types.BOOLEAN, hasClear);
         pluginMessage.write(Types.BOOLEAN, hasFade);
@@ -349,7 +345,7 @@ public class CameraInterface {
         pluginMessage.scheduleSend(BedrockProtocol.class);
     }
 
-    // --- Helper methods ---
+    // --- 辅助方法 ---
 
     private static void writeString(final PacketWrapper wrapper, final String s) {
         final byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
@@ -424,49 +420,48 @@ public class CameraInterface {
     }
 
     /**
-     * Consume MOT leftover after fade: target (712), FOV (827), spline/attach (859).
-     * Spline rotation keyframes are Vector3f (pitch/yaw/roll) + time; Java still
-     * drops roll because BECamera {@code CameraPathManager} ignores it.
+     * 消费 fade 之后 MOT 的剩余字段：target（712）、FOV（827）、spline/attach（859）。
+     * 样条旋转关键帧是 Vector3f（pitch/yaw/roll）加 time；Java 仍然丢弃 roll，因为 BECamera 的 {@code CameraPathManager} 会忽略它。
      */
     static void skipLeftoverCameraInstruction(final PacketWrapper wrapper, final boolean emulateNetEase, final int protocol) {
         if (CameraPacketLayout.usesCameraTarget(emulateNetEase, protocol)) {
             if (wrapper.read(Types.BOOLEAN)) {
-                skipOptionalVec3f(wrapper); // target_center_offset
-                wrapper.read(BedrockTypes.LONG_LE); // unique_entity_id
+                skipOptionalVec3f(wrapper); // target_center_offset（目标中心偏移）
+                wrapper.read(BedrockTypes.LONG_LE); // unique_entity_id（唯一实体 ID）
             }
-            skipOptionalBoolean(wrapper); // remove_target
+            skipOptionalBoolean(wrapper); // remove_target（移除目标）
         }
         if (CameraPacketLayout.usesCameraFov(emulateNetEase, protocol)) {
             if (wrapper.read(Types.BOOLEAN)) {
-                wrapper.read(BedrockTypes.FLOAT_LE); // fov
-                wrapper.read(BedrockTypes.FLOAT_LE); // ease_time
-                wrapper.read(Types.BYTE); // ease_type
-                wrapper.read(Types.BOOLEAN); // clear
+                wrapper.read(BedrockTypes.FLOAT_LE); // fov（视野）
+                wrapper.read(BedrockTypes.FLOAT_LE); // ease_time（缓动时间）
+                wrapper.read(Types.BYTE); // ease_type（缓动类型）
+                wrapper.read(Types.BOOLEAN); // clear（清除）
             }
         }
         if (CameraPacketLayout.usesCameraSpline(emulateNetEase, protocol)) {
             if (wrapper.read(Types.BOOLEAN)) {
-                wrapper.read(BedrockTypes.FLOAT_LE); // total_time
-                wrapper.read(Types.BYTE); // spline_type
+                wrapper.read(BedrockTypes.FLOAT_LE); // total_time（总时间）
+                wrapper.read(Types.BYTE); // spline_type（样条类型）
                 final int curveCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
                 for (int i = 0; i < curveCount; i++) {
                     wrapper.read(BedrockTypes.POSITION_3F);
                 }
                 final int progressCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
                 for (int i = 0; i < progressCount; i++) {
-                    wrapper.read(BedrockTypes.FLOAT_LE); // value
-                    wrapper.read(BedrockTypes.FLOAT_LE); // time
+                    wrapper.read(BedrockTypes.FLOAT_LE); // value（值）
+                    wrapper.read(BedrockTypes.FLOAT_LE); // time（时间）
                 }
                 final int rotationCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
                 for (int i = 0; i < rotationCount; i++) {
-                    wrapper.read(BedrockTypes.POSITION_3F); // pitch/yaw/roll
-                    wrapper.read(BedrockTypes.FLOAT_LE); // time
+                    wrapper.read(BedrockTypes.POSITION_3F); // pitch/yaw/roll（俯仰/偏航/翻滚）
+                    wrapper.read(BedrockTypes.FLOAT_LE); // time（时间）
                 }
             }
             if (wrapper.read(Types.BOOLEAN)) {
-                wrapper.read(BedrockTypes.LONG_LE); // attach unique_entity_id
+                wrapper.read(BedrockTypes.LONG_LE); // attach unique_entity_id（附加到唯一实体 ID）
             }
-            skipOptionalBoolean(wrapper); // detach_from_entity
+            skipOptionalBoolean(wrapper); // detach_from_entity（从实体分离）
         }
     }
 

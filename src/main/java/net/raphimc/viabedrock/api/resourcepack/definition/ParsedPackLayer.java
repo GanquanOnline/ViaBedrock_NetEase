@@ -21,8 +21,8 @@ import java.util.LinkedHashSet;
 import java.util.Objects;
 
 /**
- * Immutable definitions parsed from one resource pack. Layers can be cached by content digest and
- * folded in bottom-to-top order without retaining the source pack contents.
+ * 从单个资源包解析出的不可变定义。各层可按内容摘要缓存，
+ * 并按自下而上的顺序折叠，而无需保留源包内容。
  */
 public record ParsedPackLayer(
         ResourcePack.Key sourceKey,
@@ -124,16 +124,16 @@ public record ParsedPackLayer(
     }
 
     /**
-     * Folds layers using Bedrock's pack precedence: later layers override earlier layers. Sound
-     * entity/block definitions merge at event granularity rather than replacing the whole entity.
+     * 按基岩的包优先级折叠各层：后出现的层覆写先出现的层。声音的
+     * 实体/方块定义按事件粒度合并，而不是替换整个实体。
      */
     public static FoldedDefinitions foldBottomToTop(final Collection<ParsedPackLayer> layersBottomToTop) {
         return foldBottomToTop(layersBottomToTop, List.of());
     }
 
     /**
-     * Folds the normal stack and prepends model-only base layers, such as ViaBedrock's skin pack.
-     * Definitions other than models are intentionally ignored from the model base layers.
+     * 折叠普通堆叠，并在前面追加仅含模型的基层，例如 ViaBedrock 的皮肤包。
+     * 模型基层中除模型以外的定义会被有意忽略。
      */
     public static FoldedDefinitions foldBottomToTop(final Collection<ParsedPackLayer> layersBottomToTop,
                                                      final Collection<ParsedPackLayer> modelBaseLayersBottomToTop) {

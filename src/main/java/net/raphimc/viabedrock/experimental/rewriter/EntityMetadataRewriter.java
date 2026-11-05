@@ -67,12 +67,12 @@ public class EntityMetadataRewriter {
     private static final int FANGS_SPELL_COLOR = 0x664D59;
     private static final int WOLOLO_SPELL_COLOR = 0xB38033;
 
-    // Called in Entity#translateEntityData if experimental features are enabled
+    // 在启用实验性功能时由 Entity#translateEntityData 调用
     public static boolean rewrite(final UserConnection user, final Entity entity, final ActorDataIDs id, final EntityData entityData, final List<EntityData> javaEntityData) {
         EntityTracker entityTracker = user.get(EntityTracker.class);
 
         switch (id) {
-            case RESERVED_0, RESERVED_092 -> { // Entity flags mask
+            case RESERVED_0, RESERVED_092 -> { // 实体标志位掩码
                 Set<ActorFlags> bedrockFlags = entity.entityFlags();
                 byte javaBitMask = sharedFlags(user, entity, isForceInvisible(entity));
                 final EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
@@ -82,10 +82,10 @@ public class EntityMetadataRewriter {
 
                 upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, javaBitMask));
 
-                // Java players need POSE plus SLEEPING_POS. MOT sleep is PLAYER_FLAGS bit 1
-                // (DATA_PLAYER_FLAG_SLEEP) and BED_POSITION, not ActorFlags.SNEAKING. Leaving
-                // pose as standing/crouch makes the Java client skip the lie-down animation even
-                // when MOT already accepted the bed and skipped the night.
+                // Java 玩家需要 POSE 和 SLEEPING_POS。MOT 的睡眠状态是 PLAYER_FLAGS 的第 1 位
+                // （DATA_PLAYER_FLAG_SLEEP）加 BED_POSITION，而不是 ActorFlags.SNEAKING。
+                // 若姿态仍保持站立/潜行，即使 MOT 已接受上床并跳过夜晚，
+                // Java 客户端也会跳过躺下动画。
                 // 本地玩家未入睡时 POSE 由输入与碰撞自行计算，延迟的 actor flags 回传不得在两次客户端
                 // tick 之间把它覆盖回站立/潜行；远端玩家与入睡玩家仍按滑翔/游泳/潜行/睡眠标志合成
                 // POSE（入睡时另写 SLEEPING_POS）。
@@ -140,7 +140,7 @@ public class EntityMetadataRewriter {
 
                 if (entity.javaType().is(EntityTypes1_21_11.BEE)) {
                     final Boolean hasNectar = booleanValue(entity.entityProperties().namedProperty("minecraft:has_nectar"));
-                    // The actor flags path must still emit anger when the property snapshot has not arrived.
+                    // 属性快照尚未到达时，actor flags 路径仍必须发出愤怒状态。
                     final byte beeBitMask = beeFlags(entity, hasNectar);
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, beeBitMask));
                 }
@@ -158,7 +158,7 @@ public class EntityMetadataRewriter {
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.STATE), VersionedTypes.V26_1.entityDataTypes().snifferState, snifferState(bedrockFlags)));
                 }
 
-                if (entity.javaType().is(EntityTypes1_21_11.TURTLE)) { //TODO: Test
+                if (entity.javaType().is(EntityTypes1_21_11.TURTLE)) { // TODO: 待测试
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.HAS_EGG), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.IS_PREGNANT)));
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.LAYING_EGG), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.LAYING_EGG)));
                 }
@@ -167,8 +167,8 @@ public class EntityMetadataRewriter {
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.CHEST), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.CHESTED)));
                 }
 
-                // Java 1.21.5+ draws saddles from SADDLE equipment, not ABSTRACT_HORSE FLAGS 0x04.
-                // MOT only sets ActorFlags.SADDLED (EntityHorseBase/Pig/Strider.setSaddled).
+                // Java 1.21.5+ 从 SADDLE 装备槽绘制鞍，而不是 ABSTRACT_HORSE FLAGS 0x04。
+                // MOT 只设置 ActorFlags.SADDLED（EntityHorseBase/Pig/Strider.setSaddled）。
                 if (usesJavaSaddleEquipment(entity.javaType())) {
                     sendSaddleEquipment(entity, bedrockFlags.contains(ActorFlags.SADDLED));
                 }
@@ -215,7 +215,7 @@ public class EntityMetadataRewriter {
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.IS_DANCING), VersionedTypes.V26_1.entityDataTypes().booleanType, isDancing));
                 }
 
-                if (entity.javaType().isOrHasParent(EntityTypes1_21_11.ABSTRACT_RAIDER)) { //TODO: Test
+                if (entity.javaType().isOrHasParent(EntityTypes1_21_11.ABSTRACT_RAIDER)) { // TODO: 待测试
                     boolean isCelebrating = bedrockFlags.contains(ActorFlags.CELEBRATING);
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.IS_CELEBRATING), VersionedTypes.V26_1.entityDataTypes().booleanType, isCelebrating));
                 }
@@ -308,7 +308,7 @@ public class EntityMetadataRewriter {
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.TYPE), VersionedTypes.V26_1.entityDataTypes().varIntType, javaVariant));
                     }
                     case TROPICAL_FISH -> applyTropicalFishVariant(entity, javaEntityData);
-                    case PUFFERFISH -> {} // For some reason bedrock sends the puffed state here as well as in the PUFFED_STATE Actor ID so we ignore this one
+                    case PUFFERFISH -> {} // 基岩出于某种原因在这里以及 PUFFED_STATE Actor ID 中都发送膨胀状态，因此这里忽略它
                     case SHULKER -> {
                         byte color = (byte) variant;
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.COLOR), VersionedTypes.V26_1.entityDataTypes().byteType, color));
@@ -341,21 +341,21 @@ public class EntityMetadataRewriter {
                     case SLIME, MAGMA_CUBE -> {
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SIZE), VersionedTypes.V26_1.entityDataTypes().varIntType, variant));
                     }
-                    case RABBIT -> { // TODO: Test when I can
+                    case RABBIT -> { // TODO: 方便时测试
                         int javaVariant = variant;
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.TYPE), VersionedTypes.V26_1.entityDataTypes().varIntType, javaVariant));
                     }
-                    case PARROT -> { // TODO: Test when I can
+                    case PARROT -> { // TODO: 方便时测试
                         int javaVariant = variant;
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.VARIANT), VersionedTypes.V26_1.entityDataTypes().varIntType, javaVariant));
                     }
                     case VILLAGER, ZOMBIE_VILLAGER -> {
-                        // Bedrock encodes the villager profession in VARIANT (region/biome in MARK_VARIANT,
-                        // trade level in TRADE_TIER). All three combine into one Java VILLAGER_DATA field.
+                        // 基岩把村民职业编码在 VARIANT 中（地区/生物群系在 MARK_VARIANT，
+                        // 交易等级在 TRADE_TIER）。三者合并成一个 Java VILLAGER_DATA 字段。
                         applyVillagerData(entity, javaEntityData);
                     }
                     default -> {
-                        if (variant != 0 && !(entity instanceof CustomEntity)) { // Custom entity variants are consumed by the custom renderer.
+                        if (variant != 0 && !(entity instanceof CustomEntity)) { // 自定义实体变体由自定义渲染器使用。
                             ViaBedrock.getPlatform().getLogger().warning("Received non-zero VARIANT " + variant + " for unsupported entity " + entity.type());
                         }
                     }
@@ -367,8 +367,8 @@ public class EntityMetadataRewriter {
                     applyTropicalFishVariant(entity, javaEntityData);
                     break;
                 }
-                // Villager region/biome (MARK_VARIANT) and trade level (TRADE_TIER) also feed the combined
-                // Java VILLAGER_DATA field. Other entities using these IDs are not translated yet.
+                // 村民的地区/生物群系（MARK_VARIANT）和交易等级（TRADE_TIER）也会并入组合后的
+                // Java VILLAGER_DATA 字段。使用这些 ID 的其他实体尚未做转换。
                 if (id == ActorDataIDs.COLOR_2_INDEX) {
                     return false;
                 }
@@ -390,7 +390,7 @@ public class EntityMetadataRewriter {
                         upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.WOOL), VersionedTypes.V26_1.entityDataTypes().byteType, sheepFlags(entity)));
                     }
                     default -> {
-                        if (javaColorIndex != 0 && !(entity instanceof CustomEntity)) { // Custom entity colors are consumed by the custom renderer.
+                        if (javaColorIndex != 0 && !(entity instanceof CustomEntity)) { // 自定义实体颜色由自定义渲染器使用。
                             ViaBedrock.getPlatform().getLogger().warning("Received non-zero COLOR_INDEX " + javaColorIndex + " for unsupported entity " + entity.type());
                         }
                     }
@@ -398,7 +398,7 @@ public class EntityMetadataRewriter {
             }
             case OWNER -> {
                 if (entity.javaType().is(EntityTypes1_21_11.FISHING_BOBBER)) {
-                    break; // Fishing hook owners are carried by the Java ADD_ENTITY data field.
+                    break; // 鱼钩的归属者由 Java 的 ADD_ENTITY data 字段承载。
                 }
                 long ownerId = readNumber(entityData).longValue();
                 if (ownerId == -1 || ownerId == 0) {
@@ -441,7 +441,7 @@ public class EntityMetadataRewriter {
                     //ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received FUSE_TIME for non-TNT entity " + entity.type());
                 }
             }
-            case AIR_SUPPLY -> { // Air supply is stored as a short in Bedrock, but an int in Java (Bedrock also has a max air supply value we ignore for now)
+            case AIR_SUPPLY -> { // 氧气值在基岩中是 short，在 Java 中是 int（基岩还有一个最大氧气值，目前忽略）
                 int airSupply = readNumber(entityData).intValue();
                 javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.AIR_SUPPLY), VersionedTypes.V26_1.entityDataTypes().varIntType, airSupply));
             }
@@ -452,10 +452,10 @@ public class EntityMetadataRewriter {
                 }
 
                 byte javaBitMask = 0;
-                javaBitMask |= 0x04; // Has arms
+                javaBitMask |= 0x04; // 有手臂
                 EntityData scaleData = entity.entityData().get(ActorDataIDs.RESERVED_038);
                 if (scaleData != null && readNumber(scaleData).floatValue() == 0f) {
-                    javaBitMask |= 0x10; // Marker: zero-size bounding box (matches Bedrock scale=0)
+                    javaBitMask |= 0x10; // Marker：零尺寸包围盒（对应基岩的 scale=0）
                 }
 
                 javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.CLIENT_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, javaBitMask));
@@ -469,7 +469,7 @@ public class EntityMetadataRewriter {
                 EulerAngle leftLegPose;
                 EulerAngle rightLegPose;
 
-                //Poses from https://github.com/lpsmods/armor-stand-poses/blob/1.21/datapack/datapack/data/poses/function/armor_stand/defaults.mcfunction
+                // 姿态数据来自 https://github.com/lpsmods/armor-stand-poses/blob/1.21/datapack/datapack/data/poses/function/armor_stand/defaults.mcfunction
                 switch (poseIndex) {
                     case 0 -> { // DEFAULT
                         headPose = new EulerAngle(0f, 0f, 0f);
@@ -576,7 +576,7 @@ public class EntityMetadataRewriter {
                         rightLegPose = new EulerAngle(4f, 63f, 8f);
                     }
                     default -> {
-                        // Fallback to none
+                        // 回退到 none
                         headPose = new EulerAngle(0f, 0f, 0f);
                         bodyPose = new EulerAngle(0f, 0f, 0f);
                         leftArmPose = new EulerAngle(0f, 0f, 0f);
@@ -606,13 +606,13 @@ public class EntityMetadataRewriter {
             case FREEZING_EFFECT_STRENGTH -> {
                 float freezingStrength = readNumber(entityData).floatValue();
 
-                // Java freezing strength is from 0-140 whereas Bedrock is from 0.0-1.0
+                // Java 的冰冻强度范围是 0-140，而基岩是 0.0-1.0
                 int javaStrength = Math.round(freezingStrength * 140f);
                 javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.TICKS_FROZEN), VersionedTypes.V26_1.entityDataTypes().varIntType, javaStrength));
             }
             case GOAT_HORN_COUNT -> {
                 if (entity.javaType().is(EntityTypes1_21_11.GOAT)) {
-                    // In bedrock the goat always loses its right horn first, whereas in java its random
+                    // 基岩中山羊总是先掉右角，而 Java 中是随机的
                     int hornCount = readNumber(entityData).intValue();
                     javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.HAS_LEFT_HORN), VersionedTypes.V26_1.entityDataTypes().booleanType, hornCount != 0));
                     javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.HAS_RIGHT_HORN), VersionedTypes.V26_1.entityDataTypes().booleanType, hornCount == 2));
@@ -644,7 +644,7 @@ public class EntityMetadataRewriter {
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received PEEK_ID for non-SHULKER entity " + entity.type());
                 }
             }
-            case ATTACHED, ATTACH_POS -> { // Not needed in java
+            case ATTACHED, ATTACH_POS -> { // Java 中不需要
                 if (!entity.javaType().is(EntityTypes1_21_11.SHULKER)) {
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received ATTACH for non-SHULKER entity " + entity.type());
                 }
@@ -765,8 +765,8 @@ public class EntityMetadataRewriter {
                     final byte flags = (byte) (targetId != -1 && targetId != 0 ? 0x01 : 0);
                     upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, flags));
                 } else if (entity.javaType().is(EntityTypes1_21_11.FISHING_BOBBER)) {
-                    // MOT EntityFishingHook.setTarget writes DATA_TARGET_EID. Java fishing
-                    // bobbers store HOOKED_ENTITY as the hooked Java id plus one (0 = none).
+                    // MOT 的 EntityFishingHook.setTarget 写入 DATA_TARGET_EID。Java 的钓鱼
+                    // 浮标把 HOOKED_ENTITY 存为被钩实体的 Java id 加一（0 = 无）。
                     final Integer hookedEntity = fishingBobberHookedEntity(targetId, uniqueId -> {
                         final Entity hooked = entityTracker.getEntityByUid(uniqueId);
                         return hooked != null ? hooked.javaId() : null;
@@ -781,49 +781,49 @@ public class EntityMetadataRewriter {
                 }
             }
             case NAME, NAME_RAW_TEXT, NAMETAG_ALWAYS_SHOW -> {
-                // Trim blank lines so a single-line CUSTOM_NAME never carries leading/trailing newlines
-                // (rendered as missing-glyph boxes). Vanilla Java CUSTOM_NAME also cannot render interior
-                // newlines, so only the bottom line stays here. For multiline always-show entities the
-                // tracker spawns a TEXT_DISPLAY; the host last-line CUSTOM_NAME must stay hidden or
-                // ArmorStandRenderer will draw it on top of the display (an extra overlapping row).
+                // 裁掉空行，使单行的 CUSTOM_NAME 不会带有首尾换行
+                // （会渲染成缺字方块）。原版 Java 的 CUSTOM_NAME 也无法渲染内部换行，
+                // 因此这里只保留最后一行。对于多行且始终显示的实体，
+                // 跟踪器会生成 TEXT_DISPLAY；宿主最后一行的 CUSTOM_NAME 必须保持隐藏，否则
+                // ArmorStandRenderer 会把它画在 display 之上（多出一行重叠）。
                 writeHostNametag(entity, javaEntityData);
             }
-            case RESERVED_038 -> { // SCALE (Bedrock entity data ID 38)
+            case RESERVED_038 -> { // SCALE（基岩实体数据 ID 38）
                 float scale = readNumber(entityData).floatValue();
                 if (entity instanceof LivingEntity) {
                     javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SHARED_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, sharedFlags(user, entity, scale == 0f)));
                 }
                 if (entity.javaType().is(EntityTypes1_21_11.ARMOR_STAND)) {
                     if (scale == 0f) {
-                        // Bedrock: scale=0 hides body but keeps nametag visible
-                        // Java armor stands also need Marker to remove bounding box height.
-                        byte clientFlags = 0x04; // Has arms
-                        clientFlags |= 0x10; // Marker: zero-size bounding box
+                        // 基岩：scale=0 隐藏身体但保留名称标签可见
+                        // Java 盔甲架还需要 Marker 才能去掉包围盒高度。
+                        byte clientFlags = 0x04; // 有手臂
+                        clientFlags |= 0x10; // Marker：零尺寸包围盒
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.CLIENT_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, clientFlags));
                     } else {
-                        byte clientFlags = 0x04; // Has arms, no marker
+                        byte clientFlags = 0x04; // 有手臂，无 marker
                         javaEntityData.add(new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.CLIENT_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, clientFlags));
                     }
                 }
 
-                // Send minecraft:scale attribute for all LivingEntity types (including ARMOR_STAND when scale != 0)
+                // 为所有 LivingEntity 类型发送 minecraft:scale 属性（当 scale != 0 时也包括 ARMOR_STAND）
                 if (entity instanceof LivingEntity && scale != 0f) {
                     final double javaScale = Math.max(1.0 / 16.0, Math.min(16.0, (double) scale));
 
                     final PacketWrapper updateAttributes = PacketWrapper.create(ClientboundPackets26_1.UPDATE_ATTRIBUTES, user);
-                    updateAttributes.write(Types.VAR_INT, entity.javaId()); // entity id
-                    updateAttributes.write(Types.VAR_INT, 1); // attribute count
-                    updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.SCALE)); // attribute id
-                    updateAttributes.write(Types.DOUBLE, javaScale); // base value
-                    updateAttributes.write(Types.VAR_INT, 0); // modifier count
+                    updateAttributes.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+                    updateAttributes.write(Types.VAR_INT, 1); // 属性数量
+                    updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.SCALE)); // 属性 ID
+                    updateAttributes.write(Types.DOUBLE, javaScale); // 基础值
+                    updateAttributes.write(Types.VAR_INT, 0); // 修饰符数量
                     updateAttributes.send(BedrockProtocol.class);
                 }
             }
-            case AGENT, BALLOON_ANCHOR -> {} // Education edition only, ignore
+            case AGENT, BALLOON_ANCHOR -> {} // 仅教育版，忽略
             case PLAYER_FLAGS, BED_POSITION, ENTER_BED_POSITION -> {
-                // MOT sleepOn() writes PLAYER_FLAGS + BED_POSITION together; either field can
-                // arrive first. Recompute pose and SLEEPING_POS from the stored pair so Java
-                // always sees both or neither.
+                // MOT 的 sleepOn() 会一起写入 PLAYER_FLAGS 和 BED_POSITION；两个字段
+                // 到达顺序不定。根据已存储的这对值重新计算 pose 和 SLEEPING_POS，使 Java
+                // 要么两者都收到，要么都收不到。
                 if (!entity.javaType().is(EntityTypes1_21_11.PLAYER)) {
                     return false;
                 }
@@ -833,8 +833,8 @@ public class EntityMetadataRewriter {
                 if (!entity.javaType().isOrHasParent(EntityTypes1_21_11.ABSTRACT_BOAT)) {
                     return false;
                 }
-                // MOT EntityBoat DATA 13/14 (ROW_TIME_*) maps to Java ABSTRACT_BOAT PADDLE_LEFT/RIGHT.
-                // Java stores a boolean "is paddling"; MOT stores a float animation clock.
+                // MOT 的 EntityBoat DATA 13/14（ROW_TIME_*）映射到 Java 的 ABSTRACT_BOAT PADDLE_LEFT/RIGHT。
+                // Java 存的是布尔值「正在划桨」；MOT 存的是 float 动画时钟。
                 final boolean paddling = readNumber(entityData).floatValue() != 0F;
                 final String field = id == ActorDataIDs.ROW_TIME_LEFT ? EntityDataFields.PADDLE_LEFT : EntityDataFields.PADDLE_RIGHT;
                 upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(field), VersionedTypes.V26_1.entityDataTypes().booleanType, paddling));
@@ -847,7 +847,7 @@ public class EntityMetadataRewriter {
         return true;
     }
 
-    /** Translates named MOT properties after the dynamic registry has resolved them. */
+    /** 在动态注册表解析完成之后转换具名的 MOT 属性。 */
     public static boolean rewriteEntityProperties(final Entity entity, final List<EntityData> javaEntityData) {
         final EntityProperties properties = entity.entityProperties();
         boolean translated = false;
@@ -905,7 +905,7 @@ public class EntityMetadataRewriter {
                             VersionedTypes.V26_1.entityDataTypes().booleanType, stateFlags.tearingDown());
                 }
             }
-            // minecraft:creaking_swaying_ticks has no Java metadata equivalent; it remains in the snapshot.
+            // minecraft:creaking_swaying_ticks 在 Java 元数据中没有对应项；它仍保留在快照中。
         }
 
         if (type.is(EntityTypes1_21_11.HAPPY_GHAST)) {
@@ -923,7 +923,7 @@ public class EntityMetadataRewriter {
             translated |= putProperty(entity, javaEntityData, EntityDataFields.COPPER_GOLEM_STATE,
                     VersionedTypes.V26_1.entityDataTypes().copperGolemState,
                     javaCopperGolemState(properties.namedProperty("minecraft:chest_interaction")));
-            // minecraft:has_flower is Java SADDLE equipment containing a poppy, not metadata.
+            // minecraft:has_flower 对应 Java 中装有虞美人的 SADDLE 装备槽，而不是元数据。
             sendCopperGolemFlowerEquipment(entity, booleanValue(properties.namedProperty("minecraft:has_flower")));
         }
 
@@ -1009,8 +1009,8 @@ public class EntityMetadataRewriter {
         if (property == null || property.enumValue() == null) {
             return null;
         }
-        // Java ArmadilloState has IDLE, ROLLING, SCARED, UNROLLING. Bedrock's
-        // peeking and relaxing states both use Java's SCARED state.
+        // Java 的 ArmadilloState 有 IDLE、ROLLING、SCARED、UNROLLING。基岩的
+        // peeking 和 relaxing 状态都使用 Java 的 SCARED 状态。
         return switch (property.enumValue()) {
             case "unrolled" -> 0;
             case "rolled_up" -> 1;
@@ -1133,8 +1133,8 @@ public class EntityMetadataRewriter {
     }
 
     /**
-     * MOT {@code DATA_PLAYER_FLAG_SLEEP} is bit 1 of {@code PLAYER_FLAGS} (byte). Java Pose ids
-     * match 1.14+: STANDING=0 SLEEPING=2 SWIMMING=3 FALL_FLYING=4 CROUCHING=5.
+     * MOT 的 {@code DATA_PLAYER_FLAG_SLEEP} 是 {@code PLAYER_FLAGS}（byte）的第 1 位。Java 的 Pose id
+     * 与 1.14+ 一致：STANDING=0 SLEEPING=2 SWIMMING=3 FALL_FLYING=4 CROUCHING=5。
      */
     static final int JAVA_POSE_STANDING = 0;
     static final int JAVA_POSE_SLEEPING = 2;
@@ -1197,7 +1197,7 @@ public class EntityMetadataRewriter {
     }
 
     static boolean noGravity(final EntityTypes1_21_11 type, final Set<ActorFlags> bedrockFlags) {
-        // Bedrock servers can omit HAS_GRAVITY for dropped items while still simulating item gravity.
+        // 基岩服务端对掉落物可以省略 HAS_GRAVITY，但仍会模拟物品重力。
         return type.is(EntityTypes1_21_11.ITEM)
                 ? bedrockFlags.contains(ActorFlags.NOAI)
                 : !bedrockFlags.contains(ActorFlags.HAS_GRAVITY);
@@ -1372,7 +1372,7 @@ public class EntityMetadataRewriter {
             return 0;
         }
         if (color == null) {
-            return 2; // Bedrock can omit the color; fangs is the safest visible fallback for an evoker.
+            return 2; // 基岩可能省略颜色；对唤魔者来说尖牙是最安全的可见回退。
         }
         return switch (color & 0xFFFFFF) {
             case SUMMON_VEX_SPELL_COLOR -> 1;
@@ -1389,8 +1389,8 @@ public class EntityMetadataRewriter {
     }
 
     /**
-     * Multiline always-show names are owned by {@code MultilineNametagTracker}'s TEXT_DISPLAY,
-     * so the host last line is cleared instead of being left for ArmorStandRenderer.
+     * 多行且始终显示的名称由 {@code MultilineNametagTracker} 的 TEXT_DISPLAY 负责，
+     * 因此宿主最后一行会被清空，而不是留给 ArmorStandRenderer 绘制。
      */
     static boolean shouldHideHostNametag(final String effectiveName, final boolean alwaysShow) {
         return alwaysShow && effectiveName != null && effectiveName.indexOf('\n') >= 0;
@@ -1468,9 +1468,9 @@ public class EntityMetadataRewriter {
     }
 
     /**
-     * Java fishing bobber {@code HOOKED_ENTITY} is the hooked entity's Java id plus one
-     * (vanilla / Geyser convention). {@code 0} means not hooked. MOT writes
-     * {@code DATA_TARGET_EID}; {@code null} means the target unique id is not in the tracker yet.
+     * Java 钓鱼浮标的 {@code HOOKED_ENTITY} 是被钩实体的 Java id 加一
+     * （原版 / Geyser 约定）。{@code 0} 表示未钩住。MOT 写入
+     * {@code DATA_TARGET_EID}；{@code null} 表示目标的唯一 ID 还不在跟踪器中。
      */
     static Integer fishingBobberHookedEntity(final long targetUniqueId, final LongFunction<Integer> javaIdLookup) {
         if (targetUniqueId == 0L || targetUniqueId == -1L) {
@@ -1480,18 +1480,18 @@ public class EntityMetadataRewriter {
         return javaId == null ? null : javaId + 1;
     }
 
-    // Bedrock villager VARIANT (profession) -> Java profession registry id. Inverse of Geyser's
-    // VillagerEntity#VILLAGER_PROFESSIONS (Java->Bedrock). Index = Bedrock value, value = Java id.
+    // 基岩村民 VARIANT（职业）-> Java 职业注册表 id。为 Geyser 的
+    // VillagerEntity#VILLAGER_PROFESSIONS（Java->基岩）的反向表。索引 = 基岩值，元素 = Java id。
     private static final int[] BEDROCK_TO_JAVA_PROFESSION = {0, 5, 6, 12, 7, 9, 3, 4, 1, 14, 13, 2, 8, 10, 11};
-    // Bedrock villager MARK_VARIANT (region/biome) -> Java villager type registry id. Inverse of Geyser's
-    // VillagerEntity#VILLAGER_REGIONS.
+    // 基岩村民 MARK_VARIANT（地区/生物群系）-> Java 村民类型注册表 id。为 Geyser 的
+    // VillagerEntity#VILLAGER_REGIONS 的反向表。
     private static final int[] BEDROCK_TO_JAVA_REGION = {2, 0, 1, 3, 4, 5, 6};
 
     /**
-     * Combines the Bedrock villager fields VARIANT (profession), MARK_VARIANT (region/biome) and TRADE_TIER
-     * (trade level) into a single Java VILLAGER_DATA entry. Reads sibling fields from the entity's stored
-     * data so a change to any one of them rebuilds the complete value (Entity#updateEntityData stores the
-     * whole batch before translating, so the latest values are always visible here).
+     * 把基岩村民字段 VARIANT（职业）、MARK_VARIANT（地区/生物群系）和 TRADE_TIER
+     * （交易等级）合并成单个 Java VILLAGER_DATA 条目。从实体已存储的数据中读取同级字段，
+     * 因此其中任一字段变化都会重建完整的值（Entity#updateEntityData 会先存下
+     * 整批数据再转换，所以这里总能读到最新值）。
      */
     private static void applyVillagerData(final Entity entity, final List<EntityData> javaEntityData) {
         final EntityData variantData = entity.entityData().get(ActorDataIDs.VARIANT);
@@ -1507,10 +1507,10 @@ public class EntityMetadataRewriter {
         if (profession == null || type == null) {
             return;
         }
-        final int level = Math.max(1, Math.min(5, bedrockTradeTier + 1)); // Java trade levels are 1-based, Bedrock 0-based
+        final int level = Math.max(1, Math.min(5, bedrockTradeTier + 1)); // Java 的交易等级从 1 开始，基岩从 0 开始
 
         final int index = entity.getJavaEntityDataIndex(EntityDataFields.VILLAGER_DATA);
-        // Idempotent: if several villager fields arrive in one batch, keep a single VILLAGER_DATA entry.
+        // 幂等：若一批中到达多个村民字段，只保留一个 VILLAGER_DATA 条目。
         javaEntityData.removeIf(d -> d.id() == index);
         javaEntityData.add(new EntityData(index, VersionedTypes.V26_1.entityDataTypes().villagerDataType, new VillagerData(type, profession, level)));
     }
@@ -1530,8 +1530,8 @@ public class EntityMetadataRewriter {
     }
 
     static int snifferState(final Set<ActorFlags> flags) {
-        // MOT 860 still uses DATA_FLAG_SCENTING/RISING/FEELING_HAPPY = 110/111/112.
-        // Generated ActorFlags maps those values to DEPRECATED_1/2/3, so look them up by wire value.
+        // MOT 860 仍使用 DATA_FLAG_SCENTING/RISING/FEELING_HAPPY = 110/111/112。
+        // 生成的 ActorFlags 把这些值映射为 DEPRECATED_1/2/3，因此按线上数值查找。
         if (hasFlagValue(flags, 111) || flags.contains(ActorFlags.EMERGING)) {
             return 6; // RISING
         }
@@ -1550,7 +1550,7 @@ public class EntityMetadataRewriter {
         if (hasFlagValue(flags, 112)) {
             return 1; // FEELING_HAPPY
         }
-        return 0; // IDLING / default
+        return 0; // IDLING / 默认
     }
 
     private static boolean hasFlagValue(final Set<ActorFlags> flags, final int value) {
@@ -1601,7 +1601,7 @@ public class EntityMetadataRewriter {
     static String catVariantName(final int bedrockId) {
         return switch (bedrockId) {
             case 0 -> "white";
-            case 1 -> "black"; // Bedrock tuxedo
+            case 1 -> "black"; // 基岩燕尾服
             case 2 -> "red";
             case 3 -> "siamese";
             case 4 -> "british_shorthair";

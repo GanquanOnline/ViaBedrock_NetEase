@@ -47,7 +47,7 @@ public class MappingDataGenerator {
         }
         BedrockProtocol.MAPPINGS.load();
 
-        { // Bedrock
+        { // 基岩
             final CodeGen codeGen = new CodeGen(new File("src/main/java"), "net.raphimc.viabedrock.protocol.data.generated.bedrock");
             codeGen.addType(generateFromSet("CustomBlockTags", new HashSet<>(BedrockProtocol.MAPPINGS.getBedrockCustomBlockTags().values())));
             codeGen.addType(generateFromSet("CustomItemTags", new HashSet<>(BedrockProtocol.MAPPINGS.getBedrockCustomItemTags().values())));

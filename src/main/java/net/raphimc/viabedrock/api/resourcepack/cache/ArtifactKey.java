@@ -13,9 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Objects;
 
-/**
- * SHA-256 cache key for one converted Java artifact variant.
- */
+/** 一个已转换的 Java 产物变体的 SHA-256 缓存键。 */
 public record ArtifactKey(String hex) {
 
     private static final byte[] DOMAIN = "ViaBedrock-Artifact-v1\0".getBytes(StandardCharsets.US_ASCII);

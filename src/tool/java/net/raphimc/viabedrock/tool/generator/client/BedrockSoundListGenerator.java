@@ -115,10 +115,10 @@ public class BedrockSoundListGenerator {
     );
 
     private static final Set<SharedTypes_Legacy_LevelSoundEvent> SPECIAL_SOUNDS = Set.of(
-            // Mapped in code
+            // 在代码中映射
             SharedTypes_Legacy_LevelSoundEvent.RecordNull,
             SharedTypes_Legacy_LevelSoundEvent.Note,
-            // Those seem to do nothing
+            // 这些似乎不起作用
             SharedTypes_Legacy_LevelSoundEvent.RecordPlaying,
             SharedTypes_Legacy_LevelSoundEvent.ItemFizz,
             SharedTypes_Legacy_LevelSoundEvent.MobWarningBaby,
@@ -135,27 +135,28 @@ public class BedrockSoundListGenerator {
             SharedTypes_Legacy_LevelSoundEvent.LTReactionSalt
     );
 
-    /* Last output:
-        Unknown block sound: normal
-        Unknown sound: jump.ladder
-        Unknown sound: jump.metal
-        Unknown sound: mob.irongolem.say
-        Unknown sound: land.ladder
-        Unknown sound: mob.attack
-        Unknown sound: mob.attack
-        Unknown sound: mob.piglin.attack
-        Unknown sound: use.powder_snow
-        Unknown sound: use.azalea
-        Unknown sound: use.azalea_leaves
-        Unknown sound: use.anvil
-        Unknown sound: use.big_dripleaf
-        Unknown sound: nearby_closest.warden
-        Unknown sound: mob.zombie.converted_to_drowned
-        Unknown sound: block.dried_ghast.hit
-        Unknown sound: nearby_close.warden
-        Unknown sound: mob.cow.death
-        Unknown sound: nearby_closer.warden
-    */
+    /*
+     * 最后输出：
+     * Unknown block sound: normal
+     * Unknown sound: jump.ladder
+     * Unknown sound: jump.metal
+     * Unknown sound: mob.irongolem.say
+     * Unknown sound: land.ladder
+     * Unknown sound: mob.attack
+     * Unknown sound: mob.attack
+     * Unknown sound: mob.piglin.attack
+     * Unknown sound: use.powder_snow
+     * Unknown sound: use.azalea
+     * Unknown sound: use.azalea_leaves
+     * Unknown sound: use.anvil
+     * Unknown sound: use.big_dripleaf
+     * Unknown sound: nearby_closest.warden
+     * Unknown sound: mob.zombie.converted_to_drowned
+     * Unknown sound: block.dried_ghast.hit
+     * Unknown sound: nearby_close.warden
+     * Unknown sound: mob.cow.death
+     * Unknown sound: nearby_closer.warden
+     */
 
     public static void main(String[] args) throws Throwable {
         final ResourcePackStorage resourcePackStorage = Util.getClientResourcePacks(new File("C:\\XboxGames\\Minecraft for Windows\\Content\\data"));
@@ -170,7 +171,7 @@ public class BedrockSoundListGenerator {
             }
         }
 
-        // Seems like mojang forgot to set the category for these sounds
+        // 看起来 Mojang 忘了给这些音效设置分类
         if (soundsWithoutCategory.contains("sign.ink_sac.use")) {
             soundsWithoutCategory.remove("sign.ink_sac.use");
             soundList.addProperty("sign.ink_sac.use", "block");
@@ -203,7 +204,7 @@ public class BedrockSoundListGenerator {
             soundsWithoutCategory.remove("elemconstruct.active");
             soundList.addProperty("elemconstruct.active", "block");
         }
-        // Check if there are any sounds without a category
+        // 检查是否存在没有分类的音效
         for (String s : soundsWithoutCategory) {
             throw new IllegalStateException("Sound without category: " + s);
         }

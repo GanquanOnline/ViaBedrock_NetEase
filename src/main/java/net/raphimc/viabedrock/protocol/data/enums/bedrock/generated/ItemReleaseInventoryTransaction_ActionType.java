@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,13 +6,9 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum ItemReleaseInventoryTransaction_ActionType {
 
-    /**
-     * Release right click and hold style item use, like firing a bow
-     */
+    /** 松开右键长按式物品使用，例如射箭 */
     Release(0),
-    /**
-     * Finish right click and hold style item use, like charging a crossbow
-     */
+    /** 完成右键长按式物品使用，例如给弩蓄力 */
     Use(1),
     ;
 

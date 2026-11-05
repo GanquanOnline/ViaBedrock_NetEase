@@ -21,14 +21,14 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
 
 /**
- * Trailer helpers for Bedrock inventory-transaction item-use payloads.
+ * 基岩物品栏事务物品使用载荷的尾部辅助工具。
  * <p>
- * Official Bedrock / Nukkit-MOT protocol 944+ append {@code clientCooldownState}
- * after {@code clientInteractPrediction}. NetEase 860 still ends at the
- * predicted-result varint. Writing that extra byte into PlayerAuthInput's
- * PERFORM_ITEM_INTERACTION payload (or a standalone USE_ITEM transaction)
- * shifts later analog/camera/raw-move fields and Nukkit fails the batch as
- * {@code Unable to decode PlayerAuthInputPacket} / {@code Sent malformed packet}.
+ * 官方基岩 / Nukkit-MOT 协议 944+ 在 {@code clientInteractPrediction} 之后
+ * 追加 {@code clientCooldownState}。网易 860 仍结束于
+ * 预测结果的 varint。把这个额外字节写入 PlayerAuthInput 的
+ * PERFORM_ITEM_INTERACTION 载荷（或独立的 USE_ITEM 事务）
+ * 会使其后的模拟量/相机/原始移动字段错位，Nukkit 会以
+ * {@code Unable to decode PlayerAuthInputPacket} / {@code Sent malformed packet} 判定整批失败。
  */
 public final class InventoryTransactionLayout {
 

@@ -39,18 +39,18 @@ import java.util.*;
 import java.util.logging.Level;
 
 /**
- * Server-side animation manager for a single custom entity.
- * Implements AnimationEventListener to receive callbacks from BedrockMotion's Animator.
+ * 单个自定义实体的服务端动画管理器。
+ * 实现 AnimationEventListener，以接收 BedrockMotion 的 Animator 回调。
  * <p>
- * Lifecycle: created when CustomEntity spawns, destroyed when it despawns.
- * tick() is called from CustomEntity.tick() via EntityTracker.
+ * 生命周期：CustomEntity 生成时创建，消失时销毁。
+ * tick() 经 EntityTracker 由 CustomEntity.tick() 调用。
  */
 public class ServerEntityTicker implements AnimationEventListener {
 
     private static final Scope BASE_SCOPE = Scope.create();
 
     static {
-        //noinspection UnstableApiUsage
+        // noinspection UnstableApiUsage
         BASE_SCOPE.set("math", JavaObjectBinding.of(MochaMath.class, null, new MochaMath()));
         BASE_SCOPE.readOnly(true);
     }
@@ -74,14 +74,14 @@ public class ServerEntityTicker implements AnimationEventListener {
         this.boneModel = boneModel;
         this.packManager = packManager;
 
-        // Build entity scope (same pattern as CustomEntity in ViaBedrock)
+        // 构建实体作用域（与 ViaBedrock 中 CustomEntity 的写法相同）
         this.entityScope = BASE_SCOPE.copy();
 
         final MutableObjectBinding variableBinding = new MutableObjectBinding();
         this.entityScope.set("variable", variableBinding);
         this.entityScope.set("v", variableBinding);
 
-        // Initialize variables from entity scripts
+        // 从实体脚本初始化变量
         try {
             for (String initExpression : entityData.getScripts().initialize()) {
                 MoLangEngine.eval(this.entityScope, initExpression);
@@ -90,7 +90,7 @@ public class ServerEntityTicker implements AnimationEventListener {
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to initialize server entity variables", e);
         }
 
-        // Geometry bindings
+        // 几何模型绑定
         final MutableObjectBinding geometryBinding = new MutableObjectBinding();
         for (Map.Entry<String, String> entry : entityData.getGeometries().entrySet()) {
             geometryBinding.set(entry.getKey(), Value.of(entry.getValue()));
@@ -99,7 +99,7 @@ public class ServerEntityTicker implements AnimationEventListener {
         geometryBinding.block();
         this.entityScope.set("geometry", geometryBinding);
 
-        // Texture bindings
+        // 纹理绑定
         final MutableObjectBinding textureBinding = new MutableObjectBinding();
         for (Map.Entry<String, String> entry : entityData.getTextures().entrySet()) {
             textureBinding.set(entry.getKey(), Value.of(entry.getValue()));
@@ -108,17 +108,17 @@ public class ServerEntityTicker implements AnimationEventListener {
         textureBinding.block();
         this.entityScope.set("texture", textureBinding);
 
-        // Material bindings
+        // 材质绑定
         final MutableObjectBinding materialBinding = new MutableObjectBinding();
         materialBinding.block();
         this.entityScope.set("material", materialBinding);
 
         this.entityScope.readOnly(true);
 
-        // Create animation controllers
+        // 创建动画控制器
         initAnimationControllers();
 
-        // Create standalone animators for animations listed in entity scripts
+        // 为实体脚本中列出的动画创建独立动画器
         initAnimators();
     }
 
@@ -128,7 +128,7 @@ public class ServerEntityTicker implements AnimationEventListener {
 
         for (Map.Entry<String, String> entry : entityAnimations.entrySet()) {
             final String animId = entry.getValue();
-            // Check if this is an animation controller
+            // 检查这是否是动画控制器
             final AnimationController controller = packManager.getAnimationControllerDefinitions()
                     .getControllers().get(animId);
             if (controller != null) {
@@ -144,13 +144,13 @@ public class ServerEntityTicker implements AnimationEventListener {
     private void initAnimators() {
         final AnimationDefinitions animDefs = packManager.getAnimationDefinitions();
 
-        // Animations from entity scripts (animate list)
+        // 来自实体脚本的动画（animate 列表）
         for (BedrockEntityData.Scripts.Animate animateEntry : entityData.getScripts().animates()) {
             final String shortName = animateEntry.name();
             final String animId = entityData.getAnimations().get(shortName);
             if (animId == null) continue;
 
-            // Skip if it's an animation controller (handled above)
+            // 如果是动画控制器则跳过（已在上面处理）
             if (packManager.getAnimationControllerDefinitions().getControllers().containsKey(animId)) {
                 continue;
             }
@@ -164,35 +164,36 @@ public class ServerEntityTicker implements AnimationEventListener {
     }
 
     /**
-     * Called every tick from CustomEntity.tick().
-     * Evaluates animation controllers, runs animators, returns world transforms.
+     * 每刻由 CustomEntity.tick() 调用。
+     * 评估动画控制器、运行动画器，返回世界变换。
      *
-     * @param queryBindings additional query bindings (variant, flags, etc.)
-     * @return world transforms for all bones with cubes, or null if no animation is active
+     * @param queryBindings 额外的查询绑定（变体、标志位等）
+     *
+     * @return 所有带立方体的骨骼的世界变换；没有动画激活时返回 null
      */
     public Map<String, SimpleBoneModel.WorldTransform> tick(MutableObjectBinding queryBindings) {
         this.age++;
 
-        // Build frame scope with query bindings (LayeredScope avoids expensive deep copy)
+        // 用查询绑定构建帧作用域（LayeredScope 避免昂贵的深拷贝）
         final LayeredScope frameScope = new LayeredScope(entityScope);
         queryBindings.set("life_time", Value.of(this.age / 20.0f));
         queryBindings.block();
         frameScope.set("query", queryBindings);
         frameScope.set("q", queryBindings);
 
-        // Tick animation controllers (evaluate transitions, update blend weights)
+        // 驱动动画控制器（评估转场、更新混合权重）
         for (AnimationControllerInstance ci : controllerInstances) {
             ci.setBaseScope(frameScope);
             ci.tick(frameScope);
         }
 
-        // Set base scope for standalone animators
+        // 为独立动画器设置基础作用域
         for (Animator animator : animators) {
             animator.setBaseScope(frameScope);
         }
 
-        // Reset bones, then apply all animations
-        // Order: standalone animators first, then controllers (matches VBU client-side order)
+        // 重置骨骼，然后应用所有动画
+        // 顺序：先独立动画器，再控制器（与 VBU 客户端侧顺序一致）
         boneModel.resetAllBones();
 
         for (Animator animator : animators) {
@@ -207,15 +208,16 @@ public class ServerEntityTicker implements AnimationEventListener {
             ci.animate(boneModel);
         }
 
-        // Collect world transforms from animated bones
+        // 收集已动画骨骼的世界变换
         return boneModel.collectWorldTransforms();
     }
 
     /**
-     * Evaluate render controllers to determine current geometry/texture/material combinations.
+     * 评估渲染控制器，确定当前的几何模型/纹理/材质组合。
      *
-     * @param queryBindings query bindings with variant, flags, etc.
-     * @return true if models changed
+     * @param queryBindings 含变体、标志位等信息的查询绑定
+     *
+     * @return 模型发生变化时返回 true
      */
     public boolean evaluateRenderControllers(MutableObjectBinding queryBindings) {
         final LayeredScope scope = new LayeredScope(entityScope);
@@ -248,12 +250,12 @@ public class ServerEntityTicker implements AnimationEventListener {
 
     @Override
     public void onTimelineEvent(List<String> expressions) {
-        // Server-side: evaluate timeline expressions (may update variables)
+        // 服务端：评估时间轴表达式（可能更新变量）
         for (String expr : expressions) {
             try {
                 MoLangEngine.eval(entityScope, expr);
             } catch (Throwable e) {
-                // Silently ignore timeline eval failures on server
+                // 服务端静默忽略时间轴求值失败
             }
         }
     }

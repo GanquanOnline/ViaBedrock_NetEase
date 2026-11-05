@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Opt-in retained-heap gate for the shared resource-pack and animation graphs. */
+/** 针对共享资源包与动画图的可选保留堆门禁。 */
 @Tag("performance")
 @EnabledIfEnvironmentVariable(named = "VIABEDROCK_RETAINED_HEAP", matches = "(?i)true")
 class ResourcePackRetainedHeapTest {

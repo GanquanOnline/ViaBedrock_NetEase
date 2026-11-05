@@ -97,7 +97,7 @@ class BossBarStorageTest {
         final BossBarStorage storage = storage();
         storage.add(BAR, new StringTag("old dimension"), 1F, 0);
         storage.markClientVisible(BAR);
-        assertTrue(storage.remove(BAR)); // Entity.remove during CHANGE_DIMENSION
+        assertTrue(storage.remove(BAR)); // CHANGE_DIMENSION 期间的 Entity.remove
         assertNull(storage.get(BAR));
         assertEquals(BossBarStorage.UpdateAction.DROP, storage.reconcileUpdate(BAR));
     }
@@ -166,7 +166,7 @@ class BossBarStorageTest {
         user.put(joinGate);
         storage.add(BAR, new StringTag("queued"), 1F, 0);
         storage.markAddSent(BAR);
-        storage.markClientVisible(BAR); // JoinGate flush delivery callback
+        storage.markClientVisible(BAR); // JoinGate 刷出投递回调
 
         joinGate.onPlayerChunkReady(0, 0);
         joinGate.onPlayerChunkSent();

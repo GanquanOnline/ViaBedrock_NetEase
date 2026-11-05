@@ -107,7 +107,7 @@ public class CommandsStorage extends StoredObject {
         final List<CommandNode<UserConnection>> nodes = new ArrayList<>(nodeIndices.keySet());
         nodes.sort(Comparator.comparingInt(nodeIndices::get));
 
-        wrapper.write(Types.VAR_INT, nodes.size()); // node count
+        wrapper.write(Types.VAR_INT, nodes.size()); // 节点数量
         for (CommandNode<UserConnection> node : nodes) {
             byte flags = 0;
             if (node.getRedirect() != null) {
@@ -128,27 +128,27 @@ public class CommandsStorage extends StoredObject {
                 throw new UnsupportedOperationException("Unsupported node type: " + node.getClass().getName());
             }
 
-            wrapper.write(Types.BYTE, flags); // flags
-            wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, node.getChildren().stream().mapToInt(nodeIndices::get).toArray()); // children node indices
+            wrapper.write(Types.BYTE, flags); // 标志
+            wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, node.getChildren().stream().mapToInt(nodeIndices::get).toArray()); // 子节点索引
             if (node.getRedirect() != null) {
-                wrapper.write(Types.VAR_INT, nodeIndices.get(node.getRedirect())); // redirect node index
+                wrapper.write(Types.VAR_INT, nodeIndices.get(node.getRedirect())); // 重定向节点索引
             }
 
             if (node instanceof LiteralCommandNode<UserConnection> literalCommandNode) {
-                wrapper.write(Types.STRING, literalCommandNode.getLiteral()); // literal name
+                wrapper.write(Types.STRING, literalCommandNode.getLiteral()); // 字面量名称
             } else if (node instanceof ArgumentCommandNode<UserConnection, ?> argumentCommandNode) {
                 final ArgumentTypeRegistry.ArgumentTypeMapping mapping = ArgumentTypeRegistry.getArgumentTypeMapping(argumentCommandNode.getType());
-                wrapper.write(Types.STRING, argumentCommandNode.getName()); // argument name
-                wrapper.write(Types.VAR_INT, mapping.id()); // argument type
+                wrapper.write(Types.STRING, argumentCommandNode.getName()); // 参数名称
+                wrapper.write(Types.VAR_INT, mapping.id()); // 参数类型
                 if (mapping.writer() != null) {
-                    mapping.writer().accept(wrapper, argumentCommandNode.getType()); // argument data
+                    mapping.writer().accept(wrapper, argumentCommandNode.getType()); // 参数数据
                 }
                 if (argumentCommandNode.getCustomSuggestions() != null) {
-                    wrapper.write(Types.STRING, ASK_SERVER_SUGGESTION_TYPE); // custom suggestions type
+                    wrapper.write(Types.STRING, ASK_SERVER_SUGGESTION_TYPE); // 自定义建议类型
                 }
             }
         }
-        wrapper.write(Types.VAR_INT, nodeIndices.get(root)); // root node index
+        wrapper.write(Types.VAR_INT, nodeIndices.get(root)); // 根节点索引
     }
 
     public Suggestions complete(final String message) {
@@ -231,7 +231,7 @@ public class CommandsStorage extends StoredObject {
                             enumDataValues.entrySet().removeIf(entry -> entry.getValue().contains(CommandEnumConstraints.HIDE_FROM_COMPLETIONS));
                             argumentType = EnumArgumentType.valuesAndCompletions(values, enumDataValues.keySet());
                         } else if ((parameter.flags() & CommandParameterOption.EnumAutocompleteExpansion.getValue()) != 0) {
-                            // Only changes the visual representation of the enum: <paramName: enumName> -> <value1|value2|value3>
+                            // 只改变枚举的可视表示：<paramName: enumName> -> <value1|value2|value3>
                             argumentType = EnumArgumentType.values(parameter.enumData().values().keySet());
                         } else {
                             argumentType = EnumArgumentType.values(parameter.enumData().values().keySet());
@@ -239,10 +239,10 @@ public class CommandsStorage extends StoredObject {
 
                         argument = argument(parameter.name() + ": " + parameter.enumData().name(), argumentType).suggests(argumentType::listSuggestions);
                     } else if (parameter.subCommandData() != null) {
-                        // TODO: Enhancement: Sub commands
+                        // TODO: 增强：子命令
                         continue;
                     } else if (parameter.postfix() != null) {
-                        // TODO: Enhancement: Postfix support
+                        // TODO: 增强：后缀支持
                         continue;
                     } else if (parameter.type() != null) {
                         ArgumentType<?> argumentType = null;
@@ -263,7 +263,7 @@ public class CommandsStorage extends StoredObject {
                                 argument = argument(parameter.name() + ": compare operator", argumentType);
                             }
                             case Selection, WildcardSelection -> {
-                                // TODO: Enhancement: Implement target argument type
+                                // TODO: 增强：实现 target 参数类型
                                 argumentType = TargetArgumentType.target();
                                 argument = argument(parameter.name() + ": target", argumentType);
                             }
@@ -296,13 +296,13 @@ public class CommandsStorage extends StoredObject {
                             }
                             default -> {
                                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unhandled command parameter type: " + parameter.type());
-                                argument = argument(parameter.name() + ": unknown", StringArgumentType.greedyString()); // Bedrock client crashes if the type isn't valid
+                                argument = argument(parameter.name() + ": unknown", StringArgumentType.greedyString()); // 类型无效时基岩客户端会崩溃
                             }
                         }
                         if (argumentType != null) {
                             ((RequiredArgumentBuilder<UserConnection, ?>) argument).suggests(argumentType::listSuggestions);
                         }
-                    } else { // Bedrock client crashes if the type isn't valid
+                    } else { // 类型无效时基岩客户端会崩溃
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Invalid command parameter: " + parameter);
                         argument = argument(parameter.name() + ": unknown", StringArgumentType.greedyString());
                     }

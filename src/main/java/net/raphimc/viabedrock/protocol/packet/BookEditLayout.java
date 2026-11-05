@@ -30,18 +30,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Wire-layout helpers for Bedrock BOOK_EDIT (packet 0x61 / 97).
+ * 基岩 BOOK_EDIT（数据包 0x61 / 97）的线格式布局辅助。
  * <p>
- * MOT {@code BookEditPacket} forks at protocol 924:
+ * MOT {@code BookEditPacket} 在协议 924 开始分叉：
  * <ul>
- *     <li>NetEase 860 and official &lt;924: {@code byte action, byte inventorySlot},
- *     then page numbers as bytes.</li>
- *     <li>Official 924+: {@code varint inventorySlot, unsigned-varint action},
- *     then page numbers as varints.</li>
+ * <li>网易 860 和官方 &lt;924：{@code byte action, byte inventorySlot}，
+ * 然后页码以 byte 形式给出。</li>
+ * <li>官方 924+：{@code varint inventorySlot, unsigned-varint action}，
+ * 然后页码以 varint 形式给出。</li>
  * </ul>
- * Java 1.21.11 {@code EDIT_BOOK} ships the whole page list plus an optional
- * title. MOT only accepts per-page REPLACE/ADD/DELETE/SWAP plus SIGN, so the
- * Java payload has to be expanded into those C2S packets.
+ * Java 1.21.11 的 {@code EDIT_BOOK} 会发送整个页面列表外加可选的
+ * 标题。MOT 只接受逐页的 REPLACE/ADD/DELETE/SWAP 加 SIGN，因此
+ * Java 载荷必须展开成这些 C2S 包。
  */
 public final class BookEditLayout {
 

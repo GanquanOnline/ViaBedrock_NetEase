@@ -45,11 +45,11 @@ import java.util.stream.Collectors;
 
 public class BlockStateRewriter implements StorableObject {
 
-    private final Int2IntMap blockStateIdMappings = new Int2IntOpenHashMap(); // Bedrock -> Java
-    private final Int2IntMap legacyBlockStateIdMappings = new Int2IntOpenHashMap(); // Bedrock -> Bedrock
-    private final BiMap<BlockState, Integer> blockStateMappings = HashBiMap.create(); // Bedrock -> Bedrock
-    private final Object2ObjectMap<String, IntSortedSet> validBlockStates = new Object2ObjectOpenHashMap<>(); // Bedrock -> Bedrock
-    private final Int2ObjectMap<String> blockStateTags = new Int2ObjectOpenHashMap<>(); // Bedrock
+    private final Int2IntMap blockStateIdMappings = new Int2IntOpenHashMap(); // 基岩 → Java
+    private final Int2IntMap legacyBlockStateIdMappings = new Int2IntOpenHashMap(); // 基岩 → 基岩
+    private final BiMap<BlockState, Integer> blockStateMappings = HashBiMap.create(); // 基岩 → 基岩
+    private final Object2ObjectMap<String, IntSortedSet> validBlockStates = new Object2ObjectOpenHashMap<>(); // 基岩 → 基岩
+    private final Int2ObjectMap<String> blockStateTags = new Int2ObjectOpenHashMap<>(); // 基岩
     private final BlockStateUpgrader blockStateUpgrader;
     private final BlockStateSanitizer blockStateSanitizer;
     private final Int2ObjectMap<net.easecation.blockstates.SharedBlockStates.State> sharedStates = new Int2ObjectOpenHashMap<>();
@@ -70,11 +70,11 @@ public class BlockStateRewriter implements StorableObject {
         Set<BedrockBlockState> customRuntimeStates = Set.of();
         Map<String, CompoundTag> customRuntimeBlockProperties = Map.of();
 
-        // Always reconstruct the server-defined custom block runtime states from START_GAME blockProperties,
-        // independent of BedrockLoader. The Bedrock server assigns runtime ids (sequential or hashed) over the
-        // full palette including these custom blocks, so they must be present to keep all block ids aligned.
-        // Without this, sequential-runtime-id servers misalign every block state after the first custom block.
-        // The optional BedrockLoader projection only layers real Java mappings on top of this reconstruction.
+        // 始终根据 START_GAME 的 blockProperties 重建服务端定义的自定义方块运行时状态，
+        // 不依赖 BedrockLoader。基岩服务器会在包含这些自定义方块的完整调色板上
+        // 分配运行时 ID（顺序或哈希），因此必须把它们纳入以保持所有方块 ID 对齐。
+        // 否则，使用顺序运行时 ID 的服务器会在第一个自定义方块之后让每个方块状态错位。
+        // 可选的 BedrockLoader 投影只会在这一重建结果之上叠加真实的 Java 映射。
         try {
             customRuntimeBlockProperties = RuntimeProjectionBuilder.collectEffectiveCustomBlockProperties(blockProperties, bedrockBlockIdentifiers);
             final List<BedrockBlockState> orderedCustomRuntimeStates = RuntimeProjectionBuilder.buildCustomRuntimeStates(blockProperties, bedrockBlockIdentifiers);
@@ -98,9 +98,16 @@ public class BlockStateRewriter implements StorableObject {
         final Map<String, Integer> missingVanillaRuntimeCounts = new HashMap<>();
         final Map<String, String> missingVanillaRuntimeExamples = new HashMap<>();
         final boolean emulateNetEase = ViaBedrock.getConfig() != null && ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-        final Netease860BlockRuntimeOverlay netease860Overlay = emulateNetEase && !hashedRuntimeBlockIds
+        final int netEaseProtocol = ViaBedrock.getConfig() != null ? ViaBedrock.getConfig().getNetEaseProtocolVersion() : 0;
+        final Netease860BlockRuntimeOverlay netease860Overlay = Netease860BlockRuntimeOverlay.applies(
+                emulateNetEase, netEaseProtocol, hashedRuntimeBlockIds)
                 ? BedrockProtocol.MAPPINGS.getNetease860BlockRuntimeOverlay()
                 : Netease860BlockRuntimeOverlay.empty();
+        if (emulateNetEase && netEaseProtocol >= Netease860BlockRuntimeOverlay.SEQUENTIAL_OVERLAY_END_PROTOCOL && !hashedRuntimeBlockIds) {
+            ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
+                    "NetEase " + netEaseProtocol + " sent sequential block network ids; "
+                            + "MOT anchors that palette on V1_21_111, so block ids fall back to the vanilla order");
+        }
         int nextCustomSequentialId = netease860Overlay.nextCustomSequentialId();
 
         for (int i = 0; i < bedrockBlockStates.size(); i++) {
@@ -124,7 +131,7 @@ public class BlockStateRewriter implements StorableObject {
                 bedrockId = i;
             }
             if (hashedRuntimeBlockIds && this.blockStateMappings.containsValue(bedrockId)) {
-                bedrockId++; // Bedrock client increments the hash in case a collision occurs
+                bedrockId++; // 基岩客户端在发生冲突时会递增哈希值
             } else if (!hashedRuntimeBlockIds && !netease860Overlay.isEmpty() && this.blockStateMappings.containsValue(bedrockId)) {
                 while (this.blockStateMappings.containsValue(nextCustomSequentialId)) {
                     nextCustomSequentialId++;
@@ -151,7 +158,7 @@ public class BlockStateRewriter implements StorableObject {
             }
 
             if (projectedCustomRuntimeState) {
-                // Installed after all runtime ids are known; leave unmapped until the source id is available.
+                // 在所有运行时 ID 已知后安装；在源 ID 可用之前保持未映射。
             } else if (bedrockToJavaBlockStates.containsKey(bedrockBlockState)) {
                 final int javaId = javaBlockStates.get(bedrockToJavaBlockStates.get(bedrockBlockState));
                 this.blockStateIdMappings.put(bedrockId, javaId);
@@ -165,8 +172,8 @@ public class BlockStateRewriter implements StorableObject {
                         final String diagnostics = properties != null ? RuntimeProjectionBuilder.describeBlockProperties(properties) : "<missing START_GAME block properties>";
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Missing custom mapping START_GAME block properties for " + identifier + ": " + diagnostics);
                     }
-                    // Overlay path uses glass, not info_update. A stored black cube leaks through
-                    // UPDATE_BLOCK / neighbor rewrite / ack even when the chunk send swapped to glass.
+                    // 叠加层路径使用 glass，而不是 info_update。已存储的黑色立方体会经由
+                    // UPDATE_BLOCK / 邻居重写 / ack 泄漏出来，即使区块发送时已换成 glass。
                     final Integer glassId = javaBlockStates.get(CustomBlockDisplayTracker.PLACEHOLDER_JAVA_BLOCK_STATE);
                     final int javaId = glassId != null ? glassId : javaBlockStates.get(bedrockToJavaBlockStates.get(BedrockBlockState.INFO_UPDATE));
                     this.blockStateIdMappings.put(bedrockId, javaId);
@@ -201,7 +208,7 @@ public class BlockStateRewriter implements StorableObject {
         for (Int2ObjectMap.Entry<BedrockBlockState> entry : BedrockProtocol.MAPPINGS.getBedrockLegacyBlockStates().int2ObjectEntrySet()) {
             final int legacyId = entry.getIntKey() >> 6;
             final int legacyData = entry.getIntKey() & 63;
-            if (legacyData > 15) continue; // Dirty hack Mojang did in 1.12. Can be ignored safely as those values can't be used in chunk packets.
+            if (legacyData > 15) continue; // Mojang 在 1.12 做的脏 hack。可以安全忽略，因为这些值无法用于区块数据包。
 
             this.legacyBlockStateIdMappings.put(legacyId << 4 | legacyData & 15, this.blockStateMappings.getOrDefault(entry.getValue(), -1).intValue());
         }
@@ -221,9 +228,7 @@ public class BlockStateRewriter implements StorableObject {
         return this.bedrockId(bedrockBlockStateTag.copy(), bedrockBlockStateTag);
     }
 
-    /**
-     * Resolves an exclusively owned block state tag and may mutate it while upgrading and sanitizing it.
-     */
+    /** 解析某个独占拥有的方块状态标签，并在升级和清理它时可能就地修改它。 */
     public int bedrockIdOwned(final CompoundTag bedrockBlockStateTag) {
         return this.bedrockId(bedrockBlockStateTag, bedrockBlockStateTag);
     }

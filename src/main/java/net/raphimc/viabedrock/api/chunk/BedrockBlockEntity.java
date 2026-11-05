@@ -44,7 +44,7 @@ public class BedrockBlockEntity implements BlockEntity {
         }
         this.position = new BlockPosition(x, y, z);
 
-        // id value should be validated, but not strictly required
+        // id 值应当经过校验，但并非严格要求
     }
 
     public BedrockBlockEntity(final BlockPosition position, final CompoundTag tag) {

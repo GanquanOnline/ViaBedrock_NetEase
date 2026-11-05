@@ -38,7 +38,7 @@ public record Javadoc(List<String> lines) {
         }
         lines.add(" */");
 
-        // Remove the <br> from the last line
+        // 移除最后一行的 <br>
         final String lastLine = lines.get(lines.size() - 2);
         lines.set(lines.size() - 2, lastLine.substring(0, lastLine.length() - 4));
 
