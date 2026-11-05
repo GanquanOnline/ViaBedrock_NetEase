@@ -28,12 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class MapInfoRequestLayoutTest {
 
     @Test
-    void netease860WritesVarLongMapIdAndZeroUnsignedVarIntPixelCount() {
+    void netease860WritesVarLongMapIdAndLittleEndianZeroPixelCount() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
             MapInfoRequestLayout.write(buffer, 42L, true, 860);
             assertEquals(42L, (long) BedrockTypes.VAR_LONG.read(buffer));
-            assertEquals(0, (int) BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
+            assertEquals(4, buffer.readableBytes());
+            assertEquals(0, (int) BedrockTypes.INT_LE.read(buffer));
             assertFalse(buffer.isReadable());
         } finally {
             buffer.release();
