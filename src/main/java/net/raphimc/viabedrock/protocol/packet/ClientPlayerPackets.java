@@ -255,12 +255,11 @@ public class ClientPlayerPackets {
                 return;
             }
             final boolean wasLocked = clientPlayer.isInputMovementLocked();
-            clientPlayer.setInputLocks(locks.lockComponentData());
+            // 先落移动锁再落位集：synchronizeInputLocks 读 NOAI，顺序反了 v1 会把旧锁位写进载荷。
             clientPlayer.setInputMovementLocked(locks.movementLocked());
-            if (locks.movementLocked()) {
-                if (locks.serverPosition() != null) {
-                    clientPlayer.setPosition(locks.serverPosition());
-                }
+            clientPlayer.setInputLocks(locks.lockComponentData());
+            if (locks.movementLocked() && locks.serverPosition() != null) {
+                clientPlayer.setPosition(locks.serverPosition());
                 if (!wasLocked) {
                     clientPlayer.beginPositionSync(Relative.ROTATION);
                 }
@@ -796,12 +795,13 @@ public class ClientPlayerPackets {
         });
         protocol.registerServerbound(ServerboundPackets26_1.CLIENT_TICK_END, ServerboundBedrockPackets.PLAYER_AUTH_INPUT, wrapper -> {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final Position3f prevPosition = clientPlayer.prevPosition();
-            final boolean prevOnGround = clientPlayer.prevOnGround();
+            final Position3f prevPosition = clientPlayer.prevPosition();            final boolean prevOnGround = clientPlayer.prevOnGround();
             final Set<InputFlag> prevInputFlags = clientPlayer.prevInputFlags();
             clientPlayer.tick();
             clientPlayer.deferredEntityActions().discardExpired(clientPlayer.age());
             final boolean immobile = clientPlayer.isInputMovementLocked() || clientPlayer.hasEntityFlag(ActorFlags.NOAI);
+            // 输入锁只禁输入；服务端推来的位移仍要如实上报，否则后端看不到位移。
+            final boolean noAi = clientPlayer.hasEntityFlag(ActorFlags.NOAI);
 
             // MOT 的 PlayerJumpEvent 只有 START_JUMPING。在按住 JUMP 的每个着地刻
             // 都发出它，会让 GanAC 的 AirJump 在 MOT 已经离地之后又看到一次跳跃。
@@ -890,7 +890,7 @@ public class ClientPlayerPackets {
 
             final Position3f positionDelta = clientPlayer.position().subtract(prevPosition);
             final Position3f velocity;
-            if (immobile) {
+            if (noAi) {
                 velocity = Position3f.ZERO;
             } else if (!clientPlayer.isInitiallySpawned() || clientPlayer.dimensionChangeInfo() != null || clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Flying)) {
                 velocity = positionDelta;
@@ -920,7 +920,6 @@ public class ClientPlayerPackets {
             if (immobile) {
                 removeImmobileMovementInput(clientPlayer.authInputData());
                 authInputContext.setPosition(clientPlayer.position());
-                authInputContext.setDelta(Position3f.ZERO);
             }
 
             // MOT 的 EnumMap 先迭代 START 再迭代 ABORT。在生成位掩码之前先合并，
