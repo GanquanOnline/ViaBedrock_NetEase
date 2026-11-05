@@ -806,6 +806,12 @@ public class ResourcePackPackets {
             if (chunk < 0L) {
                 return;
             }
+            if (chunk == 0L) {
+                ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                        "Resource pack download started: key=" + key + ", chunks=" + download.chunkCount());
+            }
+            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                    "Resource pack chunk request: key=" + key + ", chunk=" + chunk + "/" + download.chunkCount());
             final PacketWrapper request = PacketWrapper.create(
                     ServerboundBedrockPackets.RESOURCE_PACK_CHUNK_REQUEST, user);
             request.write(BedrockTypes.STRING, key); // 资源名称
@@ -1254,6 +1260,8 @@ public class ResourcePackPackets {
             resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.ResourcePackStackFinished.getValue()); // 状态
             resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
             resourcePackClientResponse.sendToServer(BedrockProtocol.class);
+            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                    "Sent ResourcePackStackFinished (client declares all resource packs loaded)");
         } catch (Throwable e) {
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to send ResourcePackStackFinished to Bedrock server", e);
         }
