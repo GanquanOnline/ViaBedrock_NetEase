@@ -52,6 +52,7 @@ public final class PlayerAuthInputLayout {
     public static final int TWO_EXTRA_FLAGS_PROTOCOL = 819;
     public static final int ONE_EXTRA_FLAG_PROTOCOL = 686;
     public static final int CAMERA_DEPARTED_PROTOCOL = 422;
+    public static final int NET_EASE_TAIL_PROTOCOL = 766;
     public static final int NUKKIT_FLAG_BIT_LIMIT = 64;
 
     private PlayerAuthInputLayout() {
@@ -76,6 +77,20 @@ public final class PlayerAuthInputLayout {
 
     public static boolean usesCameraDeparted(final boolean emulateNetEase, final int protocol) {
         return emulateNetEase && protocol >= CAMERA_DEPARTED_PROTOCOL;
+    }
+
+    /**
+     * 网易 {@code v1_21_50} 起在 {@code rawMoveVector} 之后追加固定尾部块。
+     * <p>
+     * MOT 的 {@code PlayerAuthInputPacket.decode()} 会无条件读这 12 字节，缺了就读越界，
+     * 整个批次解包失败，最终以 {@code Sent malformed packet} 断连。
+     */
+    public static boolean usesNetEaseTail() {
+        return usesNetEaseTail(emulateNetEase(), netEaseProtocol());
+    }
+
+    public static boolean usesNetEaseTail(final boolean emulateNetEase, final int protocol) {
+        return emulateNetEase && protocol >= NET_EASE_TAIL_PROTOCOL;
     }
 
     public static int extraInputFlags(final boolean emulateNetEase, final int protocol) {

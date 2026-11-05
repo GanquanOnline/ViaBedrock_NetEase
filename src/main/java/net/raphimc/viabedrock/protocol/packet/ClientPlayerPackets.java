@@ -983,6 +983,14 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.POSITION_2F, analogMoveVector); // 模拟移动向量
             wrapper.write(BedrockTypes.POSITION_3F, MathUtil.calculateCameraOrientation(clientPlayer.rotation().y(), clientPlayer.rotation().x())); // 相机朝向
             wrapper.write(BedrockTypes.POSITION_2F, rawMoveVector); // 原始移动向量
+            if (PlayerAuthInputLayout.usesNetEaseTail()) {
+                // 网易 v1_21_50 起的固定尾部块，字段本身不被 MOT 使用，但少写会解码越界
+                wrapper.write(Types.BOOLEAN, false); // 第三人称视角
+                wrapper.write(BedrockTypes.POSITION_2F, new Position2f(clientPlayer.rotation().x(), MathUtil.wrapDegrees(clientPlayer.rotation().y()))); // 玩家到相机的旋转
+                wrapper.write(Types.BOOLEAN, false); // 位置增量待同步
+                wrapper.write(Types.BOOLEAN, clientPlayer.isOnGround()); // 着地
+                wrapper.write(Types.BYTE, (byte) 0); // 重置位置
+            }
 
             // 当前 AuthInput 的所有字段已构建完成，且已越过未出生/死亡的取消分支。
             // 在这里立即推进 tick-end 序号并释放就绪 ACK，不等待额外 movement 或其他包。
