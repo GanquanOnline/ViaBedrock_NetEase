@@ -158,9 +158,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         final BlockBreakingProgressTracker tracker = user.get(BlockBreakingProgressTracker.class);
 
         if (gameSession.isImmutableWorld() || !clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Mine)) {
-            final int rawBlockState = chunkTracker.getJavaBlockState(position);
-            final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
-            final int fixedBlockState = BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, rawBlockState).getOrDefault(position, rawBlockState);
+            final int fixedBlockState = chunkTracker.getResolvedJavaBlockState(position);
             PacketFactory.sendJavaBlockUpdate(user, position, fixedBlockState);
             PacketFactory.sendJavaBlockChangedAck(user, sequence);
             return;
@@ -191,7 +189,11 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         clientPlayer.setBlockBreakingInfo(new ClientPlayerEntity.BlockBreakingInfo(position, direction));
         clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StartDestroyBlock, position, direction.ordinal()));
 
-        final boolean instantBreak = this.isInstantBreak(user, chunkTracker, position);
+        // Java 创造破坏与瞬间破坏一样只发送 START，不会再发送 STOP，因此本帧就要完成破坏流程。
+        // 同时登记 sequence，让服务端权威方块更新或已有超时恢复发送状态后，再通过 ACK 结束客户端预测。
+        // isInstantBreak 内部已把创造模式并入 shouldCompleteOnJavaStart，这里显式写出便于对照上游。
+        final boolean instantBreak = clientPlayer.javaGameMode() == GameMode.CREATIVE
+                || this.isInstantBreak(user, chunkTracker, position);
         if (shouldAcknowledgeImmediately(PlayerActionAction.START_DESTROY_BLOCK, instantBreak)) {
             PacketFactory.sendJavaBlockChangedAck(user, sequence);
         }
@@ -229,7 +231,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
                 clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(action, position, direction.ordinal()));
             }
         }
-        tracker.finishMining(position, sequence, chunkTracker.getJavaBlockState(position));
+        tracker.finishMining(position, sequence, chunkTracker.getResolvedJavaBlockState(position));
     }
 
     static List<PlayerActionType> serverAuthoritativeCompletionActions(final boolean emulateNetEase) {
@@ -246,10 +248,16 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         final UserConnection user = wrapper.user();
         final GameSessionStorage gameSession = user.get(GameSessionStorage.class);
         final ClientPlayerEntity clientPlayer = user.get(EntityTracker.class).getClientPlayer();
+        final ActorSwingSource swingSource = clientPlayer.swingSourceTracker().consume(hand);
         if (hand != InteractionHand.MAIN_HAND || clientPlayer.checkCancelSwingPacket()) {
             return;
         }
 
+        // 放置/使用/吃弓等动作的挥手不是攻击：既不触发攻击未命中音，也不打断挖矿状态机。
+        // 挥手动画的 ANIMATE 由 ClientPlayerPackets 的 SWING 处理器发送，这里只补 auth-input 标志。
+        if (swingSource != ActorSwingSource.Attack) {
+            return;
+        }
         final BlockBreakingProgressTracker tracker = user.get(BlockBreakingProgressTracker.class);
         final MiningTarget target = tracker.miningTarget();
         if (target != null && tracker.miningPhase() == MiningPhase.SUSPENDED) {

@@ -24,6 +24,7 @@ import net.raphimc.viabedrock.api.model.entity.CustomEntity;
 import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.experimental.storage.RidingTracker;
 import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
@@ -48,6 +49,42 @@ class CustomEntityMovementPacketsTest {
     @BeforeAll
     static void initializeTypes() {
         assertNotNull(StructuredDataKey.CUSTOM_DATA);
+    }
+
+    @Test
+    void anchoredPassengersKeepRotationAndServerPositionWithoutOverwritingTheClientSeat() throws Exception {
+        for (boolean delta : new boolean[]{false, true}) {
+            for (boolean teleport : new boolean[]{false, true}) {
+                for (boolean capable : new boolean[]{false, true}) {
+                    try (Fixture fixture = new Fixture(capable, true)) {
+                        fixture.user.getStoredObjects().put(RidingTracker.class, new RidingTracker(fixture.user) {
+                            @Override
+                            public boolean isAnchoredPassenger(long uniqueId) {
+                                return uniqueId == fixture.entity.uniqueId();
+                            }
+                        });
+                        final PacketWrapper packet = fixture.move(delta, teleport);
+                        assertEquals(ClientboundPackets26_1.MOVE_ENTITY_ROT, packet.getPacketType());
+                        final ByteBuf wire = fixture.serialize(packet);
+                        assertEquals(fixture.entity.javaId(), Types.VAR_INT.readPrimitive(wire));
+                        assertEquals(64, wire.readByte());
+                        assertEquals(0, wire.readByte());
+                        assertTrue(wire.readBoolean());
+                        assertFalse(wire.isReadable(), "Mounted passengers must not receive world coordinates");
+                        assertEquals(new Position3f(10, 64, -2), fixture.entity.position());
+                        assertTrue(fixture.sent.stream().anyMatch(sent ->
+                                sent.getPacketType() == ClientboundPackets26_1.ROTATE_HEAD));
+
+                        fixture.user.put(new RidingTracker(fixture.user));
+                        assertEquals(ClientboundPackets26_1.ENTITY_POSITION_SYNC,
+                                fixture.move(delta, false).getPacketType());
+                        assertEquals(capable ? ClientboundPackets26_1.CUSTOM_PAYLOAD
+                                        : ClientboundPackets26_1.ENTITY_POSITION_SYNC,
+                                fixture.move(delta, true).getPacketType());
+                    }
+                }
+            }
+        }
     }
 
     @Test

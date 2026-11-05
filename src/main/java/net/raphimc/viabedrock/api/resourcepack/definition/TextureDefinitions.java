@@ -51,9 +51,9 @@ public class TextureDefinitions {
     static TextureDefinitions fromPack(final ResourcePack pack) {
         final Map<String, List<ItemTextureDefinition>> itemTextures = new LinkedHashMap<>();
         final Map<String, List<TerrainTextureDefinition>> terrainTextures = new LinkedHashMap<>();
-        if (pack.content().contains("textures/item_texture.json")) {
+        if (pack.content().contains(DefinitionSource.TEXTURES.path())) {
             try {
-                final JsonObject itemTexture = pack.content().getJson("textures/item_texture.json");
+                final JsonObject itemTexture = pack.content().getJson(DefinitionSource.TEXTURES.path());
                 final String textureName = itemTexture.has("texture_name") ? itemTexture.get("texture_name").getAsString() : "atlas.items";
                 if (textureName.equals("atlas.items")) {
                     parseNamedTextures(itemTexture.getAsJsonObject("texture_data"), itemTextures, true);
@@ -62,9 +62,9 @@ public class TextureDefinitions {
                 DefinitionLogger.warning("Failed to parse item_texture.json in pack " + pack.key(), e);
             }
         }
-        if (pack.content().contains("textures/terrain_texture.json")) {
+        if (pack.content().contains(DefinitionSource.TERRAIN_TEXTURES.path())) {
             try {
-                final JsonObject terrainTexture = pack.content().getJson("textures/terrain_texture.json");
+                final JsonObject terrainTexture = pack.content().getJson(DefinitionSource.TERRAIN_TEXTURES.path());
                 final String textureName = terrainTexture.has("texture_name") ? terrainTexture.get("texture_name").getAsString() : "atlas.terrain";
                 if (textureName.equals("atlas.terrain")) {
                     parseNamedTextures(terrainTexture.getAsJsonObject("texture_data"), terrainTextures, false);

@@ -31,6 +31,9 @@ public interface BlockNeighborView {
     /** @return 该位置的 Java 方块状态 ID，无数据时为 {@code 0}（空气）。 */
     int getJavaBlockState(final BlockPosition pos);
 
+    /** 原始 BE 已知排列；未知区块/自定义未建模状态返回 null，不能当作空气。 */
+    default net.easecation.blockstates.SharedBlockStates.State getBedrockState(final BlockPosition pos) { return null; }
+
     /**
      * @return 该位置的基岩方块实体（例如在 NBT 中携带染料颜色的床），没有时为 {@code null}。
      * 之所以需要它，是因为 {@link #getJavaBlockState} 只查调色板，从不注入方块实体数据。

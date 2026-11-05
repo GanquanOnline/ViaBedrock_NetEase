@@ -93,7 +93,7 @@ public class ItemDefinitions {
     }
 
     private void parsePack(final ResourcePack pack) {
-        for (String itemPath : pack.content().getFilesDeep("items/", ".json")) {
+        for (String itemPath : DefinitionSource.ITEMS.files(pack.content())) {
             try {
                 final JsonObject item = pack.content().getJson(itemPath).getAsJsonObject("minecraft:item");
                 final String identifier = Key.namespaced(item.getAsJsonObject("description").get("identifier").getAsString());

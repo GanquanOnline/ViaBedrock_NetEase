@@ -61,7 +61,7 @@ class BlockBreakingProgressTrackerTest {
 
         final List<BlockBreakingProgressTracker.TimedOutBreakAck> timedOut =
                 this.tracker.collectTimedOutBreakAcks(System.currentTimeMillis() + 1_001L);
-        assertEquals(List.of(new BlockBreakingProgressTracker.TimedOutBreakAck(position, 7, 1234)), timedOut);
+        assertEquals(List.of(new BlockBreakingProgressTracker.TimedOutBreakAck(position, 7, 1234, null)), timedOut);
         assertTrue(this.tracker.collectTimedOutBreakAcks(Long.MAX_VALUE).isEmpty());
     }
 

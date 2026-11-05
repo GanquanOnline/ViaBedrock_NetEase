@@ -270,14 +270,23 @@ public class BedrockMappingData extends MappingDataBase {
                 }
             }
 
-            final JsonObject bedrockToJavaBlockStateMappingsJson = this.readJson("custom/blockstate_mappings.json");
-            this.bedrockToJavaBlockStates = new HashMap<>(bedrockToJavaBlockStateMappingsJson.size());
-            for (Map.Entry<String, JsonElement> entry : bedrockToJavaBlockStateMappingsJson.entrySet()) {
-                final BlockState bedrockBlockState = BlockState.fromString(entry.getKey());
+            final var shared = net.easecation.blockstates.SharedBlockStates.instance();
+            this.bedrockToJavaBlockStates = new HashMap<>();
+            for (var source : shared.states()) {
+                final var target = shared.base(source);
+                if (target == null) continue; // 显式未映射，保留原有运行时 placeholder 策略。
+                final Map<String, String> properties = new HashMap<>();
+                final List<String> keys = shared.stateKeys(source.name());
+                for (int i = 0; i < keys.size(); i++) {
+                    final Object value = source.values().get(i);
+                    properties.put(keys.get(i), value instanceof Boolean b ? b ? "1" : "0" : value.toString());
+                }
+                final BlockState bedrockBlockState = new BlockState(source.name().split(":", 2)[0], source.name().split(":", 2)[1], properties);
                 if (!this.bedrockBlockStates.contains(bedrockBlockState)) {
                     throw new RuntimeException("Unknown bedrock block state: " + bedrockBlockState.toBlockStateString());
                 }
-                final BlockState javaBlockState = BlockState.fromString(entry.getValue().getAsString());
+                final String[] targetName = target.name().split(":", 2);
+                final BlockState javaBlockState = new BlockState(targetName[0], targetName[1], target.properties());
                 if (!this.javaBlockStates.containsKey(javaBlockState)) {
                     throw new RuntimeException("Unknown java block state: " + javaBlockState.toBlockStateString());
                 }
@@ -292,6 +301,7 @@ public class BedrockMappingData extends MappingDataBase {
                 }
             }
 
+            this.getLogger().info("共享方块状态 shared-block-states generator=" + shared.generatorVersion());
             ExperimentalFeatures.dispatchMappingsLoad(this, MappingLoadPhase.AFTER_BLOCK_STATES);
 
             final JsonObject bedrockCustomBlockTagsJson = this.readJson("custom/block_tags.json");

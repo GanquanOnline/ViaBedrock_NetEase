@@ -12,7 +12,7 @@ on:
         required: false
         default: "main"
       publish_release:
-        description: "Publish or update the viaproxy-latest GitHub Release"
+        description: "Publish a new versioned GitHub Release (bumps the version and creates a new tag)"
         type: boolean
         default: true
 
@@ -33,6 +33,8 @@ jobs:
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
           persist-credentials: false
+          # 发布说明需要跨版本标签的完整历史与 tag。
+          fetch-depth: 0
       - name: "Checkout ViaProxy_NetEase"
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
@@ -130,12 +132,33 @@ jobs:
           echo "viabedrock_version=${version}" >> "${GITHUB_OUTPUT}"
           echo "Publishing net.raphimc:ViaBedrock:${version} to mavenLocal"
           ./gradlew publishToMavenLocal -Pmaven_version="${version}" -x test --stacktrace
+      # 每次发布递增序号：取已有 v<base>-viabedrock.<n> 标签的最大 n 加一。
+      # 不再复用固定标签 viaproxy-latest，每个版本都有自己的 tag。
+      - name: "Compute next release version"
+        id: "release"
+        env:
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          set -euo pipefail
+          vp_base="$(awk -F= '/^maven_version=/{print $2}' viaproxy/gradle.properties | tr -d '\r')"
+          vp_base="${vp_base%-SNAPSHOT}"
+          vp_esc="${vp_base//./\\.}"
+          tags="$(gh release list --limit 500 --json tagName --jq '.[].tagName' || true)"
+          max_n="$(printf '%s\n' "${tags}" | sed -n "s/^v${vp_esc}-viabedrock\.\([0-9][0-9]*\)$/\1/p" | sort -n | tail -n 1)"
+          next="$(( ${max_n:-0} + 1 ))"
+          version="${vp_base}-viabedrock.${next}"
+          {
+            echo "version=${version}"
+            echo "tag=v${version}"
+            if [ -n "${max_n}" ]; then echo "previous_tag=v${vp_base}-viabedrock.${max_n}"; fi
+          } >> "${GITHUB_OUTPUT}"
+          echo "Release version: ${version}"
       - name: "Point ViaProxy at the CI ViaBedrock"
         id: "viaproxy-version"
         working-directory: "viaproxy"
         env:
           VIABEDROCK_VERSION: "${{ steps.versions.outputs.viabedrock_version }}"
-          VIAPROXY_VERSION_SUFFIX: "${{ github.sha }}"
+          VIAPROXY_VERSION: "${{ steps.release.outputs.version }}"
         run: |
           set -euo pipefail
           if ! grep -q 'net.raphimc:ViaBedrock:' build.gradle; then
@@ -144,9 +167,7 @@ jobs:
           fi
           perl -i -pe 's/net\.raphimc:ViaBedrock:[^"]+/net.raphimc:ViaBedrock:$ENV{VIABEDROCK_VERSION}/' build.gradle
           grep -n 'net.raphimc:ViaBedrock:' build.gradle
-          vp_base="$(awk -F= '/^maven_version=/{print $2}' gradle.properties | tr -d '\r')"
-          vp_base="${vp_base%-SNAPSHOT}"
-          echo "viaproxy_version=${vp_base}-viabedrock.${VIAPROXY_VERSION_SUFFIX::7}" >> "${GITHUB_OUTPUT}"
+          echo "viaproxy_version=${VIAPROXY_VERSION}" >> "${GITHUB_OUTPUT}"
       - name: "Build ViaProxy with this ViaBedrock packed in"
         working-directory: "viaproxy"
         run: "./gradlew jar downgradeJar -Pmaven_version=${{ steps.viaproxy-version.outputs.viaproxy_version }} --stacktrace"
@@ -179,26 +200,72 @@ jobs:
           name: "ViaProxy"
           path: "dist/"
           if-no-files-found: "error"
-      - name: "Publish viaproxy-latest GitHub Release"
+      - name: "Publish versioned GitHub Release"
         if: "${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}"
         env:
           GH_TOKEN: "${{ github.token }}"
+          RELEASE_TAG: "${{ steps.release.outputs.tag }}"
+          RELEASE_VERSION: "${{ steps.release.outputs.version }}"
+          PREVIOUS_TAG: "${{ steps.release.outputs.previous_tag }}"
         run: |
           set -euo pipefail
-          {
-            echo "ViaProxy_NetEase built with this repository's ViaBedrock packed in."
-            echo
-            echo "- ViaBedrock: ${GITHUB_SHA}"
-            echo "- ViaBedrock coordinate: net.raphimc:ViaBedrock:${{ steps.versions.outputs.viabedrock_version }}"
-            echo "- ViaProxy_NetEase ref: ${{ github.event_name == 'workflow_dispatch' && inputs.viaproxy_ref || 'main' }}"
-            echo "- ViaProxy version: ${{ steps.viaproxy-version.outputs.viaproxy_version }}"
-            echo "- Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo
-            echo "Private sibling checkouts can set repository secret ORG_READ_TOKEN (contents:read)."
-          } > notes.md
-          if gh release view viaproxy-latest >/dev/null 2>&1; then
-            gh release upload viaproxy-latest dist/* --clobber
-            gh release edit viaproxy-latest --prerelease --title "ViaProxy (ViaBedrock ${GITHUB_SHA::7})" --notes-file notes.md
+          if [ -n "${PREVIOUS_TAG}" ] && git rev-parse -q --verify "refs/tags/${PREVIOUS_TAG}" >/dev/null; then
+            range="${PREVIOUS_TAG}..${GITHUB_SHA}"
+            limit=200
+            scope="自 ${PREVIOUS_TAG} 起的全部提交"
+            compare="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${GITHUB_SHA}"
           else
-            gh release create viaproxy-latest dist/* --prerelease --title "ViaProxy (ViaBedrock ${GITHUB_SHA::7})" --notes-file notes.md
+            range="${GITHUB_SHA}"
+            limit=30
+            scope="首个独立版本，列出最近 30 个提交"
+            compare="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
           fi
+          commits="$(git --no-pager log --format='- %h %s' --max-count=${limit} "${range}")"
+          # 把上游 merge 展开成它真正带进来的那些提交，否则发布说明只剩一行 merge 标题。
+          upstream=""
+          for merge in $(git --no-pager log --format='%h' --merges --max-count=${limit} "${range}" || true); do
+            subject="$(git --no-pager log -1 --format='%s' "${merge}")"
+            if printf '%s' "${subject}" | grep -qi 'upstream'; then
+              part="$(git --no-pager log --format='- %h %s' --max-count=60 "${merge}^1..${merge}^2" 2>/dev/null || true)"
+              upstream="${upstream}${part}"$'\n'
+            fi
+          done
+          upstream="$(printf '%s' "${upstream}" | sed '/^$/d')"
+          fixes="$(printf '%s\n' "${commits}" | grep -Ei '^- [0-9a-f]+ (fix|hotfix|修复)' || true)"
+          features="$(printf '%s\n' "${commits}" | grep -Ei '^- [0-9a-f]+ (feat|新增|add|支持)' || true)"
+          others="$(printf '%s\n' "${commits}" | grep -Eiv '^- [0-9a-f]+ (merge.*upstream|fix|hotfix|修复|feat|新增|add|支持)' || true)"
+          {
+            echo "ViaProxy_NetEase ${RELEASE_VERSION}"
+            echo
+            echo "本仓库的 ViaBedrock 打进 ViaProxy 后的可运行发行包。"
+            echo
+            echo "### 合并的上游改动"
+            echo
+            if [ -n "${upstream}" ]; then printf '%s\n' "${upstream}"; else echo "（无）"; fi
+            echo
+            echo "### 修复"
+            echo
+            if [ -n "${fixes}" ]; then printf '%s\n' "${fixes}"; else echo "（无）"; fi
+            echo
+            echo "### 新增"
+            echo
+            if [ -n "${features}" ]; then printf '%s\n' "${features}"; else echo "（无）"; fi
+            echo
+            echo "### 其他变更"
+            echo
+            if [ -n "${others}" ]; then printf '%s\n' "${others}"; else echo "（无）"; fi
+            echo
+            echo "### 构建信息"
+            echo
+            echo "- ViaBedrock 提交：${GITHUB_SHA}"
+            echo "- ViaBedrock 坐标：net.raphimc:ViaBedrock:${{ steps.versions.outputs.viabedrock_version }}"
+            echo "- ViaProxy_NetEase 引用：${{ github.event_name == 'workflow_dispatch' && inputs.viaproxy_ref || 'main' }}"
+            echo "- ViaProxy 版本：${{ steps.viaproxy-version.outputs.viaproxy_version }}"
+            echo "- 变更范围：${scope}"
+            echo "- 完整对比：${compare}"
+            echo "- 工作流运行：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "私有兄弟仓库检出可配置 secret ORG_READ_TOKEN（contents:read）。"
+          } > notes.md
+          gh release create "${RELEASE_TAG}" dist/* --prerelease \
+            --title "ViaProxy_NetEase ${RELEASE_VERSION}" --notes-file notes.md

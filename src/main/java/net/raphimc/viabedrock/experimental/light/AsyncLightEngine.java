@@ -18,6 +18,7 @@
 package net.raphimc.viabedrock.experimental.light;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.ChunkPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.*;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
@@ -80,6 +81,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
         final ChunkLightState state = this.chunkStates.computeIfAbsent(chunkKey, key -> new ChunkLightState());
         state.sections = sectionSnapshot.sections();
         state.sectionsHash = sectionSnapshot.hash();
+        state.pendingBlockChanges.clear();
         state.generation++;
         state.lightDependencyGeneration = 0L;
         state.sentToClient = true;
@@ -283,6 +285,60 @@ public class AsyncLightEngine implements ChunkLightProvider {
     }
 
     @Override
+    public void onBlockChange(final BlockPosition position, final int javaBlockStateId) {
+        if (!this.allowsProxyComputation()) return;
+
+        final int chunkX = position.x() >> 4;
+        final int chunkZ = position.z() >> 4;
+        final long chunkKey = ChunkPosition.chunkKey(chunkX, chunkZ);
+        final ChunkLightState state = this.chunkStates.get(chunkKey);
+        if (state == null || !state.sentToClient || state.sections == null) return;
+
+        final int sectionIndex = (position.y() - this.tracker.getMinY()) >> 4;
+        if (sectionIndex < 0 || sectionIndex >= state.sections.length) return;
+        final ChunkSection section = state.sections[sectionIndex];
+        if (section == null || section.palette(PaletteType.BLOCKS) == null) return;
+
+        final int previousState = state.pendingBlockChanges.getOrDefault(position,
+                section.palette(PaletteType.BLOCKS).idAt(position.x() & 15, position.y() & 15, position.z() & 15));
+        if (previousState == javaBlockStateId) return;
+
+        // 合并本 tick 同坐标的变化；立即使旧光照任务失效，但不修改后台线程正在读取的快照。
+        state.pendingBlockChanges.put(position, javaBlockStateId);
+        state.generation++;
+        this.pendingLightUpdates.add(chunkKey);
+        this.markNeighborLightDirty(chunkX, chunkZ);
+    }
+
+    private void applyPendingBlockChanges(final long chunkKey) {
+        final ChunkLightState state = this.chunkStates.get(chunkKey);
+        if (state == null || state.pendingBlockChanges.isEmpty()) return;
+
+        final ChunkSection[] sections = state.sections.clone();
+        for (Map.Entry<BlockPosition, Integer> entry : state.pendingBlockChanges.entrySet()) {
+            final BlockPosition position = entry.getKey();
+            final int sectionIndex = (position.y() - this.tracker.getMinY()) >> 4;
+            // 每个受影响 section 只复制一次；其余 section 可与旧的不可变快照共用。
+            if (sections[sectionIndex] == state.sections[sectionIndex]) {
+                sections[sectionIndex] = copySectionForLight(sections[sectionIndex]);
+            }
+            final DataPalette blocks = sections[sectionIndex].palette(PaletteType.BLOCKS);
+            blocks.setIdAt(position.x() & 15, position.y() & 15, position.z() & 15, entry.getValue());
+        }
+        state.pendingBlockChanges.clear();
+        long hash = fnv1a(FNV_OFFSET, sections.length);
+        for (ChunkSection section : sections) {
+            hash = hashSection(hash, section);
+        }
+        state.sections = sections;
+        state.sectionsHash = hash;
+        state.computingGeneration = NO_GENERATION;
+        // 保留上次亮度供差异比较；新结果仍通过 LIGHT_UPDATE 下发，不重发区块或清空客户端光照。
+        final ChunkPosition position = new ChunkPosition(chunkKey);
+        this.markNeighborLightDirty(position.chunkX(), position.chunkZ());
+    }
+
+    @Override
     public void onChunkUnload(final long chunkKey) {
         this.chunkStates.remove(chunkKey);
         this.pendingLightUpdates.remove(chunkKey);
@@ -295,6 +351,10 @@ public class AsyncLightEngine implements ChunkLightProvider {
             return;
         }
         if (!this.pendingLightUpdates.isEmpty()) {
+            // 先应用同一批世界变化，再采集邻居快照，避免异步任务读到半更新的邻接世界。
+            for (long chunkKey : new ArrayList<>(this.pendingLightUpdates)) {
+                this.applyPendingBlockChanges(chunkKey);
+            }
             int lightBudget = MAX_LIGHT_UPDATES_PER_TICK;
             final Iterator<Long> it = this.pendingLightUpdates.iterator();
             while (it.hasNext() && lightBudget > 0) {
@@ -898,6 +958,7 @@ public class AsyncLightEngine implements ChunkLightProvider {
 
     private static final class ChunkLightState {
         private ChunkSection[] sections;
+        private final Map<BlockPosition, Integer> pendingBlockChanges = new HashMap<>();
         private long sectionsHash;
         private long generation;
         private long lightDependencyGeneration;

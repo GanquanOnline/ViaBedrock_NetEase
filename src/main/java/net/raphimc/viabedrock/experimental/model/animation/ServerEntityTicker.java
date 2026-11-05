@@ -132,6 +132,8 @@ public class ServerEntityTicker implements AnimationEventListener {
             final AnimationController controller = packManager.getAnimationControllerDefinitions()
                     .getControllers().get(animId);
             if (controller != null) {
+                // TODO 升级 BedrockMotion 影子包后改回五参构造，把共享 controller 定义传给动画运行时。
+                // 当前 mavenLocal 的 1.0.0 只有四参构造，与上游 d471d365 不兼容。
                 final AnimationControllerInstance instance = new AnimationControllerInstance(
                         controller, entityAnimations, animDefs, this);
                 controllerInstances.add(instance);

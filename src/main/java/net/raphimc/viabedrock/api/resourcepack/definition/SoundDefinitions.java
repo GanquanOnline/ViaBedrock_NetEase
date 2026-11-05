@@ -76,9 +76,9 @@ public class SoundDefinitions {
     }
 
     private static void parsePack(final ResourcePack pack, final MutableDefinitions definitions) {
-        if (pack.content().contains("sounds/sound_definitions.json")) {
+        if (pack.content().contains(DefinitionSource.SOUND_DEFINITIONS.path())) {
             try {
-                JsonObject soundDefinitions = pack.content().getJson("sounds/sound_definitions.json");
+                JsonObject soundDefinitions = pack.content().getJson(DefinitionSource.SOUND_DEFINITIONS.path());
                 soundDefinitions = soundDefinitions.has("sound_definitions") ? soundDefinitions.getAsJsonObject("sound_definitions") : soundDefinitions;
                 for (Map.Entry<String, JsonElement> entry : soundDefinitions.entrySet()) {
                     if (!entry.getValue().isJsonObject()) {
@@ -111,9 +111,9 @@ public class SoundDefinitions {
                 DefinitionLogger.warning("Failed to parse sound_definitions.json in pack " + pack.key(), e);
             }
         }
-        if (pack.content().contains("sounds.json")) {
+        if (pack.content().contains(DefinitionSource.SOUNDS.path())) {
             try {
-                final JsonObject sounds = pack.content().getJson("sounds.json");
+                final JsonObject sounds = pack.content().getJson(DefinitionSource.SOUNDS.path());
                 if (sounds.has("individual_event_sounds")) {
                     final JsonObject events = sounds.getAsJsonObject("individual_event_sounds").getAsJsonObject("events");
                     for (Map.Entry<String, JsonElement> entry : events.entrySet()) {

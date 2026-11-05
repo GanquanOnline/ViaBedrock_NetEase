@@ -69,7 +69,8 @@ public class ModUIClientInterface {
 
     private static boolean canSendEntityMappings(final UserConnection user) {
         final ChannelStorage channels = user.get(ChannelStorage.class);
-        return channels.hasChannel(CONFIRM_CHANNEL) && channels.hasChannel(ENTITY_MAPPING_CHANNEL);
+        // The mapping channel is owned by the shared Bridge, also consumed without ModUI.
+        return channels.hasChannel(ENTITY_MAPPING_CHANNEL);
     }
 
     private static void sendEntityMappingPayload(final UserConnection user, final byte[] data) {

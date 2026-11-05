@@ -52,6 +52,8 @@ public class ViaBedrockUtilityInterface {
     public static final String PLAYER_ANIMATION_V1_CAPABILITY = "viabedrockutility:player_animation_v1";
     public static final String INPUT_LOCKS_V1_CAPABILITY = "viabedrockutility:input_locks_v1";
     public static final String INPUT_LOCKS_V2_CAPABILITY = "viabedrockutility:input_locks_v2";
+    public static final String INPUT_LOCKS_V3_CAPABILITY = "viabedrockutility:input_locks_v3";
+    public static final int INPUT_LOCKS_V3_FLAGS = 6 | (1 << 6) | (1 << 8);
     public static final String CUSTOM_ENTITY_MOTION_V1_CAPABILITY = "viabedrockutility:custom_entity_motion_v1";
     public static final String WITHER_SKULL_MOTION_V1_CAPABILITY = "viabedrockutility:wither_skull_motion_v1";
     public static final String CUSTOM_SPECTATOR_PROPERTY = "easecation:custom_spectator";
@@ -242,7 +244,7 @@ public class ViaBedrockUtilityInterface {
         CAPE, SKIN_INFORMATION, SKIN_DATA,
         SKIN_ANIMATION_INFO, SKIN_ANIMATION_DATA,
         SPAWN_PARTICLE, SPAWN_PARTICLE_V2, SPECTATOR_NOCLIP,
-        PLAYER_VISUAL_STATE, PLAYER_ANIMATE, INPUT_LOCKS, CUSTOM_ENTITY_MOTION, INPUT_LOCKS_V2
+        PLAYER_VISUAL_STATE, PLAYER_ANIMATE, INPUT_LOCKS, CUSTOM_ENTITY_MOTION, INPUT_LOCKS_V2, INPUT_LOCKS_V3
     }
 
     public static boolean hasSpectatorNoclip(final UserConnection user) {
@@ -349,11 +351,12 @@ public class ViaBedrockUtilityInterface {
         final UserConnection user = pluginMessage.user();
         final ChannelStorage channels = user.get(ChannelStorage.class);
         if (channels == null) return false;
-        final boolean v2 = channels.hasChannel(INPUT_LOCKS_V2_CAPABILITY);
+        final boolean v3 = channels.hasChannel(INPUT_LOCKS_V3_CAPABILITY);
+        final boolean v2 = v3 || channels.hasChannel(INPUT_LOCKS_V2_CAPABILITY);
         if (!v2 && !channels.hasChannel(INPUT_LOCKS_V1_CAPABILITY)) return false;
         pluginMessage.write(Types.STRING, CHANNEL);
-        pluginMessage.write(Types.INT, v2 ? PayloadType.INPUT_LOCKS_V2.ordinal() : PayloadType.INPUT_LOCKS.ordinal());
-        pluginMessage.write(Types.INT, (flags & 6) | (!v2 && immobile ? 4 : 0));
+        pluginMessage.write(Types.INT, v3 ? PayloadType.INPUT_LOCKS_V3.ordinal() : v2 ? PayloadType.INPUT_LOCKS_V2.ordinal() : PayloadType.INPUT_LOCKS.ordinal());
+        pluginMessage.write(Types.INT, (flags & (v3 ? INPUT_LOCKS_V3_FLAGS : 6)) | (!v2 && immobile ? 4 : 0));
         if (v2) pluginMessage.write(Types.BOOLEAN, immobile);
         return true;
     }

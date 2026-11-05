@@ -54,6 +54,7 @@ import net.raphimc.viabedrock.experimental.inventory.BedrockItemLockPolicy;
 import net.raphimc.viabedrock.experimental.inventory.ClientAuthInventoryModule;
 import net.raphimc.viabedrock.experimental.inventory.CraftingDataModule;
 import net.raphimc.viabedrock.experimental.inventory.ItemUseHandContext;
+import net.raphimc.viabedrock.experimental.inventory.PlacementPrediction;
 import net.raphimc.viabedrock.experimental.pyrpc.PyRpcDispatcherModule;
 import net.raphimc.viabedrock.experimental.dimension.AlternateDimensionModule;
 import net.raphimc.viabedrock.experimental.entity.CustomEntityTypeResolver;
@@ -1248,6 +1249,21 @@ public class ExperimentalFeatures {
             return;
         }
 
+        clientPlayer.swingSourceTracker().recordUse(handContext.hand(),
+                handContext.item().blockRuntimeId() != 0 ? ActorSwingSource.Build : ActorSwingSource.Interact);
+        // insideBlock 仅表示射线起点在方块内，不决定替换点击格还是在相邻格放置。
+        // 半砖合并的目标、真实形状的自碰撞结果、物品预测与 ACK 必须使用同一次计算。
+        final PlacementPrediction.Result placement = handContext.item().blockRuntimeId() != 0
+                ? PlacementPrediction.predict(user, clientPlayer, handContext.item(), chunkTracker, position, face, clickPosition)
+                : new PlacementPrediction.Result(blockPlacementAckPosition(position, face, insideBlock), true);
+        final BlockPosition expectedPos = placement.target();
+        final boolean predictedSuccess = placement.success();
+        // sequence 为 0 表示没有需要确认的 Java 方块变更（例如物品展示框）。
+        // 只跟踪真正发出了 CLICK_BLOCK 的操作；被跳过的使用已在上面确认过。
+        if (sequence > 0) {
+            user.get(BlockPlacementAckTracker.class).addPendingAck(expectedPos, sequence);
+        }
+
         // 官方基岩在 CLICK_BLOCK 之前发送 StartItemUseOn。MOT 860 没有
         // case 28/29；PlayerAction 的默认分支会调用 setUsingItem(false)，若 Java 本刻
         // 又注视了方块，就会取消正在进行的进食/拉弓。
@@ -1258,7 +1274,7 @@ public class ExperimentalFeatures {
                     clientPlayer.runtimeId(),
                     PlayerActionType.StartItemUseOn,
                     position,
-                    insideBlock ? position : position.getRelative(face),
+                    expectedPos,
                     faceInt
             );
         }
@@ -1266,7 +1282,8 @@ public class ExperimentalFeatures {
         // 这是基岩客户端与方块交互时使用的主要数据包。
         final PacketWrapper transactionPacket = PacketWrapper.create(ServerboundBedrockPackets.INVENTORY_TRANSACTION, user);
 
-        final List<InventoryActionData> clickBlockActions = predictedClickBlockActions(handContext, clientPlayer);
+        final List<InventoryActionData> clickBlockActions = predictedClickBlockActions(handContext, clientPlayer,
+                ViaBedrock.getConfig().shouldEmulateNetEaseClient(), predictedSuccess);
         final BedrockInventoryTransaction inventoryTransaction = new BedrockInventoryTransaction(
                 0, // 旧式请求 id
                 null,
@@ -1282,20 +1299,14 @@ public class ExperimentalFeatures {
                         clientPlayer.position(),
                         clickPosition,
                         chunkTracker.getBlockState(position),
-                        ItemUseInventoryTransaction_PredictedResult.Success,
+                        predictedSuccess
+                                ? ItemUseInventoryTransaction_PredictedResult.Success
+                                : ItemUseInventoryTransaction_PredictedResult.Failure,
                         (byte) 0 // TODO: 客户端冷却状态
                 )
         );
         transactionPacket.write(inventoryTransactionRewriter.getInventoryTransactionType(), inventoryTransaction);
         transactionPacket.sendToServer(BedrockProtocol.class);
-
-        // sequence 为 0 表示没有需要确认的 Java 方块变更（例如物品展示框）。
-        // 只跟踪真正发出了 CLICK_BLOCK 的操作；被跳过的使用已在上面确认过。
-        if (sequence > 0) {
-            final boolean clickedBlockReplaceable = ItemUseAirClickTarget.isReplaceable(airClickWorld(user), position);
-            user.get(BlockPlacementAckTracker.class).addPendingAck(
-                    blockPlacementAckPosition(position, face, clickedBlockReplaceable), sequence);
-        }
 
         // 基岩在事务包之后会发送一个停止物品使用
         if (sendItemUseOnActions) {
@@ -1326,11 +1337,23 @@ public class ExperimentalFeatures {
     static List<InventoryActionData> predictedClickBlockActions(final ItemUseHandContext handContext,
                                                                 final ClientPlayerEntity clientPlayer,
                                                                 final boolean emulateNetEase) {
+        return predictedClickBlockActions(handContext, clientPlayer, emulateNetEase, true);
+    }
+
+    /**
+     * {@code predictedSuccess} 来自同一次放置预测：预测失败时不得在 actions[] 里扣减物品，
+     * 否则服务端按失败处理时会与 Java 侧的预测数量对不上。
+     */
+    static List<InventoryActionData> predictedClickBlockActions(final ItemUseHandContext handContext,
+                                                                final ClientPlayerEntity clientPlayer,
+                                                                final boolean emulateNetEase,
+                                                                final boolean predictedSuccess) {
         if (!ItemUseSemantics.sendPredictedClickBlockSlotDelta(emulateNetEase) || handContext == null) {
             return null;
         }
         BedrockItem predictedToItem = handContext.item().copy();
-        if (predictedToItem.blockRuntimeId() != 0 && (clientPlayer == null || clientPlayer.javaGameMode() != GameMode.CREATIVE)) {
+        if (predictedToItem.blockRuntimeId() != 0 && predictedSuccess
+                && (clientPlayer == null || clientPlayer.javaGameMode() != GameMode.CREATIVE)) {
             predictedToItem.setAmount(predictedToItem.amount() - 1);
         }
         if (predictedToItem.amount() <= 0) {
@@ -1740,6 +1763,7 @@ public class ExperimentalFeatures {
             if (!canProcessHandSensitiveAction(wrapper.user(), wrapper, clientPlayer, hand, true, true, sequence)) {
                 return;
             }
+            clientPlayer.swingSourceTracker().recordUse(hand, ActorSwingSource.UseItem);
             final ItemRewriter itemRewriter = wrapper.user().get(ItemRewriter.class);
             final ItemUseHandContext handContext = ItemUseHandContext.resolve(
                     inventoryTracker, hand, clientPlayer.isOffhandPromoted());

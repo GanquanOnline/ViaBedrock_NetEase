@@ -86,8 +86,14 @@ public class EntityMetadataRewriter {
                 // （DATA_PLAYER_FLAG_SLEEP）加 BED_POSITION，而不是 ActorFlags.SNEAKING。
                 // 若姿态仍保持站立/潜行，即使 MOT 已接受上床并跳过夜晚，
                 // Java 客户端也会跳过躺下动画。
+                // 本地玩家未入睡时 POSE 由输入与碰撞自行计算，延迟的 actor flags 回传不得在两次客户端
+                // tick 之间把它覆盖回站立/潜行；远端玩家与入睡玩家仍按滑翔/游泳/潜行/睡眠标志合成
+                // POSE（入睡时另写 SLEEPING_POS）。
                 if (entity.javaType().is(EntityTypes1_21_11.PLAYER)) {
-                    applyPlayerSleepPose(entity, javaEntityData, bedrockFlags);
+                    final boolean localPlayer = entity == entityTracker.getClientPlayer();
+                    if (!localPlayer || playerSleeping(entity.entityData().get(ActorDataIDs.PLAYER_FLAGS))) {
+                        applyPlayerSleepPose(entity, javaEntityData, bedrockFlags);
+                    }
                 }
 
                 upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SILENT), VersionedTypes.V26_1.entityDataTypes().booleanType, bedrockFlags.contains(ActorFlags.SILENT)));
@@ -1438,6 +1444,15 @@ public class EntityMetadataRewriter {
         final Integer color = colorData != null ? readNumber(colorData).intValue() : null;
         final byte spell = spellType(entity.hasEntityFlag(ActorFlags.CASTING), color);
         upsert(javaEntityData, new EntityData(entity.getJavaEntityDataIndex(EntityDataFields.SPELL_CASTING), VersionedTypes.V26_1.entityDataTypes().byteType, spell));
+    }
+
+    static void writePlayerSneakPose(final List<EntityData> javaEntityData, final int poseIndex,
+                                     final boolean sneaking, final boolean localPlayer) {
+        if (localPlayer) {
+            return;
+        }
+        final int javaPose = sneaking ? 5 : 0; // Pose.CROUCHING / Pose.STANDING
+        upsert(javaEntityData, new EntityData(poseIndex, VersionedTypes.V26_1.entityDataTypes().poseType, javaPose));
     }
 
     static void writeCreeperIgnition(final List<EntityData> javaEntityData, final int ignitionIndex,

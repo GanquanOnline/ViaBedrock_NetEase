@@ -397,6 +397,21 @@ public class ChunkTracker extends StoredObject {
         return this.getBlockState(0, blockPosition);
     }
 
+    /** pending 子区块仍是未知，不沿用普通 getter 的未知即空气约定。 */
+    public net.easecation.blockstates.SharedBlockStates.State getKnownSharedBlockState(final BlockPosition position) {
+        final BedrockChunkSection section = this.getChunkSection(position);
+        if (section == null || section.hasPendingBlockUpdates()) return null;
+        final BlockStateRewriter rewriter = this.user().get(BlockStateRewriter.class);
+        final int runtimeId = section.palettesCount(PaletteType.BLOCKS) == 0 ? this.bedrockAirId()
+                : section.palettes(PaletteType.BLOCKS).get(0).idAt(position.x() & 15, position.y() & 15, position.z() & 15);
+        return rewriter.sharedState(runtimeId);
+    }
+
+    public int getResolvedJavaBlockState(final BlockPosition position) {
+        return BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveState(
+                new net.raphimc.viabedrock.protocol.rewriter.neighbor.TrackerNeighborView(this), position, this.getJavaBlockState(position));
+    }
+
     public int getBlockState(final int layer, final BlockPosition blockPosition) {
         final BedrockChunkSection chunkSection = this.getChunkSection(blockPosition);
         if (chunkSection == null) return this.bedrockAirId();
@@ -673,6 +688,7 @@ public class ChunkTracker extends StoredObject {
         final long chunkKey = position.chunkKey();
         this.clearSubChunkRequestFlagIfSettled(chunkKey);
         this.queueProgressiveChunkSnapshot(position.chunkX(), position.chunkZ(), changed);
+        if (changed) this.invalidateSharedNeighborChunks(position.chunkX(), position.chunkZ());
     }
 
     private void clearSubChunkRequestFlagIfSettled(final long chunkKey) {
@@ -754,6 +770,11 @@ public class ChunkTracker extends StoredObject {
         }
 
         return new IntObjectImmutablePair<>(remappedBlockState, null);
+    }
+
+    /** 单块及批量更新完成邻接投影后，通知代理光照快照同步最终 JE 状态。 */
+    public void onJavaBlockChange(final BlockPosition position, final int javaBlockStateId) {
+        this.lightProvider.onBlockChange(position, javaBlockStateId);
     }
 
     public BedrockChunkSection handleBlockPalette(final BedrockChunkSection section) {
@@ -1350,7 +1371,35 @@ public class ChunkTracker extends StoredObject {
      * 把已经发送过的相邻区块标记为脏，以便该相邻区块在邻域完整的情况下重新翻译
      * （并重新修正）。尚未发送过的相邻区块会直接看到此区块，无需重发。
      */
+    private void invalidateSharedNeighborChunks(final int chunkX, final int chunkZ) {
+        for (int side = 0; side < 4; side++) {
+            final int nx = chunkX + (side == 0 ? -1 : side == 1 ? 1 : 0);
+            final int nz = chunkZ + (side == 2 ? -1 : side == 3 ? 1 : 0);
+            final long key = ChunkPosition.chunkKey(nx, nz);
+            if (this.javaSentChunks.contains(key) && this.hasSharedBorderDependency(nx, nz, side ^ 1)) this.dirtyChunks.add(key);
+        }
+    }
+
+    /** 看旧区块边缘是否依赖新数据，而不是只看新到的是不是栅栏。只在原始数据到达时标脏。 */
+    private boolean hasSharedBorderDependency(final int chunkX, final int chunkZ, final int side) {
+        final BedrockChunk chunk = this.getChunk(chunkX, chunkZ);
+        if (chunk == null) return false;
+        final var data = net.easecation.blockstates.SharedBlockStates.instance();
+        for (int index = 0; index < chunk.getSections().length; index++) {
+            final BedrockChunkSection section = chunk.getSections()[index];
+            if (section == null || section.hasPendingBlockUpdates() || section.palettesCount(PaletteType.BLOCKS) == 0) continue;
+            final DataPalette palette = section.palettes(PaletteType.BLOCKS).get(0);
+            for (int a = 0; a < 16; a++) for (int y = 0; y < 16; y++) {
+                final int x = side < 2 ? (side == 0 ? 0 : 15) : a;
+                final int z = side >= 2 ? (side == 2 ? 0 : 15) : a;
+                if (data.handles(this.user().get(BlockStateRewriter.class).sharedState(palette.idAt(x, y, z)))) return true;
+            }
+        }
+        return false;
+    }
+
     private void refixSentNeighborChunks(final Chunk chunk, final int chunkX, final int chunkZ) {
+        this.invalidateSharedNeighborChunks(chunkX, chunkZ);
         final NeighborAwareBlockRewriter rewriter = BedrockProtocol.MAPPINGS.getNeighborRewriter();
         for (int side = 0; side < 4; side++) {
             final int neighborX = chunkX + (side == 0 ? -1 : side == 1 ? 1 : 0);
