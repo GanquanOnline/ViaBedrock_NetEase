@@ -41,7 +41,7 @@ public class BiomeDefinitions {
 
     static BiomeDefinitions fromPack(final ResourcePack pack) {
         final Map<String, BiomeDefinition> biomes = new LinkedHashMap<>();
-        for (String biomePath : pack.content().getFilesDeep("biomes/", ".json")) {
+        for (String biomePath : DefinitionSource.BIOMES.files(pack.content())) {
             try {
                 final JsonObject biome = pack.content().getJson(biomePath).getAsJsonObject("minecraft:client_biome");
                 final String name = biome.getAsJsonObject("description").get("identifier").getAsString();

@@ -11,6 +11,7 @@ package net.raphimc.viabedrock.protocol.rewriter.neighbor;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.BlockFace;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
@@ -18,10 +19,19 @@ import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSectionImpl;
 import com.viaversion.viaversion.api.minecraft.chunks.PaletteType;
+import com.viaversion.viaversion.connection.UserConnectionImpl;
 import net.raphimc.viabedrock.api.chunk.BedrockBlockEntity;
 import net.raphimc.viabedrock.api.model.BlockState;
+import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
+import net.raphimc.viabedrock.protocol.data.enums.Dimension;
+import net.raphimc.viabedrock.protocol.data.generated.java.RegistryKeys;
+import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
+import net.raphimc.viabedrock.protocol.storage.ClientSettingsStorage;
+import net.raphimc.viabedrock.protocol.storage.GameSessionStorage;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,7 +145,7 @@ class PlantConnectionRulesTest {
     }
 
     @Test
-    void initialChunkCorrectsPlantsAcrossSectionsAndAtNegativeHeights() {
+    void initialChunkCorrectsPlantsAcrossSectionsAndAtNegativeHeights() throws ReflectiveOperationException {
         final ChunkSection[] sections = {new ChunkSectionImpl(false), new ChunkSectionImpl(false)};
         for (ChunkSection section : sections) section.palette(PaletteType.BLOCKS).addId(0);
         final Chunk chunk = new BaseChunk(0, 0, true, false, 3, sections, null, List.of());
@@ -146,7 +156,7 @@ class PlantConnectionRulesTest {
             sections[1].palette(PaletteType.BLOCKS).setIdAt(x, 0, 8, head);
         }
         final NeighborAwareBlockRewriter rewriter = new NeighborAwareBlockRewriter(this.states);
-        rewriter.fixChunk(null, chunk, 0, 0, -64);
+        rewriter.fixChunk(emptyChunkTracker(), chunk, 0, 0, -64);
         for (int x = 6; x <= 9; x++) {
             final String plant = List.of("weeping_vines", "twisting_vines", "kelp", "cave_vines").get(x - 6);
             final int body = id(plant + "_plant" + (plant.equals("cave_vines") ? "[berries=false]" : ""));
@@ -200,6 +210,39 @@ class PlantConnectionRulesTest {
         assertTrue(rewriter.hasCrossChunkSensitiveBlockOnBorder(chunk, 1));
         section.palette(PaletteType.BLOCKS).setIdAt(15, 8, 8, id("end_stone"));
         assertFalse(rewriter.hasCrossChunkSensitiveBlockOnBorder(chunk, 1));
+    }
+
+    private static ChunkTracker emptyChunkTracker() throws ReflectiveOperationException {
+        final UserConnectionImpl user = new UserConnectionImpl(null);
+        final CompoundTag dimension = new CompoundTag();
+        dimension.putInt("min_y", -64);
+        dimension.putInt("height", 32);
+        final CompoundTag dimensions = new CompoundTag();
+        dimensions.put(Dimension.OVERWORLD.getKey(), dimension);
+        final CompoundTag biomes = new CompoundTag();
+        biomes.put("minecraft:plains", new CompoundTag());
+        final CompoundTag registries = new CompoundTag();
+        registries.put(RegistryKeys.DIMENSION_TYPE, dimensions);
+        registries.put(RegistryKeys.WORLDGEN_BIOME, biomes);
+
+        // 与包处理测试保持同样的隔离方式，仅为会话构造提供空实体表，随后恢复全局映射。
+        final Field entities = BedrockMappingData.class.getDeclaredField("bedrockEntities");
+        entities.setAccessible(true);
+        final Object previousEntities = entities.get(BedrockProtocol.MAPPINGS);
+        try {
+            entities.set(BedrockProtocol.MAPPINGS, HashBiMap.create());
+            user.getStoredObjects().put(GameSessionStorage.class, new GameSessionStorage(user) {
+                @Override
+                public CompoundTag getJavaRegistries() {
+                    return registries;
+                }
+            });
+        } finally {
+            entities.set(BedrockProtocol.MAPPINGS, previousEntities);
+        }
+        user.put(new ClientSettingsStorage("en_us", 8, 0, true, (short) 0, 1, false, true, 0));
+        // 空 tracker 表示没有已知 BE 区块；植物的 JE 邻居仍由待修正区块真实提供。
+        return new ChunkTracker(user, Dimension.OVERWORLD);
     }
 
     private void add(final String state) {

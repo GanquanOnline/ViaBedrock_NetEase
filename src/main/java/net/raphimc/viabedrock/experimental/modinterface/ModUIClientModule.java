@@ -37,8 +37,7 @@ public class ModUIClientModule implements FeatureModule {
 
     @Override
     public void onChannelRegistered(final UserConnection user, final Set<String> channels) {
-        if (channels.contains(ModUIClientInterface.CONFIRM_CHANNEL)
-                || channels.contains(ModUIClientInterface.ENTITY_MAPPING_CHANNEL)) {
+        if (channels.contains(ModUIClientInterface.ENTITY_MAPPING_CHANNEL)) {
             ModUIClientInterface.sendEntityMappingSync(user);
         }
     }

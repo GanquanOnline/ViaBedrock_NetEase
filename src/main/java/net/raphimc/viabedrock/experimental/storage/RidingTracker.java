@@ -112,6 +112,12 @@ public class RidingTracker extends StoredObject {
                 || this.pendingDismountVehicleUniqueId != null;
     }
 
+    /** 已生成挂点的乘客由挂点决定位置，不能再接受独立的世界坐标更新。 */
+    public boolean isAnchoredPassenger(final long uniqueId) {
+        final AnchorState anchor = this.anchorsByPassenger.get(uniqueId);
+        return anchor != null && anchor.spawned;
+    }
+
     public Entity localVehicle() {
         if (this.localVehicleUniqueId == null) {
             return null;

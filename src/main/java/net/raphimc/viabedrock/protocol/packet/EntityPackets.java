@@ -41,6 +41,7 @@ import net.raphimc.viabedrock.api.model.entity.PlayerEntity;
 import net.raphimc.viabedrock.api.resourcepack.definition.EntityDefinitions;
 import net.raphimc.viabedrock.api.util.MathUtil;
 import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
+import net.raphimc.viabedrock.experimental.storage.RidingTracker;
 import net.raphimc.viabedrock.api.util.PacketFactory;
 import net.raphimc.viabedrock.api.util.RegistryUtil;
 import net.raphimc.viabedrock.api.util.TextUtil;
@@ -276,7 +277,8 @@ public class EntityPackets {
             entity.setOnGround(onGround);
             ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
-            if (ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
+            if (writeAnchoredPassengerRotation(wrapper, entity)
+                    || ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
                 PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
                 return;
             }
@@ -376,7 +378,8 @@ public class EntityPackets {
             entity.setOnGround(onGround);
             ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
-            if (ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
+            if (writeAnchoredPassengerRotation(wrapper, entity)
+                    || ViaBedrockUtilityInterface.writeCustomEntityTeleport(wrapper, entity, teleported)) {
                 return;
             }
             wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
@@ -755,16 +758,15 @@ public class EntityPackets {
                 return;
             }
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            if (containerId == ContainerID.CONTAINER_ID_INVENTORY.getValue() && slot >= 0 && slot < 9 && (slot == selectedSlot || selectedSlot < 0)) {
-                wrapper.write(Types.BYTE, (byte) EquipmentSlot.MAINHAND.ordinal()); // slot
-                wrapper.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // item
-            } else if (containerId == ContainerID.CONTAINER_ID_OFFHAND.getValue()) {
-                wrapper.write(Types.BYTE, (byte) EquipmentSlot.OFFHAND.ordinal()); // slot
-                wrapper.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // item
-            } else {
+            final EquipmentSlot equipmentSlot = getMobEquipmentSlot(entity, slot, selectedSlot, containerId);
+            if (equipmentSlot == null) {
                 wrapper.cancel();
+                return;
             }
+
+            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.BYTE, (byte) equipmentSlot.ordinal()); // slot
+            wrapper.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // item
         });
         protocol.registerClientbound(ClientboundBedrockPackets.TAKE_ITEM_ENTITY, ClientboundPackets26_1.TAKE_ITEM_ENTITY, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
@@ -781,6 +783,43 @@ public class EntityPackets {
             wrapper.write(Types.VAR_INT, collectorEntity.javaId()); // collector entity id
             wrapper.write(Types.VAR_INT, 0); // amount
         });
+    }
+
+    static EquipmentSlot getMobEquipmentSlot(final Entity entity, final int slot, final int selectedSlot, final int containerId) {
+        if (containerId == ContainerID.CONTAINER_ID_OFFHAND.getValue()) {
+            return EquipmentSlot.OFFHAND;
+        }
+        if (containerId != ContainerID.CONTAINER_ID_INVENTORY.getValue() || slot < 0 || slot >= 9 || (slot != selectedSlot && selectedSlot >= 0)) {
+            return null;
+        }
+        if (entity.javaType() == EntityTypes1_21_11.ARMOR_STAND) {
+            // 基岩版盔甲架使用六个装备槽位，不能将护甲按快捷栏物品写入主手。
+            return switch (slot) {
+                case 0 -> EquipmentSlot.MAINHAND;
+                case 1 -> EquipmentSlot.OFFHAND;
+                case 2 -> EquipmentSlot.HEAD;
+                case 3 -> EquipmentSlot.CHEST;
+                case 4 -> EquipmentSlot.LEGS;
+                case 5 -> EquipmentSlot.FEET;
+                default -> null;
+            };
+        }
+        return EquipmentSlot.MAINHAND;
+    }
+
+    private static boolean writeAnchoredPassengerRotation(final PacketWrapper wrapper, final Entity entity) {
+        final RidingTracker riding = wrapper.user().get(RidingTracker.class);
+        if (riding == null || !riding.isAnchoredPassenger(entity.uniqueId())) {
+            return false;
+        }
+
+        // 保留服务端坐标缓存与朝向，但挂载期间只由挂点推进客户端位置，避免两条同步路径互相拉扯。
+        wrapper.setPacketType(ClientboundPackets26_1.MOVE_ENTITY_ROT);
+        wrapper.write(Types.VAR_INT, entity.javaId());
+        wrapper.write(Types.BYTE, MathUtil.float2Byte(entity.rotation().y()));
+        wrapper.write(Types.BYTE, MathUtil.float2Byte(entity.rotation().x()));
+        wrapper.write(Types.BOOLEAN, entity.isOnGround());
+        return true;
     }
 
     static boolean canTranslateTakeItemEntity(final Entity itemEntity, final Entity collectorEntity) {

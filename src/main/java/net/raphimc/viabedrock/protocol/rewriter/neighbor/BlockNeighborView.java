@@ -33,6 +33,9 @@ public interface BlockNeighborView {
      */
     int getJavaBlockState(final BlockPosition pos);
 
+    /** 原始 BE 已知排列；未知区块/自定义未建模状态返回 null，不能当作空气。 */
+    default net.easecation.blockstates.SharedBlockStates.State getBedrockState(final BlockPosition pos) { return null; }
+
     /**
      * @return the Bedrock block entity at the position (e.g. a bed carrying its dye colour in NBT), or {@code null}.
      * Needed because {@link #getJavaBlockState} is palette-only and never injects block entity data.

@@ -41,9 +41,9 @@ public class TextDefinitions {
 
     static TextDefinitions fromPack(final ResourcePack pack) {
         final Map<String, String> translations = new LinkedHashMap<>();
-        if (pack.content().contains("texts/en_US.lang")) {
+        if (pack.content().contains(DefinitionSource.TEXTS.path())) {
             try {
-                translations.putAll(pack.content().getLang("texts/en_US.lang"));
+                translations.putAll(pack.content().getLang(DefinitionSource.TEXTS.path()));
             } catch (Throwable e) {
                 DefinitionLogger.warning("Failed to parse texts/en_US.lang in pack " + pack.key(), e);
             }

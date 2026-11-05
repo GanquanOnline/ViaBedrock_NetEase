@@ -52,6 +52,8 @@ public class BlockStateRewriter implements StorableObject {
     private final Int2ObjectMap<String> blockStateTags = new Int2ObjectOpenHashMap<>(); // Bedrock
     private final BlockStateUpgrader blockStateUpgrader;
     private final BlockStateSanitizer blockStateSanitizer;
+    private final Int2ObjectMap<net.easecation.blockstates.SharedBlockStates.State> sharedStates = new Int2ObjectOpenHashMap<>();
+    private final IntSet sharedStateReads = new IntOpenHashSet();
 
     public BlockStateRewriter(final UserConnection user, final BlockProperties[] blockProperties, final boolean hashedRuntimeBlockIds) {
         this.blockStateIdMappings.defaultReturnValue(-1);
@@ -244,6 +246,18 @@ public class BlockStateRewriter implements StorableObject {
 
     public BlockState blockState(final int bedrockBlockStateId) {
         return this.blockStateMappings.inverse().get(bedrockBlockStateId);
+    }
+
+    public net.easecation.blockstates.SharedBlockStates.State sharedState(final int runtimeId) {
+        if (this.sharedStateReads.add(runtimeId)) {
+            final BlockState state = this.blockState(runtimeId);
+            if (state != null) {
+                final var value = net.easecation.blockstates.SharedBlockStates.instance()
+                        .stateFromStrings(state.namespacedIdentifier(), state.properties());
+                if (value != null) this.sharedStates.put(runtimeId, value);
+            }
+        }
+        return this.sharedStates.get(runtimeId);
     }
 
     public int bedrockId(final int legacyBlockStateId) {

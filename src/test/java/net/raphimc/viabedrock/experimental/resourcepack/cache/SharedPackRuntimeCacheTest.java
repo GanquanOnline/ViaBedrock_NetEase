@@ -1088,9 +1088,9 @@ class SharedPackRuntimeCacheTest {
         final ResourcePackWorkScheduler scheduler = new ResourcePackWorkScheduler(config, metrics);
         try {
             final SharedPackRuntimeCache cache = new SharedPackRuntimeCache(config, metrics, scheduler);
-            final String largeJson = " ".repeat(160 * 1024);
+            final String largeJson = itemJson("test:large", "large") + " ".repeat(160 * 1024);
             final ResourcePack pack = pack(UUID.randomUUID(), "1.0.0", "large-layer",
-                    "unused/large.json", largeJson);
+                    "items/large.json", largeJson);
             try (var ignored = cache.acquire(List.of(pack))) {
                 cache.cleanUp();
                 assertEquals(0L, metrics.getLayerWeightBytes());

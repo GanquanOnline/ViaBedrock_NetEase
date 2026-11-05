@@ -25,12 +25,15 @@ import net.raphimc.viabedrock.api.model.entity.PlayerEntity;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorEvent;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.AnimatePacketPayload_Action;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
 import net.raphimc.viabedrock.protocol.data.enums.java.AnimateAction;
 import net.raphimc.viabedrock.protocol.data.enums.java.EntityEvent;
+import net.raphimc.viabedrock.protocol.data.enums.java.generated.EquipmentSlot;
 import net.raphimc.viabedrock.protocol.model.PlayerAbilities;
 import net.raphimc.viabedrock.protocol.types.entitydata.EntityDataTypesBedrock;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +50,69 @@ import static org.junit.jupiter.api.Assertions.fail;
 class EntityPacketsTest {
 
     private static final long OWNER_UNIQUE_ID = 1234L;
+
+    @Test
+    void armorStandSpawnKeepsBootsOnFeetAndPreservesBothHands() {
+        final Entity armorStand = entity(EntityTypes1_21_11.ARMOR_STAND);
+        final Map<EquipmentSlot, String> equipment = new EnumMap<>(EquipmentSlot.class);
+        final String[] items = {"sword", "soul_lantern", "helmet", "chestplate", "leggings", "boots"};
+        for (int slot = 0; slot < items.length; slot++) {
+            final int container = slot == 1 ? ContainerID.CONTAINER_ID_OFFHAND.getValue() : ContainerID.CONTAINER_ID_INVENTORY.getValue();
+            equipment.put(EntityPackets.getMobEquipmentSlot(armorStand, slot, slot, container), items[slot]);
+        }
+
+        assertEquals(Map.of(
+                EquipmentSlot.MAINHAND, "sword", EquipmentSlot.OFFHAND, "soul_lantern",
+                EquipmentSlot.HEAD, "helmet", EquipmentSlot.CHEST, "chestplate",
+                EquipmentSlot.LEGS, "leggings", EquipmentSlot.FEET, "boots"
+        ), equipment);
+
+        equipment.put(EntityPackets.getMobEquipmentSlot(armorStand, 5, 5, ContainerID.CONTAINER_ID_INVENTORY.getValue()), "air");
+        assertEquals("air", equipment.get(EquipmentSlot.FEET));
+        assertEquals("sword", equipment.get(EquipmentSlot.MAINHAND));
+        assertEquals("soul_lantern", equipment.get(EquipmentSlot.OFFHAND));
+    }
+
+    @Test
+    void armorStandEquipmentSupportsUnsetSelectedSlotAndInventoryOffhand() {
+        final Entity armorStand = entity(EntityTypes1_21_11.ARMOR_STAND);
+        final int inventory = ContainerID.CONTAINER_ID_INVENTORY.getValue();
+
+        assertAll(
+                () -> assertEquals(EquipmentSlot.HEAD, EntityPackets.getMobEquipmentSlot(armorStand, 2, -1, inventory)),
+                () -> assertEquals(EquipmentSlot.FEET, EntityPackets.getMobEquipmentSlot(armorStand, 5, -1, inventory)),
+                () -> assertEquals(EquipmentSlot.OFFHAND, EntityPackets.getMobEquipmentSlot(armorStand, 1, 1, inventory))
+        );
+    }
+
+    @Test
+    void armorStandRejectsInvalidEquipmentInsteadOfOverwritingMainhand() {
+        final Entity armorStand = entity(EntityTypes1_21_11.ARMOR_STAND);
+        final int inventory = ContainerID.CONTAINER_ID_INVENTORY.getValue();
+
+        assertAll(
+                () -> assertNull(EntityPackets.getMobEquipmentSlot(armorStand, -1, -1, inventory)),
+                () -> assertNull(EntityPackets.getMobEquipmentSlot(armorStand, 6, 6, inventory)),
+                () -> assertNull(EntityPackets.getMobEquipmentSlot(armorStand, 8, 8, inventory)),
+                () -> assertNull(EntityPackets.getMobEquipmentSlot(armorStand, 5, 0, inventory))
+        );
+    }
+
+    @Test
+    void ordinaryEntitiesKeepAllHotbarSlotsInMainhand() {
+        final int inventory = ContainerID.CONTAINER_ID_INVENTORY.getValue();
+        for (final EntityTypes1_21_11 type : new EntityTypes1_21_11[]{EntityTypes1_21_11.PLAYER, EntityTypes1_21_11.ZOMBIE}) {
+            final Entity entity = entity(type);
+            for (int slot = 0; slot < 9; slot++) {
+                assertEquals(EquipmentSlot.MAINHAND, EntityPackets.getMobEquipmentSlot(entity, slot, slot, inventory));
+                assertEquals(EquipmentSlot.MAINHAND, EntityPackets.getMobEquipmentSlot(entity, slot, -1, inventory));
+            }
+            assertEquals(EquipmentSlot.OFFHAND, EntityPackets.getMobEquipmentSlot(entity, 0, 0, ContainerID.CONTAINER_ID_OFFHAND.getValue()));
+            assertNull(EntityPackets.getMobEquipmentSlot(entity, 5, 0, inventory));
+            assertNull(EntityPackets.getMobEquipmentSlot(entity, 9, 9, inventory));
+            assertNull(EntityPackets.getMobEquipmentSlot(entity, 0, 0, ContainerID.CONTAINER_ID_ARMOR.getValue()));
+        }
+    }
 
     @Test
     void translatesTakeItemEntityWithLivingCollector() {

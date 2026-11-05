@@ -43,7 +43,7 @@ public class AttachableDefinitions {
 
     static AttachableDefinitions fromPack(final ResourcePack pack) {
         final Map<String, AttachableDefinition> attachables = new LinkedHashMap<>();
-        for (String attachablePath : pack.content().getFilesDeep("attachables/", ".json")) {
+        for (String attachablePath : DefinitionSource.ATTACHABLES.files(pack.content())) {
             try {
                 final BedrockAttachableData parsed = BedrockAttachableParser.parse(pack.content().getString(attachablePath));
                 final BedrockAttachableData attachableData = DefinitionImmutability.attachableData(parsed);

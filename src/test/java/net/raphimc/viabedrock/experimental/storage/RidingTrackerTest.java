@@ -367,6 +367,32 @@ class RidingTrackerTest {
     }
 
     @Test
+    void redstonePassengerPositionOwnershipEndsOnUnlinkRemovalOrWorldReset() throws Exception {
+        try (AnchorFixture fixture = new AnchorFixture()) {
+            final Entity redstone = fixture.addDisplay(84L, 3, new Position3f(0F, 1.7F, 0F));
+            assertFalse(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+            fixture.link(fixture.clientPlayer, redstone);
+            assertTrue(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+            assertFalse(fixture.tracker.isAnchoredPassenger(fixture.clientPlayer.uniqueId()));
+
+            fixture.tracker.handleLink(new EntityLink(fixture.clientPlayer.uniqueId(), redstone.uniqueId(),
+                    LINK_REMOVE, false, false, 0F));
+            assertFalse(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+            fixture.link(fixture.clientPlayer, redstone);
+            fixture.tracker.onEntityRemoved(redstone);
+            assertFalse(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+
+            fixture.tracker.onEntityAdded(redstone);
+            fixture.link(fixture.clientPlayer, redstone);
+            fixture.tracker.onEntityRemoved(fixture.clientPlayer);
+            assertFalse(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+            fixture.link(fixture.clientPlayer, redstone);
+            fixture.tracker.reset();
+            assertFalse(fixture.tracker.isAnchoredPassenger(redstone.uniqueId()));
+        }
+    }
+
+    @Test
     void localPlayerCarriesAnAnchoredDisplayAboveTheirFeetAndInitializesInterpolationBeforeMounting() throws Exception {
         try (AnchorFixture fixture = new AnchorFixture()) {
             fixture.clientPlayer.setPosition(new Position3f(12.5F, 65.62F, -4.5F));

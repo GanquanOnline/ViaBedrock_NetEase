@@ -287,6 +287,25 @@ class ParsedPackLayerTest {
         assertEquals(1, layer.models().getEntityModel("geometry.isolation").getParents().size());
     }
 
+    @Test
+    void sourceInventoryIncludesRootGeometryButExcludesOpaqueClientData() {
+        final ResourcePack pack = pack(Map.of(
+                "geometry.json", geometryJson("geometry.root"),
+                "animations/pose.json", "{\"animations\":{}}",
+                "render_controllers/pose.json", "{\"render_controllers\":{}}",
+                "client_content/catalog.json", "{}",
+                "subpacks/hd/geometry.json", geometryJson("geometry.hd")
+        ));
+        final List<String> sources = ParsedPackLayer.definitionSourcePaths(pack.content());
+        assertEquals(1, sources.stream().filter("geometry.json"::equals).count());
+        assertEquals(1, sources.stream().filter("render_controllers/pose.json"::equals).count());
+        assertEquals(1, sources.stream().filter("animations/pose.json"::equals).count());
+        assertFalse(sources.contains("client_content/catalog.json"));
+        assertFalse(sources.contains("subpacks/hd/geometry.json"));
+        assertNotNull(ParsedPackLayer.parse(pack).models().getEntityModel("geometry.root"));
+        assertNotNull(ParsedPackLayer.parse(pack, "hd").models().getEntityModel("geometry.hd"));
+    }
+
     private static String entitySound(final SoundDefinitions definitions, final String event) {
         return definitions.entitySounds().get("test:mob").eventSounds().get(event).sound();
     }

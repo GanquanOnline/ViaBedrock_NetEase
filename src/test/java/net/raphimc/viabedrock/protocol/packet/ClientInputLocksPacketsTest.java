@@ -64,6 +64,47 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ClientInputLocksPacketsTest {
 
     @Test
+    void v3PreservesJumpAndDismountWithoutTurningThemIntoAMovementLock() throws Exception {
+        try (Fixture fixture = new Fixture(Set.of(ViaBedrockUtilityInterface.INPUT_LOCKS_V3_CAPABILITY))) {
+            fixture.lock(64 | 256);
+            assertInputLocksV3Wire(fixture.packets.getLast(), 64 | 256, false);
+            assertFalse(fixture.client.isMovementInputLocked());
+            fixture.lock(4 | 64 | 256);
+            assertInputLocksV3Wire(fixture.packets.getLast(), 4 | 64 | 256, false);
+            assertTrue(fixture.client.isMovementInputLocked());
+            fixture.lock(64 | 256);
+            assertFalse(fixture.client.isMovementInputLocked());
+            fixture.client.noAi(true);
+            assertInputLocksV3Wire(fixture.packets.getLast(), 64 | 256, true);
+            fixture.client.resetInputLocks();
+            assertInputLocksV3Wire(fixture.packets.getLast(), 0, false);
+        }
+    }
+
+    @Test
+    void fineGrainedLocksDoNotChangeTheOldV2BodyOrMask() throws Exception {
+        try (Fixture fixture = new Fixture(Set.of(ViaBedrockUtilityInterface.INPUT_LOCKS_V2_CAPABILITY))) {
+            fixture.lock(2 | 64 | 256);
+            assertInputLocksV2Wire(fixture.packets.getLast(), 2, false);
+        }
+    }
+
+    private static void assertInputLocksV3Wire(final PacketWrapper packet, final int flags, final boolean immobile) throws Exception {
+        final ByteBuf encoded = Unpooled.buffer();
+        try {
+            packet.setId(-1);
+            packet.writeToBuffer(encoded);
+            assertEquals(ViaBedrockUtilityInterface.CHANNEL, Types.STRING.read(encoded));
+            assertEquals(15, encoded.readInt());
+            assertEquals(flags, encoded.readInt());
+            assertEquals(immobile ? 1 : 0, encoded.readUnsignedByte());
+            assertFalse(encoded.isReadable());
+        } finally {
+            encoded.release();
+        }
+    }
+
+    @Test
     void noAiAndInputPermissionsRemainIndependentInTheAtomicV2Snapshot() throws Exception {
         try (Fixture fixture = new Fixture(Set.of(ViaBedrockUtilityInterface.INPUT_LOCKS_V2_CAPABILITY))) {
             fixture.client.noAi(true);

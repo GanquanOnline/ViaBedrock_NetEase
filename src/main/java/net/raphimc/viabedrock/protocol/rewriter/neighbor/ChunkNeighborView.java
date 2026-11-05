@@ -60,6 +60,11 @@ public final class ChunkNeighborView implements BlockNeighborView {
         return palette.idAt(pos.x() & 15, pos.y() & 15, pos.z() & 15);
     }
 
+    @Override public net.easecation.blockstates.SharedBlockStates.State getBedrockState(final BlockPosition pos) {
+        // tracker 保留原始 BE sections；不能读本轮已重写的 JE palette。
+        return this.trackerView.getBedrockState(pos);
+    }
+
     @Override
     public BedrockBlockEntity getBlockEntity(final BlockPosition pos) {
         return this.trackerView.getBlockEntity(pos);

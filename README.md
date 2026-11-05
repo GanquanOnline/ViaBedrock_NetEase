@@ -155,3 +155,9 @@ ViaBedrock would not have been possible without the following projects:
 - [wiki.bedrock.dev](https://wiki.bedrock.dev): Documentation of various technical aspects of Bedrock Edition
 
 Additionally ViaBedrock uses assets and data dumps from other projects: See the `Data Asset Sources.md` file for more information.
+
+### Shared bridge and resource definitions
+
+Entity ID mappings use the registered `netease_bridge:entity_mapping` channel independently of ModUI. The PLAY S2C ADD/REMOVE/SYNC format is unchanged; clients that do not register the channel receive no mappings.
+
+Parsed-layer memory admission counts the same source families as the definition parsers, including root `geometry.json` and the selected subpack. Opaque client JSON stays in the archive tier and is not charged as an expanded definition graph. Animation source enumeration requires the `ServerAnimationLayer.sourcePaths` API from BedrockMotion; consumers must pin both revisions in their workspace. This does not require the weapon client or a new network protocol.
