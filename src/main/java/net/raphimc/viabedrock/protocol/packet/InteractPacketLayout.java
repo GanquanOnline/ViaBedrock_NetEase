@@ -26,13 +26,13 @@ import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock INTERACT (packet 0x21).
+ * 基岩 INTERACT（数据包 0x21）的线上布局辅助工具。
  * <p>
- * Official Bedrock / Nukkit-MOT protocol 897+ prefixes the optional Vector3f with a
- * boolean. NetEase 860 still uses the pre-897 layout: mouseover (action 4) and, since
- * protocol 388, stop-riding (action 3) always carry a Vector3f with no presence flag.
- * Writing a Vector3f without that boolean into official 975 INTERACT is leftover data;
- * omitting it on NetEase 860 makes Nukkit over-read the next packet.
+ * 官方基岩 / Nukkit-MOT 协议 897+ 会给可选的 Vector3f 加一个
+ * boolean 前缀。网易 860 仍使用 897 之前的布局：mouseover（动作 4）以及自
+ * 协议 388 起的 stop-riding（动作 3）总是携带 Vector3f，没有存在标志。
+ * 在官方 975 的 INTERACT 中写入缺少该 boolean 的 Vector3f 会留下多余数据；
+ * 而在网易 860 上省略它会让 Nukkit 多读下一个数据包。
  */
 public final class InteractPacketLayout {
 

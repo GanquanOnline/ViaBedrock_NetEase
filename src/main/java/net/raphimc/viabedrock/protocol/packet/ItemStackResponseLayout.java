@@ -22,13 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Wire-layout helpers for Bedrock ITEM_STACK_RESPONSE (packet 0x94).
+ * 基岩 ITEM_STACK_RESPONSE（数据包 0x94）的线上布局辅助工具。
  * <p>
- * Official 975 and NetEase 860 both still encode: result byte, request id,
- * then on OK a container array. Each container is a required FullContainerName
- * on 712+, followed by slot entries whose stack-network id is a signed varint.
- * Protocol 2168 adds optional container/stack-id booleans that must not be
- * read on 860 or official 975, or the next click request is parsed as leftover.
+ * 官方 975 和网易 860 仍都编码为：结果字节、请求 id，
+ * 然后在 OK 时跟一个容器数组。每个容器在 712+ 是必需的 FullContainerName，
+ * 其后是槽位条目，其 stack-network id 为有符号 varint。
+ * 协议 2168 增加了可选的容器 / stack-id boolean，在 860 或官方 975 上
+ * 绝不能读取，否则下一次点击请求会被当成残留数据解析。
  */
 public final class ItemStackResponseLayout {
 
@@ -130,7 +130,7 @@ public final class ItemStackResponseLayout {
         final byte result = wrapper.read(Types.BYTE);
         final int requestId = wrapper.read(BedrockTypes.VAR_INT);
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
-            wrapper.read(Types.BOOLEAN); // always true on current Nukkit
+            wrapper.read(Types.BOOLEAN); // 当前 Nukkit 上总是 true
             if (!wrapper.read(Types.BOOLEAN)) {
                 return new DecodedEntry(requestId, result == RESULT_OK, List.of());
             }
@@ -144,7 +144,7 @@ public final class ItemStackResponseLayout {
         final byte result = buffer.readByte();
         final int requestId = BedrockTypes.VAR_INT.read(buffer);
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
-            buffer.readBoolean(); // always true on current Nukkit
+            buffer.readBoolean(); // 当前 Nukkit 上总是 true
             if (!buffer.readBoolean()) {
                 return new DecodedEntry(requestId, result == RESULT_OK, List.of());
             }
@@ -209,7 +209,7 @@ public final class ItemStackResponseLayout {
             final int count = wrapper.read(Types.BYTE) & 0xFF;
             final int stackNetworkId;
             if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
-                wrapper.read(Types.BOOLEAN); // always true on current Nukkit
+                wrapper.read(Types.BOOLEAN); // 当前 Nukkit 上总是 true
                 stackNetworkId = wrapper.read(Types.BOOLEAN) ? wrapper.read(BedrockTypes.VAR_INT) : 0;
             } else {
                 stackNetworkId = wrapper.read(BedrockTypes.VAR_INT);
@@ -235,7 +235,7 @@ public final class ItemStackResponseLayout {
             final int count = buffer.readByte() & 0xFF;
             final int stackNetworkId;
             if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
-                buffer.readBoolean(); // always true on current Nukkit
+                buffer.readBoolean(); // 当前 Nukkit 上总是 true
                 stackNetworkId = buffer.readBoolean() ? BedrockTypes.VAR_INT.read(buffer) : 0;
             } else {
                 stackNetworkId = BedrockTypes.VAR_INT.read(buffer);

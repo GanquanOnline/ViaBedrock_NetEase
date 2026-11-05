@@ -150,11 +150,11 @@ public final class PlayerArmorHudTracker extends StoredObject {
     private void sendArmorValue(final int armorValue) {
         final UserConnection user = this.user();
         final PacketWrapper updateAttributes = PacketWrapper.create(ClientboundPackets26_1.UPDATE_ATTRIBUTES, user);
-        updateAttributes.write(Types.VAR_INT, user.get(EntityTracker.class).getClientPlayer().javaId()); // entity id
-        updateAttributes.write(Types.VAR_INT, 1); // attribute count
-        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.ARMOR)); // attribute id
-        updateAttributes.write(Types.DOUBLE, (double) armorValue); // base value
-        updateAttributes.write(Types.VAR_INT, 0); // modifier count
+        updateAttributes.write(Types.VAR_INT, user.get(EntityTracker.class).getClientPlayer().javaId()); // 实体 id
+        updateAttributes.write(Types.VAR_INT, 1); // 属性数量
+        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.ARMOR)); // 属性 id
+        updateAttributes.write(Types.DOUBLE, (double) armorValue); // 基础值
+        updateAttributes.write(Types.VAR_INT, 0); // 修饰符数量
         updateAttributes.send(BedrockProtocol.class);
     }
 

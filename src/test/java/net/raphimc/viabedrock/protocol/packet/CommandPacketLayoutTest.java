@@ -164,16 +164,16 @@ class CommandPacketLayoutTest {
 
     private static void writeEmptyMotAvailableCommands(final ByteBuf buffer) {
         writeEmptyMotAvailableCommandsWithoutConstraints(buffer);
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // MOT empty constraint count
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // MOT 空约束数量
     }
 
     private static void writeEmptyMotAvailableCommandsWithoutConstraints(final ByteBuf buffer) {
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // enum literals
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // sub command literals
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // postfixes
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // enums
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // chained subcommands
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // commands
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // soft enums
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 枚举字面量
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 子命令字面量
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 后缀
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 枚举
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 链式子命令
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 命令
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 软枚举
     }
 }

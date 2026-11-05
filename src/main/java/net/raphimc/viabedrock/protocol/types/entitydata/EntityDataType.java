@@ -30,7 +30,7 @@ public class EntityDataType extends EntityDataTypeTemplate {
         final int index = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
         final int rawDataItemType = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
         final DataItemType dataItemType = DataItemType.getByValue(rawDataItemType, DataItemType.Unknown);
-        if (dataItemType == DataItemType.Unknown) { // Bedrock client disconnects if the data item type is not valid
+        if (dataItemType == DataItemType.Unknown) { // 数据项类型无效时基岩客户端会断开连接
             throw new IllegalStateException("Unknown DataItemType: " + rawDataItemType);
         }
         final EntityDataTypesBedrock type = EntityDataTypesBedrock.byDataItemType(dataItemType);

@@ -48,6 +48,27 @@ class ContainerOpenLayoutTest {
     }
 
     @Test
+    void netease898AppendsExtendedTrailer() {
+        assertTrue(ContainerOpenLayout.usesNetEaseExtendedTrailer(true, 898));
+        assertFalse(ContainerOpenLayout.usesNetEaseExtendedTrailer(true, 860));
+        assertFalse(ContainerOpenLayout.usesNetEaseExtendedTrailer(false, 975));
+    }
+
+    @Test
+    void parsesNetease898ExtendedContainerOpenTrailer() {
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            ContainerOpenLayout.writeTrailer(buffer, true, 898);
+            // is-ignore-block 布尔 + 2 个空字符串 + is-closed-drop-item 布尔
+            assertEquals(4, buffer.readableBytes());
+            ContainerOpenLayout.skipTrailer(buffer, true, 898);
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
     void officialContainerOpenHasNoTrailer() {
         final ByteBuf buffer = Unpooled.buffer();
         try {

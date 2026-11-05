@@ -1,6 +1,4 @@
-/*
- * Immutable connection runtime projection derived from SnapshotProfile and Bedrock START_GAME runtime ids.
- */
+/* 由 SnapshotProfile 与基岩 START_GAME 运行时 ID 派生出的不可变连接运行时投影。 */
 package net.raphimc.viabedrock.experimental.custommapping;
 
 import java.util.List;

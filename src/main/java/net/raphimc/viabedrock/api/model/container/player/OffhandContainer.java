@@ -45,11 +45,11 @@ public class OffhandContainer extends InventorySubContainer {
         super.onSlotChanged(slot, oldItem, newItem);
         if (slot == 0) {
             final PacketWrapper mobEquipment = PacketWrapper.create(ServerboundBedrockPackets.MOB_EQUIPMENT, this.user);
-            mobEquipment.write(BedrockTypes.UNSIGNED_VAR_LONG, this.user.get(EntityTracker.class).getClientPlayer().runtimeId()); // entity runtime id
-            mobEquipment.write(this.user.get(ItemRewriter.class).newItemType(), newItem); // item
-            mobEquipment.write(Types.BYTE, (byte) 1); // slot
-            mobEquipment.write(Types.BYTE, (byte) 0); // selected slot
-            mobEquipment.write(Types.BYTE, this.containerId); // container id
+            mobEquipment.write(BedrockTypes.UNSIGNED_VAR_LONG, this.user.get(EntityTracker.class).getClientPlayer().runtimeId()); // 实体运行时 ID
+            mobEquipment.write(this.user.get(ItemRewriter.class).newItemType(), newItem); // 物品
+            mobEquipment.write(Types.BYTE, (byte) 1); // 槽位
+            mobEquipment.write(Types.BYTE, (byte) 0); // 选中槽位
+            mobEquipment.write(Types.BYTE, this.containerId); // 容器 ID
             mobEquipment.sendToServer(BedrockProtocol.class);
         }
     }

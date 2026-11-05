@@ -1611,7 +1611,7 @@ class ResourcePackArchiveStoreTest {
         Files.setLastModifiedTime(published.path(), FileTime.fromMillis(stale));
         Files.setLastModifiedTime(canonical, FileTime.fromMillis(stale));
         try (ResourcePackArchiveStore.Claim ignored = first.store().claim(sha256(archive))) {
-            // Claiming the exact raw digest refreshes its persisted access time.
+            // 认领精确的原始摘要会刷新其持久化的访问时间。
         }
         first.store().loadEffective(published.path(), published.digest(), PACK_KEY, new byte[0], "")
                 .get(10, TimeUnit.SECONDS);

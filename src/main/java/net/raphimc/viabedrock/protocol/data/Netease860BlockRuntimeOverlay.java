@@ -29,14 +29,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * MOT {@code runtime_block_states_netease_860.dat} overlay.
+ * MOT {@code runtime_block_states_netease_860.dat} 的覆盖层。
  * <p>
- * Hashed {@code network_id} values match ViaBedrock's international palette (FNV-1a of
- * little-endian {@code {name, states}}). Sequential {@code runtimeId} values do not:
- * MOT stores them in the dump, while ViaBedrock's sequential path used hashed-name order.
- * {@code minecraft:micro_block} exists only in the MOT dump.
+ * 哈希型 {@code network_id} 与 ViaBedrock 的国际版调色板一致（对小端 {@code {name, states}} 做 FNV-1a）。
+ * 顺序型 {@code runtimeId} 则不一致：MOT 在转储中给出它们，而 ViaBedrock 的顺序路径使用
+ * 按名称哈希的顺序。{@code minecraft:micro_block} 只存在于 MOT 的转储中。
  */
 public final class Netease860BlockRuntimeOverlay {
+
+    /**
+     * MOT 的 {@code GlobalBlockPalette.NETEASE_PALETTE_THRESHOLDS} 把网易 898 映射到标准
+     * V1_21_111 调色板，而不是 {@code runtime_block_states_netease_860.dat}，因此该
+     * 顺序覆盖层只描述协议 860。
+     */
+    public static final int SEQUENTIAL_OVERLAY_END_PROTOCOL = 898;
+
+    /**
+     * 该覆盖层替换原版的顺序 id 顺序，因此只在服务端下发顺序 id 且仍
+     * 提供网易 860 调色板时生效。
+     */
+    public static boolean applies(final boolean emulateNetEase, final int protocol, final boolean hashedRuntimeBlockIds) {
+        return emulateNetEase && !hashedRuntimeBlockIds && protocol > 0 && protocol < SEQUENTIAL_OVERLAY_END_PROTOCOL;
+    }
 
     public record ExtraState(String name, int networkId, int runtimeId) {
         public CompoundTag toBlockStateTag() {

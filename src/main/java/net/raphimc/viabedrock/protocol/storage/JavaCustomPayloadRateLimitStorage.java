@@ -14,8 +14,8 @@ import com.viaversion.viaversion.api.connection.StorableObject;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Connection-scoped fixed-window limiter for the Java custom-payload bridge.
- * The storage is attached to the ViaVersion connection, rather than a spoofable player id.
+ * Java 自定义负载桥的连接级固定窗口限流器。
+ * 该存储挂在 ViaVersion 连接上，而不是可伪造的玩家 id 上。
  */
 public final class JavaCustomPayloadRateLimitStorage implements StorableObject {
 

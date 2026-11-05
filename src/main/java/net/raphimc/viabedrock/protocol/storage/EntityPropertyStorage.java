@@ -18,7 +18,7 @@ import net.raphimc.viabedrock.protocol.model.EntityPropertyDefinition;
 import java.util.List;
 import java.util.Map;
 
-/** Per-connection MOT entity-property registry and snapshot resolver. */
+/** 每连接的 MOT 实体属性注册表与快照解析器。 */
 public final class EntityPropertyStorage extends StoredObject {
 
     private final EntityPropertyRegistry registry = new EntityPropertyRegistry();

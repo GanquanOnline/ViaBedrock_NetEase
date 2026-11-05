@@ -48,29 +48,29 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Translates the Bedrock Script Debug Drawer ({@code PRIMITIVE_SHAPES} packet) into Java
- * TEXT_DISPLAY entities, for {@code Text} type shapes only.
+ * 把基岩 Script Debug Drawer（{@code PRIMITIVE_SHAPES} 数据包）转换为 Java
+ * TEXT_DISPLAY 实体，且仅处理 {@code Text} 类型的形状。
  * <p>
- * Bedrock servers (e.g. CodeFunCore via SynapseAPI's {@code addShape}/{@code removeShape})
- * draw floating debug text panels using the Script Debug Drawer. Java edition has no equivalent,
- * so without this translation those panels are invisible to Java clients. Each {@code Text} shape
- * becomes a virtual TEXT_DISPLAY entity, mirroring the approach used by {@link MultilineNametagTracker}.
+ * 基岩服务端（例如 CodeFunCore 通过 SynapseAPI 的 {@code addShape}/{@code removeShape}）
+ * 使用 Script Debug Drawer 绘制悬浮调试文本面板。Java 版没有对应机制，
+ * 因此若不做这个转换，这些面板对 Java 客户端就是不可见的。每个 {@code Text} 形状
+ * 变成一个虚拟 TEXT_DISPLAY 实体，做法与 {@link MultilineNametagTracker} 相同。
  * <p>
- * Non-text shapes (Line/Box/Sphere/Circle/Arrow) are parsed (to keep the multi-entry stream
- * aligned) but otherwise dropped.
+ * 非文本形状（Line/Box/Sphere/Circle/Arrow）会被解析（以保持多条目流
+ * 对齐），但除此之外直接丢弃。
  * <p>
- * The packet is a delta stream keyed by shape id: an entry with a present {@code type} is an
- * add/replace; an entry with an absent {@code type} is a removal. Shapes may have a finite
- * lifespan ({@code totalTimeLeft}), may be attached to an entity ({@code attachedEntityRuntimeId}),
- * and are all cleared on dimension change (the Java client clears all entities then anyway).
+ * 该数据包是以形状 id 为键的增量流：带 {@code type} 的条目是
+ * 新增/替换；不带 {@code type} 的条目是移除。形状可以有有限的
+ * 存活时间（{@code totalTimeLeft}），可以附着到实体（{@code attachedEntityRuntimeId}），
+ * 并且会在维度切换时全部清除（此时 Java 客户端本来也会清空所有实体）。
  */
 public class ScriptDebugTextTracker extends StoredObject {
 
-    private static final int DEFAULT_BACKGROUND_COLOR = 0x40000000; // semi-transparent black, like vanilla nametags
+    private static final int DEFAULT_BACKGROUND_COLOR = 0x40000000; // 半透明黑色，与原版名称标签一致
     private static final byte BILLBOARD_FIXED = 0;
-    private static final byte BILLBOARD_CENTER = 3; // face camera on all axes
-    private static final byte STYLE_SEE_THROUGH = 0x02; // render through blocks
-    private static final float DEFAULT_VIEW_RANGE_BLOCKS = 64.0f; // view_range == 1.0 ~= 64 blocks
+    private static final byte BILLBOARD_CENTER = 3; // 在所有轴上朝向相机
+    private static final byte STYLE_SEE_THROUGH = 0x02; // 穿透方块渲染
+    private static final float DEFAULT_VIEW_RANGE_BLOCKS = 64.0f; // view_range == 1.0 ~= 64 格
     private static final String PASSENGER_SOURCE = "script-debug-text";
 
     private final Map<Long, ShapeInfo> shapes = new HashMap<>();
@@ -80,11 +80,11 @@ public class ScriptDebugTextTracker extends StoredObject {
         super(user);
     }
 
-    // ---- Packet handler registration ----
+    // ---- 数据包处理器注册 ----
 
     public static void registerHandlers(final BedrockProtocol protocol) {
-        // PRIMITIVE_SHAPES has no upstream Java mapping, so appendClientbound registers a fresh
-        // null-mapped handler. We fully consume the Bedrock packet and cancel (no Java passthrough).
+        // PRIMITIVE_SHAPES 没有对应的上游 Java 映射，因此 appendClientbound 注册了一个全新的
+        // null 映射处理器。我们完整消费基岩数据包并取消它（不向 Java 透传）。
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.PRIMITIVE_SHAPES, wrapper -> {
             final ScriptDebugTextTracker tracker = wrapper.user().get(ScriptDebugTextTracker.class);
             if (tracker != null) {
@@ -97,7 +97,7 @@ public class ScriptDebugTextTracker extends StoredObject {
             wrapper.cancel();
         });
 
-        // CHANGE_DIMENSION — clear all tracked shapes (Java client clears all entities on dimension change)
+        // CHANGE_DIMENSION —— 清空所有已跟踪的形状（Java 客户端在维度切换时会清空所有实体）
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.CHANGE_DIMENSION, wrapper -> {
             final ScriptDebugTextTracker tracker = wrapper.user().get(ScriptDebugTextTracker.class);
             if (tracker != null) {
@@ -106,45 +106,45 @@ public class ScriptDebugTextTracker extends StoredObject {
         });
     }
 
-    // ---- Packet parsing (Bedrock 1.26.20 PrimitiveShapesPacket wire format) ----
+    // ---- 数据包解析（基岩 1.26.20 PrimitiveShapesPacket 线格式） ----
 
     private void handlePrimitiveShapes(final PacketWrapper wrapper) {
-        final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // entry count
+        final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数量
         for (int i = 0; i < count; i++) {
-            final long id = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // shape id
-            final Byte typeByte = readOptional(wrapper, Types.BYTE); // optional type (ordinal)
+            final long id = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 形状 id
+            final Byte typeByte = readOptional(wrapper, Types.BYTE); // 可选类型（序号）
             final Position3f location = readOptional(wrapper, BedrockTypes.POSITION_3F);
             final Float scale = readOptional(wrapper, BedrockTypes.FLOAT_LE);
-            readOptional(wrapper, BedrockTypes.POSITION_3F); // rotation (Euler) — not applied (text faces camera)
+            readOptional(wrapper, BedrockTypes.POSITION_3F); // 旋转（欧拉角）——未应用（文本朝向相机）
             final Float totalTimeLeft = readOptional(wrapper, BedrockTypes.FLOAT_LE);
             final Float maxRenderDistance = readOptional(wrapper, BedrockTypes.FLOAT_LE);
-            readOptional(wrapper, BedrockTypes.INT_LE); // color — text color is driven by § codes in the text
-            readOptional(wrapper, BedrockTypes.VAR_INT); // dimension — single dimension per Java connection
+            readOptional(wrapper, BedrockTypes.INT_LE); // 颜色——文本颜色由文本中的 § 码决定
+            readOptional(wrapper, BedrockTypes.VAR_INT); // 维度——每个 Java 连接只有一个维度
             final Long attachedRuntimeId = readOptional(wrapper, BedrockTypes.UNSIGNED_VAR_LONG);
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // payloadType (always written, ignored — we dispatch on type)
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // payloadType（总是写入，但被忽略——我们按 type 分派）
 
             if (typeByte == null) {
-                // Absent type = removal.
+                // type 缺失 = 移除。
                 remove(id);
                 continue;
             }
 
             final ScriptModuleDebugUtilities_ScriptDebugShapeType type = ScriptModuleDebugUtilities_ScriptDebugShapeType.getByValue(typeByte & 0xFF);
             if (type == null) {
-                // Unknown shape type: we cannot know its payload length, so we cannot safely
-                // continue parsing the remaining entries. Abort this packet.
+                // 未知的形状类型：我们无法得知其载荷长度，因此无法安全地
+                // 继续解析剩余条目。放弃这个数据包。
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown debug shape type: " + (typeByte & 0xFF) + ", skipping rest of PRIMITIVE_SHAPES packet");
                 return;
             }
 
-            // Read the type-specific payload (must always be consumed to keep the stream aligned).
+            // 读取类型专属的载荷（必须始终消费，以保持流对齐）。
             String text = null;
             boolean textRotation = false;
             Integer backgroundColor = null;
             boolean depthTest = false;
             switch (type) {
                 case Text -> {
-                    text = wrapper.read(BedrockTypes.STRING); // text (not optional)
+                    text = wrapper.read(BedrockTypes.STRING); // 文本（非可选）
                     textRotation = wrapper.read(Types.BOOLEAN);
                     backgroundColor = readOptional(wrapper, BedrockTypes.INT_LE);
                     depthTest = wrapper.read(Types.BOOLEAN);
@@ -165,7 +165,7 @@ public class ScriptDebugTextTracker extends StoredObject {
             if (type == ScriptModuleDebugUtilities_ScriptDebugShapeType.Text) {
                 upsertText(id, location, scale, totalTimeLeft, maxRenderDistance, attachedRuntimeId, text != null ? text : "", textRotation, backgroundColor, depthTest);
             } else {
-                // Non-text shape: not rendered. If this id previously held a text display, remove it.
+                // 非文本形状：不渲染。如果这个 id 之前有文本显示实体，则移除它。
                 if (shapes.containsKey(id)) {
                     remove(id);
                 }
@@ -177,17 +177,17 @@ public class ScriptDebugTextTracker extends StoredObject {
         return wrapper.read(Types.BOOLEAN) ? wrapper.read(type) : null;
     }
 
-    // ---- Shape lifecycle ----
+    // ---- 形状生命周期 ----
 
     private void upsertText(final long id, final Position3f location, final Float scale,
                             final Float totalTimeLeft, final Float maxRenderDistance, final Long attachedRuntimeId,
                             final String text, final boolean textRotation, final Integer backgroundColor, final boolean depthTest) {
         final ShapeInfo existing = shapes.get(id);
         if (existing != null && existing.matches(text, scale, location, attachedRuntimeId)) {
-            return; // unchanged re-send — nothing to do
+            return; // 未变化的重发——无需处理
         }
         if (existing != null) {
-            remove(id); // changed — recreate cleanly (avoids partial-update edge cases)
+            remove(id); // 已变化——干净地重建（避免部分更新的边界情况）
         }
         create(id, location, scale, totalTimeLeft, maxRenderDistance, attachedRuntimeId, text, textRotation, backgroundColor, depthTest);
     }
@@ -196,7 +196,7 @@ public class ScriptDebugTextTracker extends StoredObject {
                         final Float totalTimeLeft, final Float maxRenderDistance, final Long attachedRuntimeId,
                         final String text, final boolean textRotation, final Integer backgroundColor, final boolean depthTest) {
         if (TextUtil.stripFormatting(text).isEmpty() && !text.contains("\n")) {
-            // Nothing visible to show.
+            // 没有可见内容可显示。
             return;
         }
         final EntityTracker entityTracker = this.user().get(EntityTracker.class);
@@ -206,8 +206,8 @@ public class ScriptDebugTextTracker extends StoredObject {
         final UUID uuid = UUID.randomUUID();
         final ShapeInfo info = new ShapeInfo(javaId, uuid, text, scale, location, attachedRuntimeId);
 
-        // Resolve attachment: if attached to a (known) entity, ride it via SET_PASSENGERS so the
-        // client keeps it in sync; otherwise spawn at the shape's absolute world location.
+        // 解析附着关系：如果附着到（已知的）实体，则通过 SET_PASSENGERS 骑乘它，
+        // 让客户端保持同步；否则在形状的绝对世界坐标处生成。
         double spawnX = location != null ? location.x() : 0;
         double spawnY = location != null ? location.y() : 0;
         double spawnZ = location != null ? location.z() : 0;
@@ -226,7 +226,7 @@ public class ScriptDebugTextTracker extends StoredObject {
         }
         info.attachedHostJavaId = hostJavaId;
 
-        // Finite lifespan → schedule auto-removal so the display does not linger forever.
+        // 有限存活时间——调度自动移除，避免显示实体永久残留。
         if (totalTimeLeft != null && totalTimeLeft > 0 && totalTimeLeft < Float.MAX_VALUE) {
             info.expiryTick = tickCounter + Math.round(totalTimeLeft * 20.0);
         }
@@ -234,25 +234,25 @@ public class ScriptDebugTextTracker extends StoredObject {
         shapes.put(id, info);
 
         final PacketWrapper addEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, this.user());
-        addEntity.write(Types.VAR_INT, javaId); // entity id
-        addEntity.write(Types.UUID, uuid); // uuid
-        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // type id
-        addEntity.write(Types.DOUBLE, spawnX); // x
-        addEntity.write(Types.DOUBLE, spawnY); // y
-        addEntity.write(Types.DOUBLE, spawnZ); // z
-        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // velocity
-        addEntity.write(Types.BYTE, (byte) 0); // pitch
-        addEntity.write(Types.BYTE, (byte) 0); // yaw
-        addEntity.write(Types.BYTE, (byte) 0); // head yaw
-        addEntity.write(Types.VAR_INT, 0); // data
+        addEntity.write(Types.VAR_INT, javaId); // 实体 ID
+        addEntity.write(Types.UUID, uuid); // UUID
+        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // 类型 ID
+        addEntity.write(Types.DOUBLE, spawnX); // X
+        addEntity.write(Types.DOUBLE, spawnY); // Y
+        addEntity.write(Types.DOUBLE, spawnZ); // Z
+        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // 速度
+        addEntity.write(Types.BYTE, (byte) 0); // 俯仰角
+        addEntity.write(Types.BYTE, (byte) 0); // 偏航角
+        addEntity.write(Types.BYTE, (byte) 0); // 头部偏航角
+        addEntity.write(Types.VAR_INT, 0); // 数据
         addEntity.send(BedrockProtocol.class);
 
         sendEntityData(info, text, scale, maxRenderDistance, textRotation, backgroundColor, depthTest, hostJavaId != -1);
 
         if (hostJavaId != -1) {
-            // When attached, the shape's location is an offset from the entity; SET_PASSENGERS keeps
-            // the display synced to the host. The passenger attachment point differs from the entity
-            // root, so the offset is approximate, but the display correctly follows the entity.
+            // 附着时，形状的位置是相对实体的偏移；SET_PASSENGERS 让
+            // 显示实体与宿主保持同步。乘客挂载点与实体根位置不同，
+            // 因此该偏移是近似的，但显示实体能正确跟随实体。
             refreshHostPassengers(hostJavaId);
         }
     }
@@ -261,32 +261,33 @@ public class ScriptDebugTextTracker extends StoredObject {
                                 final boolean textRotation, final Integer backgroundColor, final boolean depthTest, final boolean attached) {
         final List<EntityData> data = new ArrayList<>();
 
-        // TEXT — content (TextUtil restores § color codes and \n line breaks into a component)
+        // TEXT —— 内容（TextUtil 会把 § 颜色码和换行符还原成文本组件）
         data.add(new EntityData(textDisplayIndex(EntityDataFields.TEXT), VersionedTypes.V26_1.entityDataTypes().componentType, TextUtil.stringToNbt(text)));
 
-        // BILLBOARD — Bedrock text faces the camera unless useRotation is set.
+        // BILLBOARD —— 除非设置了 useRotation，基岩文本始终朝向相机。
         data.add(new EntityData(textDisplayIndex(EntityDataFields.BILLBOARD_RENDER_CONSTRAINTS), VersionedTypes.V26_1.entityDataTypes().byteType, textRotation ? BILLBOARD_FIXED : BILLBOARD_CENTER));
 
-        // BACKGROUND_COLOR — explicit override or the vanilla-like semi-transparent black.
+        // BACKGROUND_COLOR —— 使用显式覆盖值，或类似原版的半透明黑色。
         data.add(new EntityData(textDisplayIndex(EntityDataFields.BACKGROUND_COLOR), VersionedTypes.V26_1.entityDataTypes().varIntType, backgroundColor != null ? backgroundColor : DEFAULT_BACKGROUND_COLOR));
 
-        // TEXT_OPACITY — fully opaque.
+        // TEXT_OPACITY —— 完全不透明。
         data.add(new EntityData(textDisplayIndex(EntityDataFields.TEXT_OPACITY), VersionedTypes.V26_1.entityDataTypes().byteType, (byte) -1));
 
-        // VIEW_RANGE — Bedrock maximumRenderDistance is in blocks; Java view_range is a multiplier of ~64 blocks.
+        // VIEW_RANGE —— 基岩的 maximumRenderDistance 以格为单位；
+        // Java 的 view_range 是 64 格的倍数。
         final float viewRange = maxRenderDistance != null && maxRenderDistance > 0 ? maxRenderDistance / DEFAULT_VIEW_RANGE_BLOCKS : 1.0f;
         data.add(new EntityData(textDisplayIndex(EntityDataFields.VIEW_RANGE), VersionedTypes.V26_1.entityDataTypes().floatType, viewRange));
 
-        // STYLE_FLAGS — see_through when the shape always renders (depthTest == false).
+        // STYLE_FLAGS —— 当形状始终渲染时（depthTest == false）使用 see_through。
         data.add(new EntityData(textDisplayIndex(EntityDataFields.STYLE_FLAGS), VersionedTypes.V26_1.entityDataTypes().byteType, depthTest ? (byte) 0 : STYLE_SEE_THROUGH));
 
-        // SCALE — uniform scale when provided.
+        // SCALE —— 提供时使用统一缩放。
         if (scale != null && scale > 0) {
             data.add(new EntityData(textDisplayIndex(EntityDataFields.SCALE), VersionedTypes.V26_1.entityDataTypes().vector3FType, new Vector3f(scale, scale, scale)));
         }
 
-        // TRANSLATION — when attached, apply the shape's location as the offset from the passenger
-        // attachment point. When absolute, the entity is already at the shape location, so no offset.
+        // TRANSLATION —— 附着时，把形状的位置用作相对乘客
+        // 挂载点的偏移。绝对定位时实体已经位于形状位置，因此没有偏移。
         final Vector3f translation;
         if (attached && info.location != null) {
             translation = new Vector3f(info.location.x(), info.location.y(), info.location.z());
@@ -313,7 +314,7 @@ public class ScriptDebugTextTracker extends StoredObject {
     }
 
     public void clearAll() {
-        // Java client clears all entities on dimension change, so just drop tracking state.
+        // Java 客户端在维度切换时会清空所有实体，所以只需丢弃跟踪状态。
         shapes.clear();
         final JavaPassengerTracker passengerTracker = this.user().get(JavaPassengerTracker.class);
         if (passengerTracker != null) {
@@ -321,7 +322,7 @@ public class ScriptDebugTextTracker extends StoredObject {
         }
     }
 
-    // ---- Tick (finite lifespan expiry) ----
+    // ---- 刻（有限存活时间到期） ----
 
     public void tick() {
         tickCounter++;
@@ -341,7 +342,7 @@ public class ScriptDebugTextTracker extends StoredObject {
         }
     }
 
-    // ---- Helpers ----
+    // ---- 辅助方法 ----
 
     private void refreshHostPassengers(final int vehicleJavaId) {
         final int[] passengerJavaIds = shapes.values().stream()
@@ -363,7 +364,7 @@ public class ScriptDebugTextTracker extends StoredObject {
         return index;
     }
 
-    // ---- Inner classes ----
+    // ---- 内部类 ----
 
     private static final class ShapeInfo {
         final int javaId;
@@ -373,7 +374,7 @@ public class ScriptDebugTextTracker extends StoredObject {
         final Position3f location;
         final Long attachedRuntimeId;
         int attachedHostJavaId = -1;
-        Long expiryTick; // null = infinite
+        Long expiryTick; // null = 无限
 
         ShapeInfo(final int javaId, final UUID uuid, final String text, final Float scale, final Position3f location, final Long attachedRuntimeId) {
             this.javaId = javaId;

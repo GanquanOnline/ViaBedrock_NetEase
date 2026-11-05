@@ -52,8 +52,8 @@ class OtherPlayerCarryPacketsTest {
     @Test
     void nativeEggSeatHasTheSameHeightAfterRemoteSpawnWalkingAndTurning() throws Exception {
         try (Fixture fixture = new Fixture()) {
-            // Nukkit ADD_PLAYER supplies feet Y=65; MOVE_PLAYER supplies eye Y=66.62.
-            // Native capture places this seat at egg-bottom Y=67.10 for a raw seat offset of 0.48.
+            // Nukkit ADD_PLAYER 提供脚部 Y=65；MOVE_PLAYER 提供眼睛 Y=66.62。
+            // 原生抓包里这个座位位于蛋底 Y=67.10，对应原始座位偏移 0.48。
             final Entity carrier = fixture.spawnRemote(new Position3f(12.5F, 65F, -4.5F));
             final Entity egg = fixture.egg();
             fixture.riding.handleLink(new EntityLink(carrier.uniqueId(), egg.uniqueId(), (byte) 1, false, false, 0F));

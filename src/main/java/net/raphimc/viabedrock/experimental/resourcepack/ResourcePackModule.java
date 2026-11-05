@@ -36,9 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
-/**
- * Registers fork-specific resource pack rewriters and handles post-pack-stack initialization.
- */
+/** 注册本分支特有的资源包重写器，并处理包栈构建之后的初始化。 */
 public class ResourcePackModule implements FeatureModule {
 
     private static final String SHARED_RUNTIME_DATA_FUTURE = "resource_pack_shared_runtime_data_future:";
@@ -67,9 +65,8 @@ public class ResourcePackModule implements FeatureModule {
         if (resourcePackStorage == null || chunkTracker == null) {
             return;
         }
-        // Overlay spawning requires the converted Java models to be loaded on the client.
-        // Runtime data may already be ready before that, so wait for both and hop back
-        // onto the connection thread before touching chunk/entity state.
+        // 叠加层生成需要客户端已加载转换后的 Java 模型。运行时数据可能在此之前
+        // 就已就绪，因此要等两者都完成，并切回连接线程后再触碰区块/实体状态。
         ensureRuntimeData(resourcePackStorage).whenComplete((ignored, error) -> {
             if (error != null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
@@ -84,7 +81,7 @@ public class ResourcePackModule implements FeatureModule {
         });
     }
 
-    /** Completes only after all stack-derived runtime data is fully initialized and published. */
+    /** 仅当所有由包栈派生的运行时数据完成初始化并发布后才完成。 */
     public static CompletableFuture<Void> ensureRuntimeData(final ResourcePackStorage resourcePackStorage) {
         final String fingerprint = resourcePackStorage.getRewriterFingerprint();
         return ensureSharedRuntimeData(resourcePackStorage, fingerprint)

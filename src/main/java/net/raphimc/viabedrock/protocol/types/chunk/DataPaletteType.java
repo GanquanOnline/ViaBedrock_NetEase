@@ -39,7 +39,7 @@ public class DataPaletteType extends Type<BedrockDataPalette> {
     public DataPaletteType(final boolean allowPersistentIds) {
         super(BedrockDataPalette.class);
 
-        // Bedrock client reads runtime ids regardless of the header flag if allowPersistentIds is false
+        // 若 allowPersistentIds 为 false，基岩客户端无论头部标志如何都按运行时 ID 读取
         this.allowPersistentIds = allowPersistentIds;
     }
 
@@ -49,7 +49,7 @@ public class DataPaletteType extends Type<BedrockDataPalette> {
         final int bitArrayVersion = header >> 1;
         final boolean isRuntime = (header & 1) != 0 || !this.allowPersistentIds;
 
-        if (bitArrayVersion == 127) { // 127 = Same values as previous palette
+        if (bitArrayVersion == 127) { // 127 = 与上一个调色板相同的值
             return null;
         }
 

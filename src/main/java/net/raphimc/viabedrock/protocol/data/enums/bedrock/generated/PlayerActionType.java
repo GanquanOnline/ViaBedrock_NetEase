@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -7,189 +7,173 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 public enum PlayerActionType {
 
     Unknown(-1),
-    /**
-     * Sent in Player Auth Input Block Actions with position and facing
-     */
+    /** 在 Player Auth Input 的 Block Actions 中携带位置与朝向发送 */
     StartDestroyBlock(0),
-    /**
-     * Sent in Player Auth Input Block Actions with position and facing
-     */
+    /** 在 Player Auth Input 的 Block Actions 中携带位置与朝向发送 */
     AbortDestroyBlock(1),
-    /**
-     * Sent in Player Auth Input Block Actions without additional data
-     */
+    /** 在 Player Auth Input 的 Block Actions 中发送，不带额外数据 */
     StopDestroyBlock(2),
     GetUpdatedBlock(3),
     DropItem(4),
-    /**
-     * Sent in Player Action
-     */
+    /** 在 Player Action 中发送 */
     StartSleeping(5),
-    /**
-     * Sent in Player Action
-     */
+    /** 在 Player Action 中发送 */
     StopSleeping(6),
-    /**
-     * Sent in Player Action
-     */
+    /** 在 Player Action 中发送 */
     Respawn(7),
     /**
-     * Set on the tick that a player triggers a jump.<br>
-     * Corresponds to Player Auth Input InputData::StartJumping bit 31
+     * 在玩家触发跳跃的那一 tick 设置。<br>
+     * 对应 Player Auth Input InputData::StartJumping 位 31
      */
     StartJump(8),
     /**
-     * Set when the player wants to start sprinting, like double tapping forward.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SPRINTING and an UpdateAttributesPacket to apply the sprint boost.<br>
-     * Corresponds to Player Auth Input InputData::StartSprinting bit 25
+     * 玩家想开始疾跑时设置，例如连续两次点击前进。<br>
+     * 服务器应回复带 ActorFlags::SPRINTING 的 SetActorDataPacket，以及用于应用疾跑加速的 UpdateAttributesPacket。<br>
+     * 对应 Player Auth Input InputData::StartSprinting 位 25
      */
     StartSprinting(9),
     /**
-     * Sent when the player wants to stop sprinting, like releasing the forward input while sprinting.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SPRINTING and an UpdateAttributesPacket clearing the sprint speed boost.<br>
-     * Corresponds to Player Auth Input InputData::StopSprinting bit 26
+     * 玩家想停止疾跑时发送，例如疾跑时松开前进输入。<br>
+     * 服务器应回复带 ActorFlags::SPRINTING 的 SetActorDataPacket，以及清除疾跑速度加成的 UpdateAttributesPacket。<br>
+     * 对应 Player Auth Input InputData::StopSprinting 位 26
      */
     StopSprinting(10),
     /**
-     * Sent when the player wants to start sneaking like pressing shift.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SNEAKING true if accepted, false if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StartSneaking bit 27
+     * 玩家想开始潜行时发送，例如按下 shift。<br>
+     * 服务器若接受应回复 ActorFlags::SNEAKING 为 true 的 SetActorDataPacket，拒绝则为 false，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StartSneaking 位 27
      */
     StartSneaking(11),
     /**
-     * Sent when the player wants to stop sneaking like releasing shift.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SNEAKING false if accepted, true if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StopSneaking bit 28
+     * 玩家想停止潜行时发送，例如松开 shift。<br>
+     * 服务器若接受应回复 ActorFlags::SNEAKING 为 false 的 SetActorDataPacket，拒绝则为 true，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StopSneaking 位 28
      */
     StopSneaking(12),
     /**
-     * Sent when trying to destroy a block in creative like left clicking on it. Expects server to destroy the block and optionally send new block or chunk information.<br>
-     * Used to be a ChangeDimension action.<br>
-     * Sent in Player Action.
+     * 在创造模式下尝试破坏方块时发送，例如左键点击它。期望服务器破坏该方块，并可选地下发新的方块或区块信息。<br>
+     * 曾经是 ChangeDimension 动作。<br>
+     * 在 Player Action 中发送。
      */
     CreativeDestroyBlock(13),
-    /**
-     * Sent in Player Action, this is the one case of the server sending an action to the client to start a dimension change.
-     */
+    /** 在 Player Action 中发送；这是服务端向客户端发送动作以开始切换维度的唯一情形。 */
     ChangeDimensionAck(14),
     /**
-     * Sent when the player wants to start elytra gliding like pressing spacebar in air.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::GLIDING true if accepted or false if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StartGliding bit 32
+     * 玩家想开始鞘翅滑翔时发送，例如在空中按下空格。<br>
+     * 服务器若接受应回复 ActorFlags::GLIDING 为 true 的 SetActorDataPacket，拒绝则为 false，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StartGliding 位 32
      */
     StartGliding(15),
     /**
-     * Sent when the player is elytra gliding but expects it to stop, like when touching the ground.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::GLIDING false if accepted or true if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StopGliding bit 33
+     * 玩家正在鞘翅滑翔但期望停止时发送，例如接触地面时。<br>
+     * 服务器若接受应回复 ActorFlags::GLIDING 为 false 的 SetActorDataPacket，拒绝则为 true，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StopGliding 位 33
      */
     StopGliding(16),
     /**
-     * Sent when the client thinks they aren't allowed to break a block at the location and want the deny particle effect.<br>
-     * Sent in Player Action in EDU
+     * 客户端认为自己在该位置不被允许破坏方块、并希望得到拒绝粒子效果时发送。<br>
+     * 在教育版中于 Player Action 发送
      */
     DenyDestroyBlock(17),
     /**
-     * Client expects a LevelEventPacket with the appropriate crack event to be broadcast in response.<br>
-     * Only sent if server auth block breaking is disabled in StartGamePacket.<br>
-     * Sent in Player Auth Input Block Actions with position and facing.
+     * 客户端期望服务器广播带相应裂纹事件的 LevelEventPacket 作为回应。<br>
+     * 仅在 StartGamePacket 中禁用服务端权威破坏方块时发送。<br>
+     * 在 Player Auth Input 的 Block Actions 中携带位置与朝向发送。
      */
     CrackBlock(18),
     ChangeSkin(19),
     UpdatedEnchantingSeed(20),
     /**
-     * Sent when the player wants to enter swimming mode like pressing control while moving forward in water.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SWIMMING set to true if accepted or false if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StartSwimming bit 29
+     * 玩家想进入游泳模式时发送，例如在水中前进时按下 control。<br>
+     * 服务器若接受应回复 ActorFlags::SWIMMING 为 true 的 SetActorDataPacket，拒绝则为 false，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StartSwimming 位 29
      */
     StartSwimming(21),
     /**
-     * Sent when the player wants to exit swimming mode like when releasing the forward input while swimming.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::SWIMMMING set to false if accepted or true if rejected, and a bounding box update.<br>
-     * Corresponds to Player Auth Input InputData::StopSwimming bit 30
+     * 玩家想退出游泳模式时发送，例如游泳时松开前进输入。<br>
+     * 服务器若接受应回复 ActorFlags::SWIMMMING 为 false 的 SetActorDataPacket，拒绝则为 true，并附带碰撞箱更新。<br>
+     * 对应 Player Auth Input InputData::StopSwimming 位 30
      */
     StopSwimming(22),
     /**
-     * Sent on the tick that the client predicts a riptide spin attack starting. It is accompanied by an InventoryTransactionPacket of type ComplexInventoryTransaction::Type::ItemUseTransaction.<br>
-     * Server is expected to send a SetActorDataPacket with ActorFlags::DAMAGENEARBYMOBS set to true if accepted or false if rejected along with a bounding box update.<br>
-     * Sent in Player Action but will soon turn into a Player Auth Input InputData bit
+     * 在客户端预测三叉戟激流旋转攻击开始的那一 tick 发送。会伴随一个类型为 ComplexInventoryTransaction::Type::ItemUseTransaction 的 InventoryTransactionPacket。<br>
+     * 服务器若接受应发送 ActorFlags::DAMAGENEARBYMOBS 为 true 的 SetActorDataPacket，拒绝则为 false，并附带碰撞箱更新。<br>
+     * 在 Player Action 中发送，但很快会改为 Player Auth Input InputData 的一位
      */
     StartSpinAttack(23),
     /**
-     * Sent when the client thinks a riptide spin attack has ended.<br>
-     * Server is expected to send a SetActorDataPacket with ActorFlags::DAMAGENEARBYMOBS set to false if accepted or true if rejected along with a bounding box update.<br>
-     * Sent in Player Action but will soon turn into a Player Auth Input InputData bit
+     * 客户端认为三叉戟激流旋转攻击已结束时发送。<br>
+     * 服务器若接受应发送 ActorFlags::DAMAGENEARBYMOBS 为 false 的 SetActorDataPacket，拒绝则为 true，并附带碰撞箱更新。<br>
+     * 在 Player Action 中发送，但很快会改为 Player Auth Input InputData 的一位
      */
     StopSpinAttack(24),
     InteractWithBlock(25),
     /**
-     * Sent in Player Auth Input Block Actions with position and facing.<br>
-     * Used for the client to inform the server that it predicted the player destroying a block.<br>
-     * The server may respond with block, chunk, or item information if it disagrees, or send no response to imply agreement.<br>
-     * Only used when server-auth block breaking toggle is on as specified in StartGamePacket
+     * 在 Player Auth Input 的 Block Actions 中携带位置与朝向发送。<br>
+     * 用于客户端告知服务器它预测了玩家破坏方块。<br>
+     * 若服务器不认同，可以下发方块、区块或物品信息；若不回应则表示认同。<br>
+     * 仅在 StartGamePacket 指定的服务端权威破坏方块开关打开时使用
      */
     PredictDestroyBlock(26),
     /**
-     * Sent in Player Auth Input Block Actions with position and facing.<br>
-     * Used to inform the server that the client's current block changed for block destruction.<br>
-     * The server is expected to use this to progress the block destruction and await an upcoming PredictDestroyBlock action.<br>
-     * They are also expected to broadcast LevelEventPackets for the block cracking of the block being destroyed.<br>
-     * Only sent when server-auth block breaking toggle is on as specified in StartGamePacket
+     * 在 Player Auth Input 的 Block Actions 中携带位置与朝向发送。<br>
+     * 用于告知服务器客户端当前破坏的方块已改变。<br>
+     * 服务器应据此推进方块破坏进度，并等待接下来到达的 PredictDestroyBlock 动作。<br>
+     * 服务器还应广播被破坏方块裂痕的 LevelEventPackets。<br>
+     * 仅在 StartGamePacket 指定的服务端权威破坏方块开关打开时发送
      */
     ContinueDestroyBlock(27),
     /**
-     * Sent upon starting right click and hold style item use.<br>
-     * Sent in Player Action.<br>
-     * Server can expect this to arrive with an InventoryTransactionPacket with ItemUseInventoryTransaction in it.
+     * 开始右键长按式物品使用时发送。<br>
+     * 在 Player Action 中发送。<br>
+     * 服务器可预期它随一个内含 ItemUseInventoryTransaction 的 InventoryTransactionPacket 到达。
      */
     StartItemUseOn(28),
     /**
-     * Sent upon releasing right click and hold style item use. This is for canceling the action, not the same as firing a bow which would be InventoryTransactionPacket with ItemUseInventoryTransaction.<br>
-     * Sent in Player Action
+     * 松开右键长按式物品使用时发送。这是取消该动作，与射箭不同，后者会是内含 ItemUseInventoryTransaction 的 InventoryTransactionPacket。<br>
+     * 在 Player Action 中发送
      */
     StopItemUseOn(29),
     /**
-     * Used to inform the server that we have received a MovePlayerPacket causing a teleport, and re-enable client auth movement.<br>
-     * The server should ignore any client predicted positions from the moment a MovePlayerPacket was sent until receipt of this action.<br>
-     * Corresponds to Player Auth Input InputData::HandledTeleport bit 37
+     * 用于告知服务器我们已收到引发传送的 MovePlayerPacket，并重新启用客户端权威移动。<br>
+     * 从发出 MovePlayerPacket 起直到收到本动作，服务器应忽略客户端预测的位置。<br>
+     * 对应 Player Auth Input InputData::HandledTeleport 位 37
      */
     HandledTeleport(30),
     /**
-     * Sent when client wants to play the arm swing animation like for left click.<br>
-     * Server is expected to broadcast a LevelSoundEventPacket with LevelSoundEvent::AttackNoDamage.<br>
-     * Corresponds to Player Auth Input InputData::MissedSwing bit 39
+     * 客户端想播放手臂挥动动画时发送，例如左键点击。<br>
+     * 服务器应广播带 LevelSoundEvent::AttackNoDamage 的 LevelSoundEventPacket。<br>
+     * 对应 Player Auth Input InputData::MissedSwing 位 39
      */
     MissedSwing(31),
     /**
-     * Sent when the player is standing and thinks there is not enough space to stand.<br>
-     * Server is expected to respond with a SetActorDataPacket containing a bounding box update.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::CRAWLING set to true if accepted, or false if rejected.<br>
-     * Corresponds to Player Auth Input InputData::StartCrawling bit 40
+     * 玩家正在站立但认为自己没有足够空间站立时发送。<br>
+     * 服务器应回复包含碰撞箱更新的 SetActorDataPacket。<br>
+     * 服务器若接受应回复 ActorFlags::CRAWLING 为 true 的 SetActorDataPacket，拒绝则为 false。<br>
+     * 对应 Player Auth Input InputData::StartCrawling 位 40
      */
     StartCrawling(32),
     /**
-     * Sent when the player was crawling and thinks there is space to stand.<br>
-     * Server is expected to respond with a SetActorDataPacket containing a bounding box update.<br>
-     * Server is expected to respond with SetActorDataPacket with ActorFlags::CRAWLING set to false if accepted, or true if rejected.<br>
-     * Corresponds to Player Auth Input InputData::StopCrawling bit 41
+     * 玩家正在爬行且认为有空间站立时发送。<br>
+     * 服务器应回复包含碰撞箱更新的 SetActorDataPacket。<br>
+     * 服务器若接受应回复 ActorFlags::CRAWLING 为 false 的 SetActorDataPacket，拒绝则为 true。<br>
+     * 对应 Player Auth Input InputData::StopCrawling 位 41
      */
     StopCrawling(33),
     /**
-     * Sent when the player expects flight to be toggled on like double tap spacebar.<br>
-     * Server is expected to respond with an UpdateAbilitiesPacket to accept or reject this.<br>
-     * Corresponds to Player Auth Input InputData::StartFlying bit 42
+     * 玩家期望开启飞行时发送，例如双击空格。<br>
+     * 服务器应回复 UpdateAbilitiesPacket 以接受或拒绝。<br>
+     * 对应 Player Auth Input InputData::StartFlying 位 42
      */
     StartFlying(34),
     /**
-     * Sent when the player expects flight to be toggled off like double tap spacebar.<br>
-     * Server is expected to respond with an UpdateAbilitiesPacket to accept or reject this.<br>
-     * Corresponds to Player Auth Input InputData::StopFlying bit 43
+     * 玩家期望关闭飞行时发送，例如双击空格。<br>
+     * 服务器应回复 UpdateAbilitiesPacket 以接受或拒绝。<br>
+     * 对应 Player Auth Input InputData::StopFlying 位 43
      */
     StopFlying(35),
     ClientAckServerData(36),
-    /**
-     * Used to inform the server that we are predicting using an item.
-     */
+    /** 用于告知服务器我们正在预测使用物品。 */
     StartUsingItem(37),
     ;
 

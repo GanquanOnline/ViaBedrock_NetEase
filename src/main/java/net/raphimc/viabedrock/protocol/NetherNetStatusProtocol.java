@@ -58,10 +58,10 @@ public class NetherNetStatusProtocol extends AbstractSimpleProtocol {
     @Override
     protected void registerPackets() {
         this.registerClientbound(State.STATUS, ID_DISCOVERY_RESPONSE, ClientboundStatusPackets.STATUS_RESPONSE.getId(), wrapper -> {
-            wrapper.read(Types.BYTE); // The packet id should be a short, so read another byte to make it 2 bytes
-            wrapper.user().get(PingInfoStorage.class).serverNetworkId = wrapper.read(BedrockTypes.LONG_LE); // sender network id
-            wrapper.read(PADDING_TYPE); // padding
-            final String rawData = wrapper.read(BedrockTypes.ASCII_STRING); // data
+            wrapper.read(Types.BYTE); // 数据包 id 应该是 short，因此再读一个字节凑成 2 字节
+            wrapper.user().get(PingInfoStorage.class).serverNetworkId = wrapper.read(BedrockTypes.LONG_LE); // 发送方网络 id
+            wrapper.read(PADDING_TYPE); // 填充
+            final String rawData = wrapper.read(BedrockTypes.ASCII_STRING); // 数据
 
             final JsonObject statusResponse = new JsonObject();
             final JsonObject version = new JsonObject();
@@ -70,59 +70,59 @@ public class NetherNetStatusProtocol extends AbstractSimpleProtocol {
             statusResponse.add("version", version);
 
             final ByteBuf data = Unpooled.wrappedBuffer(HexFormat.of().parseHex(rawData));
-            final int dataVersion = data.readUnsignedByte(); // version
+            final int dataVersion = data.readUnsignedByte(); // 版本
             if (dataVersion != 4) {
                 throw new IllegalStateException("Unsupported NetherNet discovery response version: " + dataVersion);
             }
 
-            final String serverName = BedrockTypes.STRING.read(data); // server name
-            final String levelName = BedrockTypes.STRING.read(data); // level name
+            final String serverName = BedrockTypes.STRING.read(data); // 服务器名称
+            final String levelName = BedrockTypes.STRING.read(data); // 关卡名称
             statusResponse.addProperty("description", "Server: " + serverName + "\n§rLevel: " + levelName);
 
             final JsonArray samples = new JsonArray();
-            samples.add(this.createPlayerSample("GameType: " + GameType.getByValue(data.readUnsignedByte() >> 1, GameType.Undefined).name())); // game type
+            samples.add(this.createPlayerSample("GameType: " + GameType.getByValue(data.readUnsignedByte() >> 1, GameType.Undefined).name())); // 游戏模式
 
             final JsonObject players = new JsonObject();
-            players.addProperty("online", data.readIntLE()); // player count
-            players.addProperty("max", data.readIntLE()); // max player count
+            players.addProperty("online", data.readIntLE()); // 玩家数量
+            players.addProperty("max", data.readIntLE()); // 最大玩家数量
             players.add("sample", samples);
             statusResponse.add("players", players);
 
-            samples.add(this.createPlayerSample("Editor World: " + data.readBoolean())); // editor world
-            samples.add(this.createPlayerSample("Hardcore: " + data.readBoolean())); // hardcore
+            samples.add(this.createPlayerSample("Editor World: " + data.readBoolean())); // 编辑器世界
+            samples.add(this.createPlayerSample("Hardcore: " + data.readBoolean())); // 硬核
 
-            data.skipBytes(2); // unknown
+            data.skipBytes(2); // 未知
             data.release();
 
-            wrapper.write(Types.STRING, statusResponse.toString()); // status
+            wrapper.write(Types.STRING, statusResponse.toString()); // 状态
         });
         this.registerClientbound(State.STATUS, ID_DISCOVERY_MESSAGE, ClientboundStatusPackets.PONG_RESPONSE.getId(), wrapper -> {
-            wrapper.read(Types.BYTE); // The packet id should be a short, so read another byte to make it 2 bytes
-            wrapper.read(BedrockTypes.LONG_LE); // sender network id
-            wrapper.read(PADDING_TYPE); // padding
-            wrapper.read(BedrockTypes.LONG_LE); // recipient network id
-            final String message = wrapper.read(BedrockTypes.ASCII_STRING); // message
+            wrapper.read(Types.BYTE); // 数据包 id 应该是 short，因此再读一个字节凑成 2 字节
+            wrapper.read(BedrockTypes.LONG_LE); // 发送方网络 id
+            wrapper.read(PADDING_TYPE); // 填充
+            wrapper.read(BedrockTypes.LONG_LE); // 接收方网络 id
+            final String message = wrapper.read(BedrockTypes.ASCII_STRING); // 消息
             if (message.equals("Ping")) {
-                wrapper.write(Types.LONG, wrapper.user().get(PingInfoStorage.class).pingTime); // time
+                wrapper.write(Types.LONG, wrapper.user().get(PingInfoStorage.class).pingTime); // 时间
             } else {
                 throw new IllegalStateException("Unsupported NetherNet discovery message: " + message);
             }
         });
 
         this.registerServerbound(State.STATUS, ServerboundStatusPackets.STATUS_REQUEST.getId(), ID_DISCOVERY_REQUEST, wrapper -> {
-            wrapper.write(Types.BYTE, (byte) 0); // The packet id should be a short, so write another byte to make it 2 bytes
-            wrapper.write(BedrockTypes.LONG_LE, wrapper.user().get(PingInfoStorage.class).clientNetworkId); // sender network id
-            wrapper.write(PADDING_TYPE, PADDING_BYTES); // padding
+            wrapper.write(Types.BYTE, (byte) 0); // 数据包 id 应该是 short，因此再写一个字节凑成 2 字节
+            wrapper.write(BedrockTypes.LONG_LE, wrapper.user().get(PingInfoStorage.class).clientNetworkId); // 发送方网络 id
+            wrapper.write(PADDING_TYPE, PADDING_BYTES); // 填充
         });
         this.registerServerbound(State.STATUS, ServerboundStatusPackets.PING_REQUEST.getId(), ID_DISCOVERY_MESSAGE, wrapper -> {
             final PingInfoStorage pingInfoStorage = wrapper.user().get(PingInfoStorage.class);
-            pingInfoStorage.pingTime = wrapper.read(Types.LONG); // time
+            pingInfoStorage.pingTime = wrapper.read(Types.LONG); // 时间
 
-            wrapper.write(Types.BYTE, (byte) 0); // The packet id should be a short, so write another byte to make it 2 bytes
-            wrapper.write(BedrockTypes.LONG_LE, pingInfoStorage.clientNetworkId); // sender network id
-            wrapper.write(PADDING_TYPE, PADDING_BYTES); // padding
-            wrapper.write(BedrockTypes.LONG_LE, pingInfoStorage.serverNetworkId); // recipient network id
-            wrapper.write(BedrockTypes.ASCII_STRING, "Ping"); // message
+            wrapper.write(Types.BYTE, (byte) 0); // 数据包 id 应该是 short，因此再写一个字节凑成 2 字节
+            wrapper.write(BedrockTypes.LONG_LE, pingInfoStorage.clientNetworkId); // 发送方网络 id
+            wrapper.write(PADDING_TYPE, PADDING_BYTES); // 填充
+            wrapper.write(BedrockTypes.LONG_LE, pingInfoStorage.serverNetworkId); // 接收方网络 id
+            wrapper.write(BedrockTypes.ASCII_STRING, "Ping"); // 消息
         });
     }
 

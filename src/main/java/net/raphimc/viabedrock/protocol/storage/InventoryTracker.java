@@ -106,10 +106,10 @@ public class InventoryTracker extends StoredObject {
     private byte bedrockInventoryContainerId = (byte) ContainerID.CONTAINER_ID_NONE.getValue();
     private boolean bedrockPlayerInventoryOpen;
     /**
-     * Java Q / F never open a GUI. Interact.OpenInventory still sets MOT
-     * {@code inventoryOpen}. The matching CONTAINER_OPEN type=-1 must be ignored
-     * so it cannot re-open after we immediately close -1.
-     * Ref: MOT Player.java Interact action 6 / CONTAINER_CLOSE windowId -1.
+     * Java 的 Q / F 从不打开 GUI。Interact.OpenInventory 仍会设置 MOT
+     * {@code inventoryOpen}。必须忽略匹配的 CONTAINER_OPEN type=-1，
+     * 以免在我们立刻关闭 -1 之后它又重新打开。
+     * 参考：MOT Player.java Interact action 6 / CONTAINER_CLOSE windowId -1。
      */
     private boolean suppressNextBedrockPlayerInventoryOpen;
     private final Map<Integer, PendingItemStackRequest> pendingItemStackRequests = new LinkedHashMap<>();
@@ -265,9 +265,9 @@ public class InventoryTracker extends StoredObject {
         }
         final PacketWrapper modalFormResponse = PacketWrapper.create(ServerboundBedrockPackets.MODAL_FORM_RESPONSE, this.user());
         modalFormResponse.write(BedrockTypes.UNSIGNED_VAR_INT, this.currentForm.leftInt()); // id
-        modalFormResponse.write(Types.BOOLEAN, false); // has response
-        modalFormResponse.write(Types.BOOLEAN, true); // has cancel reason
-        modalFormResponse.write(Types.BYTE, (byte) ModalFormCancelReason.UserClosed.getValue()); // cancel reason
+        modalFormResponse.write(Types.BOOLEAN, false); // 是否有响应
+        modalFormResponse.write(Types.BOOLEAN, true); // 是否有取消原因
+        modalFormResponse.write(Types.BYTE, (byte) ModalFormCancelReason.UserClosed.getValue()); // 取消原因
         modalFormResponse.sendToServer(BedrockProtocol.class);
         this.currentForm = null;
     }
@@ -275,22 +275,20 @@ public class InventoryTracker extends StoredObject {
     public void tick() {
         if (this.currentContainer != null && this.currentContainer.position() != null) {
             if (this.currentContainer.type() == ContainerType.INVENTORY) return;
-            // MOT HorseInventory is bound to a moving entity, not a world block.
-            // CONTAINER_OPEN still carries the horse floor XYZ at open time; using
-            // that snapshot for the 6-block world check rubber-bands the JE GUI
-            // closed as soon as the mount walks. Keep the mount screen until the
-            // server CONTAINER_CLOSE / SET_ENTITY_LINK unlink.
-            // Ref: MOT HorseInventory / ContainerInventory.onOpen entityId.
+            // MOT HorseInventory 绑定的是移动中的实体，而不是世界方块。
+            // CONTAINER_OPEN 仍携带打开时的马匹脚部 XYZ；用这个快照去做
+            // 6 格世界校验，会让坐骑一走开 JE 的 GUI 就被弹回关闭。
+            // 保持坐骑界面打开，直到服务器发来 CONTAINER_CLOSE / SET_ENTITY_LINK 解链。
+            // 参考：MOT HorseInventory / ContainerInventory.onOpen 的 entityId。
             if (this.currentContainer instanceof HorseContainer) {
                 return;
             }
-            // MOT plugin / fake inventories and ender chests with no viewing block
-            // write CONTAINER_OPEN at (0,0,0). That is not a world-backed holder:
-            // air at spawn must not close the GUI, and a real chest/ender/shulker
-            // sitting at world origin must not make a distant plugin chest fail the
-            // 6-block check. Real block inventories send their actual XYZ.
-            // Ref: MOT ContainerInventory.onOpen non-Vector3 holder;
-            // PlayerEnderChestInventory viewingEnderChest == null.
+            // MOT 插件 / 伪物品栏以及没有查看方块的末影箱
+            // 会在 (0,0,0) 写 CONTAINER_OPEN。那不是由世界方块支撑的容器：
+            // 出生点的空气不能关闭 GUI，而世界原点处真实的箱子/末影箱/潜影盒
+            // 也不能让远处的插件箱子通不过 6 格校验。真实方块物品栏会发送其实际 XYZ。
+            // 参考：MOT ContainerInventory.onOpen 的非 Vector3 容器；
+            // PlayerEnderChestInventory 的 viewingEnderChest == null。
             if (isDummyWorldPosition(this.currentContainer.position())) {
                 return;
             }
@@ -316,8 +314,8 @@ public class InventoryTracker extends StoredObject {
     }
 
     /**
-     * Nukkit-MOT writes {@code x=y=z=0} when the inventory holder is not a world block
-     * ({@code ContainerInventory}, plugin fake chests, ender chest with no viewing block).
+     * 当物品栏容器不是世界方块时，Nukkit-MOT 会写入 {@code x=y=z=0}
+     * （{@code ContainerInventory}、插件伪箱子、没有查看方块的末影箱）。
      */
     public static boolean isDummyWorldPosition(final BlockPosition position) {
         return position != null && position.x() == 0 && position.y() == 0 && position.z() == 0;
@@ -346,7 +344,7 @@ public class InventoryTracker extends StoredObject {
         return this.authoritativeInventoryGenerations.computeIfAbsent(container, ignored -> 0L);
     }
 
-    /** Advances only after an inbound Bedrock inventory slot/content update was applied. */
+    /** 仅在应用了入站基岩物品栏槽位/内容更新之后才推进。 */
     public void incrementAuthoritativeInventoryGeneration(final Container container) {
         this.authoritativeInventoryGeneration++;
         if (container != null) {
@@ -441,8 +439,8 @@ public class InventoryTracker extends StoredObject {
     }
 
     /**
-     * MOT HorseInventory size is {@code 2 + chestSize} and can grow after CONTAINER_OPEN
-     * (donkey chest / llama strength). Resize the mirror without closing the JE window.
+     * MOT HorseInventory 的大小是 {@code 2 + chestSize}，且在 CONTAINER_OPEN 之后还可能增大
+     * （驴箱 / 羊驼强度）。在不关闭 JE 窗口的情况下调整镜像的大小。
      */
     public void replaceCurrentContainer(final Container container) {
         if (this.currentContainer == null || container == null) {
@@ -468,10 +466,10 @@ public class InventoryTracker extends StoredObject {
     }
 
     /**
-     * Close MOT player inventory after a Java-only hotbar Drop/Swap. MOT
-     * {@code inventoryOpen} blocks melee and later {@code addWindow}.
-     * If CONTAINER_OPEN type=-1 has not arrived yet, ignore that one OPEN so it
-     * cannot re-open after this close.
+     * 在仅有 Java 侧的热键栏丢弃/交换之后关闭 MOT 玩家物品栏。MOT 的
+     * {@code inventoryOpen} 会阻断近战以及后续的 {@code addWindow}。
+     * 如果 CONTAINER_OPEN type=-1 尚未到达，忽略那一次 OPEN，
+     * 以免在本次关闭后重新打开。
      */
     public void closeTransientBedrockPlayerInventory() {
         if (this.currentContainer != null || this.pendingCloseContainer != null) {
@@ -527,11 +525,11 @@ public class InventoryTracker extends StoredObject {
             throw new IllegalStateException("There is no NPC dialogue currently open");
         }
         final PacketWrapper npcRequest = PacketWrapper.create(ServerboundBedrockPackets.NPC_REQUEST, this.user());
-        npcRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, this.currentNpcDialogue.npcEntityRuntimeId()); // entity runtime id
-        npcRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteClosingCommands.getValue()); // type
-        npcRequest.write(BedrockTypes.STRING, ""); // command
-        npcRequest.write(Types.BYTE, (byte) 0); // action index
-        npcRequest.write(BedrockTypes.STRING, this.currentNpcDialogue.sceneName()); // scene name
+        npcRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, this.currentNpcDialogue.npcEntityRuntimeId()); // 实体运行时 ID
+        npcRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteClosingCommands.getValue()); // 类型
+        npcRequest.write(BedrockTypes.STRING, ""); // 命令
+        npcRequest.write(Types.BYTE, (byte) 0); // 动作索引
+        npcRequest.write(BedrockTypes.STRING, this.currentNpcDialogue.sceneName()); // 场景名称
         npcRequest.sendToServer(BedrockProtocol.class);
         this.currentNpcDialogue = null;
     }

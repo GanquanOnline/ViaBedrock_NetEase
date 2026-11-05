@@ -56,7 +56,7 @@ class SharedPackRuntimeCacheTest {
         try {
             final SharedPackRuntimeCache cache = new SharedPackRuntimeCache(config, metrics, scheduler);
             try (var ignored = cache.acquire(List.of(pack(UUID.randomUUID(), "1.0.0", "weak")))) {
-                // Populate both weak-value identity indexes.
+                // 填充两个弱值身份索引。
             }
             final ConcurrentMap<?, WeakReference<?>> liveBlobs = weakMap(cache, "liveBlobs");
             final Object parsedLayers = field(cache, "parsedLayers");
@@ -1113,7 +1113,7 @@ class SharedPackRuntimeCacheTest {
             for (int i = 0; i < 4; i++) {
                 try (var ignored = cache.acquire(List.of(
                         packWithPayload(UUID.randomUUID(), 32 * 1024, (byte) i)))) {
-                    // Closing moves the unique runtime into the weighted idle cache.
+                    // 关闭会把唯一的运行时移入带权重的空闲缓存。
                 }
             }
             cache.cleanUp();

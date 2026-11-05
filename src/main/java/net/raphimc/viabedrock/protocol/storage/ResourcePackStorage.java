@@ -53,10 +53,10 @@ public class ResourcePackStorage implements StorableObject {
     private final ThreadLocal<PackStackScope> packStackScope = new ThreadLocal<>();
 
     private boolean loadedOnJavaClient;
-    // Whether the connected Java client supports the free model element rotation format (MC >= 1.21.11).
-    // Written once during resource pack negotiation (netty thread), read later during pack conversion
-    // (HTTP thread) -> volatile for cross-thread visibility. Defaults to false (conservative: emit the
-    // legacy single-axis-compatible output, never the format that fails to load on older clients).
+    // 连接的 Java 客户端是否支持自由模型元素旋转格式（MC >= 1.21.11）。
+    // 在资源包协商期间写一次（netty 线程），之后在资源包转换时读取
+    // （HTTP 线程）-> 用 volatile 保证跨线程可见性。默认为 false（保守：输出
+    // 旧式单轴兼容格式，绝不输出在旧客户端上加载失败的格式）。
     private volatile boolean supportsFreeRotation = false;
     private final Map<String, Object> converterData = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<Void>> sessionInitializationFutures =
@@ -284,7 +284,7 @@ public class ResourcePackStorage implements StorableObject {
         return mounts(this.legacyPackStackTopToBottom);
     }
 
-    /** Keeps canonical pack files pinned for one synchronous raw-content operation. */
+    /** 为一次同步的原始内容操作保持规范包文件被固定。 */
     public <T> T withPackStack(final PackStackOperation<T> operation) throws IOException {
         Objects.requireNonNull(operation, "operation");
         if (this.runtimeLease == null || this.packStackScope.get() != null) {
@@ -300,7 +300,7 @@ public class ResourcePackStorage implements StorableObject {
         }
     }
 
-    /** Opens the canonical stack only if a compatibility rewriter actually requests raw pack content. */
+    /** 仅当兼容重写器确实请求原始包内容时才打开规范栈。 */
     public <T> T withLazyPackStack(final PackStackOperation<T> operation) throws IOException {
         Objects.requireNonNull(operation, "operation");
         if (this.runtimeLease == null || this.packStackScope.get() != null) {
@@ -336,12 +336,12 @@ public class ResourcePackStorage implements StorableObject {
         return this.converterData;
     }
 
-    /** Stack-derived conversion/runtime data shared only by sessions with the same exact stack key. */
+    /** 由资源包栈派生的转换/运行时数据，仅在资源包栈键完全相同的会话之间共享。 */
     public Map<String, Object> getRuntimeData() {
         return this.runtimeLease != null ? this.runtimeLease.runtime().converterData() : this.converterData;
     }
 
-    /** Internal write path used only while the shared runtime is being initialized. */
+    /** 仅在初始化共享运行时时使用的内部写入路径。 */
     public Object putRuntimeData(final String key, final Object value) {
         return this.runtimeLease != null
                 ? this.runtimeLease.runtime().putConverterDataDuringInitialization(key, value)

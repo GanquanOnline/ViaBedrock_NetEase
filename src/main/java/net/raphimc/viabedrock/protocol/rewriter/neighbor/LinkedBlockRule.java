@@ -33,15 +33,15 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Two-part blocks (door halves, bed parts) whose shared Java properties Bedrock splits across the two blocks and
- * lets the client recombine. Each half is recomputed independently from itself and its partner:
+ * 双段方块（门的两半、床的两个部分）在 Java 中的共享属性被基岩拆到两个方块上，
+ * 由客户端重新组合。每一半都独立地从自身和它的配对者重新计算：
  * <ul>
- *     <li>Door: Bedrock stores {@code facing/open} on the lower half and {@code hinge} on the upper half, so each
- *     half pulls the missing shared property from its partner.</li>
- *     <li>Bed: dye colour lives only in the block entity NBT (baked into the Java id) and {@link BlockNeighborView#getJavaBlockState}
- *     is palette-only, so a partner fetched that way is a colourless {@code white_bed}. Each half re-derives its
- *     colour from its own block entity (via {@link BedBlockEntityRewriter#getColor}), so the partner is never
- *     downgraded to white.</li>
+ * <li>门：基岩在下半部分存 {@code facing/open}，在上半部分存 {@code hinge}，因此每一
+ * 半都从配对者取回缺失的共享属性。</li>
+ * <li>床：染料颜色只存在于方块实体 NBT 中（已烘焙进 Java ID），而 {@link BlockNeighborView#getJavaBlockState}
+ * 只查调色板，因此这样取到的配对者是不带颜色的 {@code white_bed}。每一半都从自己的方块实体
+ * 重新推导颜色（经由 {@link BedBlockEntityRewriter#getColor}），所以配对者绝不会
+ * 被降级为白色。</li>
  * </ul>
  */
 public final class LinkedBlockRule implements NeighborAwareBlockRule {
@@ -131,10 +131,10 @@ public final class LinkedBlockRule implements NeighborAwareBlockRule {
         final BlockState self = this.javaBlockStatesById.get(javaBlockStateId);
         if (self == null) return javaBlockStateId;
 
-        // A bed's dye colour lives only in the Bedrock block entity NBT and is baked into the Java id; a palette-only
-        // neighbor lookup yields the colourless white_bed base. Re-derive this half's colour from its own block
-        // entity (same source and RED fallback as BedBlockEntityRewriter) so the partner is rebuilt with the true
-        // dyed identifier instead of downgrading to white.
+        // 床的染料颜色只存在于基岩方块实体 NBT 中并被烘焙进 Java ID；只查调色板的
+        // 邻居查找会得到无色的 white_bed 基础状态。从这一半自己的方块实体
+        // 重新推导颜色（与 BedBlockEntityRewriter 相同的来源和 RED 回退），这样配对者会用真实的
+        // 染色标识符重建，而不是被降级为白色。
         final BedrockBlockEntity blockEntity = view.getBlockEntity(pos);
         if (blockEntity == null || blockEntity.tag() == null) {
             return javaBlockStateId;

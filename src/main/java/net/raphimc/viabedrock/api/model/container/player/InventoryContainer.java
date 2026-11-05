@@ -84,8 +84,8 @@ public class InventoryContainer extends Container {
         System.arraycopy(inventoryItems, 9, combinedItems, 9, 27);
         System.arraycopy(inventoryItems, 0, combinedItems, 36, 9);
         System.arraycopy(offhandItems, 0, combinedItems, 45, offhandItems.length);
-        // Slot 0 = 2x2 crafting output. Bedrock doesn't push a preview (the client computes it),
-        // so the client-authoritative module mirrors the computed result into HUD slot 50.
+        // 槽位 0 = 2x2 合成输出。基岩不会推送预览（由客户端自行计算），
+        // 因此客户端权威的模块会把计算结果镜像到 HUD 槽位 50。
         combinedItems[0] = hudContainer.getJavaItem(50);
         for (int i = 0; i < 4; i++) {
             combinedItems[1 + i] = hudContainer.getJavaItem(28 + i);
@@ -122,9 +122,9 @@ public class InventoryContainer extends Container {
     }
 
     /**
-     * Updates the mirrored selected hotbar slot without telling the Bedrock server.
-     * Use this for server-initiated packets (PLAYER_HOTBAR / GUI_DATA_PICK_ITEM);
-     * echoing MOB_EQUIPMENT or INTERACT would look like a second client change.
+     * 更新镜像的选中快捷栏槽位，但不告知基岩服务器。
+     * 用于由服务端发起的包（PLAYER_HOTBAR / GUI_DATA_PICK_ITEM）；
+     * 再回送 MOB_EQUIPMENT 或 INTERACT 会被当成客户端的第二次改动。
      */
     public void setSelectedHotbarSlotLocally(final byte slot) {
         this.selectedHotbarSlot = slot;
@@ -145,17 +145,17 @@ public class InventoryContainer extends Container {
     private void onSelectedHotbarSlotChanged(final BedrockItem oldItem, final BedrockItem newItem, final PacketWrapper mobEquipment) {
         if (oldItem.isDifferent(newItem)) {
             final PacketWrapper interact = PacketWrapper.create(ServerboundBedrockPackets.INTERACT, this.user);
-            interact.write(Types.UNSIGNED_BYTE, (short) InteractPacket_Action.InteractUpdate.getValue()); // action
-            interact.write(BedrockTypes.UNSIGNED_VAR_LONG, 0L); // target entity runtime id
+            interact.write(Types.UNSIGNED_BYTE, (short) InteractPacket_Action.InteractUpdate.getValue()); // 动作
+            interact.write(BedrockTypes.UNSIGNED_VAR_LONG, 0L); // 目标实体运行时 ID
             InteractPacketLayout.writePosition(interact, InteractPacket_Action.InteractUpdate, Position3f.ZERO);
             interact.sendToServer(BedrockProtocol.class);
         }
 
-        mobEquipment.write(BedrockTypes.UNSIGNED_VAR_LONG, this.user.get(EntityTracker.class).getClientPlayer().runtimeId()); // entity runtime id
-        mobEquipment.write(this.user.get(ItemRewriter.class).newItemType(), newItem); // item
-        mobEquipment.write(Types.BYTE, this.selectedHotbarSlot); // slot
-        mobEquipment.write(Types.BYTE, this.selectedHotbarSlot); // selected slot
-        mobEquipment.write(Types.BYTE, this.containerId); // container id
+        mobEquipment.write(BedrockTypes.UNSIGNED_VAR_LONG, this.user.get(EntityTracker.class).getClientPlayer().runtimeId()); // 实体运行时 ID
+        mobEquipment.write(this.user.get(ItemRewriter.class).newItemType(), newItem); // 物品
+        mobEquipment.write(Types.BYTE, this.selectedHotbarSlot); // 槽位
+        mobEquipment.write(Types.BYTE, this.selectedHotbarSlot); // 选中槽位
+        mobEquipment.write(Types.BYTE, this.containerId); // 容器 ID
     }
 
 }

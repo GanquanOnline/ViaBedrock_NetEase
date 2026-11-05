@@ -23,9 +23,9 @@ import com.viaversion.viaversion.libs.mcstructs.text.TextComponent;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerType;
 
 /**
- * Identity-mapped Bedrock container whose Java menu already matches the Bedrock slot
- * count. Used for hoppers, dispensers, droppers, barrels, crafters, vehicle chests
- * and the remaining vanilla block menus that share a 1:1 slot layout.
+ * 恒等映射的基岩容器，其 Java 菜单槽位数已与基岩槽位数一致。
+ * 用于漏斗、发射器、投掷器、木桶、合成器、载具箱子
+ * 以及其余共享 1:1 槽位布局的原版方块菜单。
  */
 public class GenericContainer extends Container {
 

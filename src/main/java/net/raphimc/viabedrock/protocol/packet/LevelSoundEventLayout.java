@@ -24,14 +24,13 @@ import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Trailer helpers for Bedrock {@code LEVEL_SOUND_EVENT} (packet 0x7B / 123).
+ * 基岩 {@code LEVEL_SOUND_EVENT}（0x7B / 123 号包）的尾部辅助方法。
  * <p>
- * Official Bedrock 1.21.90+ / protocol 974+ and Nukkit-MOT's matching branch append
- * an optional {@code fireAtPosition} vector after the little-endian entity unique id.
- * NetEase / Nukkit-MOT protocol 860 still stops after {@code entityUniqueId}
- * ({@code protocol >= 785}). Treating that packet as 974+ tries to read an optional
- * boolean past the 42-byte payload and aborts the Java connection with
- * {@code SOUND}/{@code OptionalType} extra-data.
+ * 官方基岩 1.21.90+ / 协议 974+ 以及 Nukkit-MOT 的对应分支会在小端实体唯一 ID 之后
+ * 追加一个可选的 {@code fireAtPosition} 向量。网易 / Nukkit-MOT 协议 860 仍然止于
+ * {@code entityUniqueId}（{@code protocol >= 785}）。把该包当作 974+ 处理会试图在
+ * 42 字节载荷之后多读一个可选布尔值，从而以 {@code SOUND}/{@code OptionalType}
+ * extra-data 中止 Java 连接。
  */
 public final class LevelSoundEventLayout {
 

@@ -25,8 +25,8 @@ import net.raphimc.viabedrock.experimental.storage.MapTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 
 /**
- * MOT only answers {@code MAP_INFO_REQUEST} after async {@code renderMap}. Java never
- * re-requests, so keep asking for tracked maps that still have no texture.
+ * MOT 只有在异步 {@code renderMap} 之后才会回应 {@code MAP_INFO_REQUEST}。Java 从不
+ * 重新请求，因此需要对仍无纹理的已跟踪地图持续询问。
  */
 public class MapInfoRequestTickTask implements Runnable {
 

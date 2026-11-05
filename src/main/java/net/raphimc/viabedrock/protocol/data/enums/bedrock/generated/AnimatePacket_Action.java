@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,26 +6,18 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum AnimatePacket_Action {
 
-    /**
-     * Unused
-     */
+    /** 未使用 */
     NoAction(0),
     /**
-     * Server bound notification to swing the player's arm. Server is expected to rebroadcast to all that should see the arm move<br>
-     * See also PlayerAuthInputPacket::InputData::MissedSwing for a very similar action
+     * 客户端→服务端通知：挥动玩家手臂。服务器应把它重新广播给所有能看到手臂动作的对象<br>
+     * 非常类似的动作另见 PlayerAuthInputPacket::InputData::MissedSwing
      */
     Swing(1),
-    /**
-     * Client bound notification to stop sleeping in a bed
-     */
+    /** 服务端→客户端通知：停止在床上睡觉 */
     WakeUp(3),
-    /**
-     * Client-bound notification to play critical hit particles
-     */
+    /** 服务端→客户端通知：播放暴击粒子 */
     CriticalHit(4),
-    /**
-     * Unused
-     */
+    /** 未使用 */
     MagicCriticalHit(5),
     ;
 

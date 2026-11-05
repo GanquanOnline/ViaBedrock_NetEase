@@ -43,9 +43,9 @@ public class MobEntity extends LivingEntity {
     @Override
     protected boolean translateAttribute(final EntityAttribute attribute, final PacketWrapper javaAttributes, final AtomicInteger attributeCount, final List<EntityData> javaEntityData) {
         if (attribute.name().equals("minecraft:follow_range")) {
-            javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.FOLLOW_RANGE)); // attribute id
-            javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // base value
-            javaAttributes.write(Types.VAR_INT, 0); // modifier count
+            javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.FOLLOW_RANGE)); // 属性 id
+            javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // 基础值
+            javaAttributes.write(Types.VAR_INT, 0); // 修饰符数量
             attributeCount.incrementAndGet();
             return true;
         } else {

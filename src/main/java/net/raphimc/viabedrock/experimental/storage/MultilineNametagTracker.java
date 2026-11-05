@@ -46,26 +46,26 @@ import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import java.util.*;
 
 /**
- * Tracks and manages virtual entities for Bedrock multiline nametags.
+ * 跟踪并管理用于基岩版多行名称标签的虚拟实体。
  * <p>
- * Bedrock edition natively supports multiline nametags (via \n), but Java edition's
- * CUSTOM_NAME ignores newlines and renders single-line. This tracker uses two strategies:
+ * 基岩版原生支持多行名称标签（通过 \n），但 Java 版的
+ * CUSTOM_NAME 会忽略换行，只渲染成单行。本跟踪器采用两种策略：
  * <ul>
- *   <li><b>Player entities</b>: invisible armor stands (one per extra line), with the player's
- *       own team nametag serving as the bottom line. Each armor stand has a different
- *       {@code minecraft:scale} attribute to position its nametag at the correct Y height.</li>
- *   <li><b>Non-player entities</b>: a single TEXT_DISPLAY entity with multiline text support.</li>
+ * <li><b>玩家实体</b>：隐形盔甲架（每多一行一个），并以玩家
+ * 自己的队伍名称标签作为最下面一行。每个盔甲架使用不同的
+ * {@code minecraft:scale} 属性，把它的名称标签定位到正确的 Y 高度。</li>
+ * <li><b>非玩家实体</b>：一个支持多行文本的 TEXT_DISPLAY 实体。</li>
  * </ul>
  * <p>
- * Both strategies use SET_PASSENGERS to ride the host entity, so the client automatically
- * keeps virtual entities in sync with the host's position (no manual position sync needed).
+ * 两种策略都用 SET_PASSENGERS 骑乘宿主实体，因此客户端会自动
+ * 让虚拟实体与宿主位置保持同步（无需手动同步位置）。
  * <p>
- * Fully decoupled from upstream code — uses ProtocolUtil.appendClientbound to hook
- * into existing packet handlers without modifying them.
+ * 与上游代码完全解耦——使用 ProtocolUtil.appendClientbound 挂接
+ * 到现有的数据包处理器上，而不修改它们。
  * <p>
- * IMPORTANT: After resetReader(), the wrapper contains Java-format data (written by the
- * upstream handler via write()), NOT the original Bedrock data (consumed by read() and lost).
- * All append handlers must read Java types (e.g. Types.VAR_INT) not Bedrock types.
+ * 重要：调用 resetReader() 之后，wrapper 中装的是 Java 格式数据（由
+ * 上游处理器通过 write() 写入），而不是原始的基岩数据（已被 read() 消费并丢失）。
+ * 所有 append 处理器都必须读取 Java 类型（例如 Types.VAR_INT），而不是基岩类型。
  */
 public class MultilineNametagTracker extends StoredObject {
 
@@ -76,21 +76,21 @@ public class MultilineNametagTracker extends StoredObject {
     private static final String PASSENGER_SOURCE = "multiline-nametag";
 
     private final Map<Long, NametagDisplayInfo> displays = new HashMap<>();
-    // Reverse mapping: host entity Java ID → entity uniqueId
-    // Needed because by the time our REMOVE_ENTITY handler runs,
-    // the entity is already removed from EntityTracker.
+    // 反向映射：宿主实体的 Java ID → 实体 uniqueId
+    // 需要它是因为等到我们的 REMOVE_ENTITY 处理器运行时，
+    // 实体已经从 EntityTracker 中移除了。
     private final Map<Integer, Long> hostJavaIdToUniqueId = new HashMap<>();
 
     public MultilineNametagTracker(final UserConnection user) {
         super(user);
     }
 
-    // ---- Packet handler registration ----
+    // ---- 数据包处理器注册 ----
 
     public static void registerHandlers(final BedrockProtocol protocol) {
-        // 1. ADD_ENTITY — detect multiline nametags on entity spawn
-        // Upstream uses send()+cancel() pattern. After resetReader(), packetValues contain
-        // Java ADD_ENTITY format: VarInt(javaId), UUID, VarInt(typeId), ...
+        // 1. ADD_ENTITY —— 在实体生成时检测多行名称标签
+        // 上游使用 send()+cancel() 模式。resetReader() 之后，packetValues 中是
+        // Java 的 ADD_ENTITY 格式：VarInt(javaId)、UUID、VarInt(typeId)、...
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.ADD_ENTITY, wrapper -> {
             final MultilineNametagTracker tracker = wrapper.user().get(MultilineNametagTracker.class);
             if (tracker == null) return;
@@ -107,9 +107,9 @@ public class MultilineNametagTracker extends StoredObject {
             }
         });
 
-        // 2. ADD_PLAYER — detect multiline nametags on player spawn
-        // Upstream uses send()+cancel() pattern. After resetReader(), packetValues contain
-        // Java ADD_ENTITY format: VarInt(javaId), UUID, VarInt(typeId), ...
+        // 2. ADD_PLAYER —— 在玩家生成时检测多行名称标签
+        // 上游使用 send()+cancel() 模式。resetReader() 之后，packetValues 中是
+        // Java 的 ADD_ENTITY 格式：VarInt(javaId)、UUID、VarInt(typeId)、...
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.ADD_PLAYER, wrapper -> {
             final MultilineNametagTracker tracker = wrapper.user().get(MultilineNametagTracker.class);
             if (tracker == null) return;
@@ -126,14 +126,14 @@ public class MultilineNametagTracker extends StoredObject {
             }
         });
 
-        // 3. SET_ENTITY_DATA — detect nametag changes
-        // Upstream writes: VarInt(javaId), EntityDataList(javaEntityData)
-        // After handleEntityDataUpdate, we filter CUSTOM_NAME/CUSTOM_NAME_VISIBLE from the wrapper
-        // to prevent the upstream's entity data from re-enabling the host's nametag.
-        // This is necessary because the append handler's corrective packets (sendClearHostNametag)
-        // are sent BEFORE the wrapper's packet, so the wrapper would overwrite the correction.
-        // By modifying the entity data list in-place (same object reference as in the wrapper's
-        // packetValues), we ensure the filtered data is what reaches the client.
+        // 3. SET_ENTITY_DATA —— 检测名称标签变化
+        // 上游写入：VarInt(javaId)、EntityDataList(javaEntityData)
+        // 在 handleEntityDataUpdate 之后，我们从 wrapper 中过滤掉 CUSTOM_NAME/CUSTOM_NAME_VISIBLE，
+        // 以免上游的实体数据重新启用宿主的名称标签。
+        // 这是必要的，因为 append 处理器的纠正数据包（sendClearHostNametag）
+        // 在 wrapper 的数据包之前发送，wrapper 会覆盖掉纠正结果。
+        // 通过就地修改实体数据列表（与 wrapper 的 packetValues 中是同一个对象引用），
+        // 我们确保到达客户端的是过滤后的数据。
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.SET_ENTITY_DATA, wrapper -> {
             if (wrapper.isCancelled()) return;
             final MultilineNametagTracker tracker = wrapper.user().get(MultilineNametagTracker.class);
@@ -146,19 +146,19 @@ public class MultilineNametagTracker extends StoredObject {
                 final Entity entity = entityTracker.getEntityByJid(javaEntityId);
                 if (entity != null) {
                     tracker.handleEntityDataUpdate(entity);
-                    // Filter CUSTOM_NAME/CUSTOM_NAME_VISIBLE from the wrapper's entity data
-                    // if a TextDisplay is active. Must run AFTER handleEntityDataUpdate because
-                    // that call may create a new display for a newly-multiline name.
+                    // 如果 TextDisplay 处于活动状态，则从 wrapper 的实体数据中
+                    // 过滤掉 CUSTOM_NAME/CUSTOM_NAME_VISIBLE。必须在 handleEntityDataUpdate 之后
+                    // 执行，因为该调用可能会为新的多行名称创建新的显示实体。
                     tracker.filterHostNametagFromPacket(entity, wrapper);
                 }
             } catch (final Exception ignored) {
             }
         });
 
-        // 4. REMOVE_ENTITY — cleanup virtual entities
-        // Upstream writes REMOVE_ENTITIES: VarIntArrayPrimitive(int[]{javaId})
-        // Entity is already removed from EntityTracker at this point,
-        // so we use hostJavaIdToUniqueId for reverse lookup.
+        // 4. REMOVE_ENTITY —— 清理虚拟实体
+        // 上游写入 REMOVE_ENTITIES：VarIntArrayPrimitive(int[]{javaId})
+        // 此时实体已经从 EntityTracker 中移除，
+        // 所以我们用 hostJavaIdToUniqueId 做反向查找。
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.REMOVE_ENTITY, wrapper -> {
             if (wrapper.isCancelled()) return;
             final MultilineNametagTracker tracker = wrapper.user().get(MultilineNametagTracker.class);
@@ -176,9 +176,9 @@ public class MultilineNametagTracker extends StoredObject {
             }
         });
 
-        // 5. CHANGE_DIMENSION — clear all state
-        // Note: Do NOT check isCancelled() here — upstream uses send()+cancel() pattern,
-        // so the dimension change DID happen. Java client clears all entities, so we must clear our tracking state.
+        // 5. CHANGE_DIMENSION —— 清空全部状态
+        // 注意：这里不要检查 isCancelled()——上游使用 send()+cancel() 模式，
+        // 所以维度切换确实发生了。Java 客户端会清空所有实体，因此我们必须清空跟踪状态。
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.CHANGE_DIMENSION, wrapper -> {
             final MultilineNametagTracker tracker = wrapper.user().get(MultilineNametagTracker.class);
             if (tracker != null) {
@@ -187,20 +187,20 @@ public class MultilineNametagTracker extends StoredObject {
         });
     }
 
-    // ---- Core logic ----
+    // ---- 核心逻辑 ----
 
     /**
-     * Handles entity data updates — checks for multiline nametags and creates/updates/removes display.
-     * Uses armor stand strategy for player entities, TEXT_DISPLAY strategy for non-player entities.
+     * 处理实体数据更新——检查多行名称标签，并创建/更新/移除显示实体。
+     * 玩家实体使用盔甲架策略，非玩家实体使用 TEXT_DISPLAY 策略。
      */
     public void handleEntityDataUpdate(final Entity entity) {
-        // Never show nametag to the client player themselves
+        // 永远不要向客户端玩家本人显示名称标签
         if (entity instanceof ClientPlayerEntity) return;
 
         String name = getEntityName(entity);
         if (name != null) {
-            // Trim leading and trailing blank lines (incl. formatting-only lines) so the floating
-            // display has no empty top/bottom rows. Interior lines are kept for genuine multiline names.
+            // 去掉首尾的空行（包括只有格式符的行），使悬浮
+            // 显示实体没有空白的最上一行/最下一行。中间的行保留，用于真正的多行名称。
             name = TextUtil.trimBlankLines(name);
             if (name.isEmpty()) name = null;
         }
@@ -237,9 +237,7 @@ public class MultilineNametagTracker extends StoredObject {
         }
     }
 
-    /**
-     * Cleans up virtual entities when the host entity is removed.
-     */
+    /** 宿主实体被移除时清理虚拟实体。 */
     public void handleEntityRemoved(final long entityUniqueId) {
         final NametagDisplayInfo info = displays.remove(entityUniqueId);
         if (info != null) {
@@ -253,8 +251,8 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     /**
-     * Clears all tracked state (e.g., on dimension change).
-     * Java client automatically clears all entities on dimension change, so no REMOVE_ENTITIES needed.
+     * 清空所有已跟踪状态（例如维度切换时）。
+     * Java 客户端在维度切换时会自动清空所有实体，因此无需发送 REMOVE_ENTITIES。
      */
     public void clearAll() {
         displays.clear();
@@ -265,9 +263,7 @@ public class MultilineNametagTracker extends StoredObject {
         }
     }
 
-    /**
-     * Reconciles viewer-dependent player nametag state. Stable state sends no packets.
-     */
+    /** 协调依赖观察者的玩家名称标签状态。状态稳定时不发送任何数据包。 */
     public void tick() {
         if (this.displays.isEmpty()) return;
 
@@ -291,7 +287,7 @@ public class MultilineNametagTracker extends StoredObject {
         }
     }
 
-    // ---- TEXT_DISPLAY strategy (non-player entities) ----
+    // ---- TEXT_DISPLAY 策略（非玩家实体） ----
 
     private void createTextDisplay(final Entity entity, final String name) {
         final EntityTracker entityTracker = this.user().get(EntityTracker.class);
@@ -303,30 +299,30 @@ public class MultilineNametagTracker extends StoredObject {
         displays.put(entity.uniqueId(), info);
         hostJavaIdToUniqueId.put(entity.javaId(), entity.uniqueId());
 
-        // 1. Send corrective SET_ENTITY_DATA to hide the host entity's original CUSTOM_NAME
+        // 1. 发送纠正性 SET_ENTITY_DATA，隐藏宿主实体原有的 CUSTOM_NAME
         sendClearHostNametag(entity);
 
-        // 2. Spawn TEXT_DISPLAY entity at the host entity's position.
-        // The client will reposition it to the passenger attachment point once SET_PASSENGERS arrives.
+        // 2. 在宿主实体的位置生成 TEXT_DISPLAY 实体。
+        // 收到 SET_PASSENGERS 后，客户端会把它重新定位到乘客挂载点。
         info.lastScale = getEffectiveScale(entity);
         final PacketWrapper addEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, this.user());
-        addEntity.write(Types.VAR_INT, javaId); // entity id
-        addEntity.write(Types.UUID, uuid); // uuid
-        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // type id
-        addEntity.write(Types.DOUBLE, (double) entity.position().x()); // x
-        addEntity.write(Types.DOUBLE, (double) entity.position().y()); // y
-        addEntity.write(Types.DOUBLE, (double) entity.position().z()); // z
-        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // velocity
-        addEntity.write(Types.BYTE, (byte) 0); // pitch
-        addEntity.write(Types.BYTE, (byte) 0); // yaw
-        addEntity.write(Types.BYTE, (byte) 0); // head yaw
-        addEntity.write(Types.VAR_INT, 0); // data
+        addEntity.write(Types.VAR_INT, javaId); // 实体 ID
+        addEntity.write(Types.UUID, uuid); // UUID
+        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // 类型 ID
+        addEntity.write(Types.DOUBLE, (double) entity.position().x()); // X
+        addEntity.write(Types.DOUBLE, (double) entity.position().y()); // Y
+        addEntity.write(Types.DOUBLE, (double) entity.position().z()); // Z
+        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // 速度
+        addEntity.write(Types.BYTE, (byte) 0); // 俯仰角
+        addEntity.write(Types.BYTE, (byte) 0); // 偏航角
+        addEntity.write(Types.BYTE, (byte) 0); // 头部偏航角
+        addEntity.write(Types.VAR_INT, 0); // 数据
         addEntity.send(BedrockProtocol.class);
 
-        // 3. Configure TEXT_DISPLAY entity data (including TRANSLATION for vertical offset)
+        // 3. 配置 TEXT_DISPLAY 实体数据（包括用于垂直偏移的 TRANSLATION）
         sendTextDisplayEntityData(info, name);
 
-        // 4. Make TEXT_DISPLAY ride the host entity for automatic position sync
+        // 4. 让 TEXT_DISPLAY 骑乘宿主实体，以自动同步位置
         sendSetPassengers(entity.javaId(), info.textDisplayJavaId);
     }
 
@@ -336,7 +332,7 @@ public class MultilineNametagTracker extends StoredObject {
         final boolean scaleChanged = currentScale != info.lastScale;
 
         if (nameChanged || scaleChanged) {
-            // Re-send corrective packet to ensure host nametag stays hidden
+            // 重新发送纠正数据包，确保宿主名称标签保持隐藏
             sendClearHostNametag(entity);
 
             if (nameChanged) {
@@ -360,7 +356,7 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     private void removeTextDisplay(final TextDisplayInfo info) {
-        // Clear riding relationship before removing the entity
+        // 移除实体前先清除骑乘关系
         sendSetPassengers(info.hostJavaId);
         final PacketWrapper removeEntities = PacketWrapper.create(ClientboundPackets26_1.REMOVE_ENTITIES, this.user());
         removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{info.textDisplayJavaId});
@@ -373,21 +369,21 @@ public class MultilineNametagTracker extends StoredObject {
         final Tag textNbt = TextUtil.stringToNbt(name);
         final List<EntityData> displayData = new ArrayList<>();
 
-        // TEXT — the multiline text content
+        // TEXT —— 多行文本内容
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.TEXT),
                 VersionedTypes.V26_1.entityDataTypes().componentType,
                 textNbt));
 
-        // LINE_WIDTH — large enough that hologram rows do not wrap into an extra overlapping
-        // line. Avoid Integer.MAX_VALUE in case a client stores the width in a narrower int.
+        // LINE_WIDTH —— 足够大，使全息各行不会折行并叠出额外的一行。
+        // 不要用 Integer.MAX_VALUE，以防客户端用更窄的 int 存储宽度。
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.LINE_WIDTH),
                 VersionedTypes.V26_1.entityDataTypes().varIntType,
                 1_000_000));
 
-        // TEXT_DISPLAY still inherits ENTITY.CUSTOM_NAME. Keep it empty so the display's own
-        // vanilla nametag cannot stack on top of the TEXT field.
+        // TEXT_DISPLAY 仍会继承 ENTITY.CUSTOM_NAME。保持其为空，
+        // 这样显示实体自带的原版名称标签就不会叠加到 TEXT 字段之上。
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.CUSTOM_NAME),
                 VersionedTypes.V26_1.entityDataTypes().optionalComponentType,
@@ -397,39 +393,39 @@ public class MultilineNametagTracker extends StoredObject {
                 VersionedTypes.V26_1.entityDataTypes().booleanType,
                 false));
 
-        // BILLBOARD_RENDER_CONSTRAINTS = 3 (CENTER — face camera on all axes, matches vanilla nametag rendering)
+        // BILLBOARD_RENDER_CONSTRAINTS = 3（CENTER——在所有轴上朝向相机，与原版名称标签渲染一致）
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.BILLBOARD_RENDER_CONSTRAINTS),
                 VersionedTypes.V26_1.entityDataTypes().byteType,
                 (byte) 3));
 
-        // TRANSLATION — small vertical offset from passenger attachment point to nametag height.
-        // Formula: 0.0625 * scale + 0.25 (derived from: desiredY - passengerAttachmentY)
-        // Only ~0.3 blocks for scale=1, so MC-261696 billboard distortion is negligible.
+        // TRANSLATION —— 从乘客挂载点到名称标签高度的小幅垂直偏移。
+        // 公式：0.0625 * scale + 0.25（由 desiredY - passengerAttachmentY 推导）
+        // scale=1 时只有约 0.3 格，因此 MC-261696 的公告板畸变可忽略。
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.TRANSLATION),
                 VersionedTypes.V26_1.entityDataTypes().vector3FType,
                 new Vector3f(0f, getTranslationY(info.lastScale), 0f)));
 
-        // BACKGROUND_COLOR = 0x40000000 (semi-transparent black, matches vanilla nametag style)
+        // BACKGROUND_COLOR = 0x40000000（半透明黑色，与原版名称标签样式一致）
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.BACKGROUND_COLOR),
                 VersionedTypes.V26_1.entityDataTypes().varIntType,
                 0x40000000));
 
-        // TEXT_OPACITY = -1 (0xFF = fully opaque)
+        // TEXT_OPACITY = -1（0xFF = 完全不透明）
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.TEXT_OPACITY),
                 VersionedTypes.V26_1.entityDataTypes().byteType,
                 (byte) -1));
 
-        // VIEW_RANGE = 1.0 (default)
+        // VIEW_RANGE = 1.0（默认）
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.VIEW_RANGE),
                 VersionedTypes.V26_1.entityDataTypes().floatType,
                 1.0f));
 
-        // STYLE_FLAGS = 0x02 (see_through — render through blocks, like Bedrock nametags)
+        // STYLE_FLAGS = 0x02（see_through——穿透方块渲染，与基岩版名称标签一致）
         displayData.add(new EntityData(
                 textDisplayIndex(EntityDataFields.STYLE_FLAGS),
                 VersionedTypes.V26_1.entityDataTypes().byteType,
@@ -454,9 +450,9 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     /**
-     * Sends a corrective SET_ENTITY_DATA to hide the host entity's original CUSTOM_NAME.
-     * Only used for non-player entities (TEXT_DISPLAY strategy).
-     * Player entities use {@link #sendPlayerTeamPrefix} instead.
+     * 发送纠正性 SET_ENTITY_DATA，隐藏宿主实体原有的 CUSTOM_NAME。
+     * 仅用于非玩家实体（TEXT_DISPLAY 策略）。
+     * 玩家实体改用 {@link #sendPlayerTeamPrefix}。
      */
     private void sendClearHostNametag(final Entity entity) {
         final List<EntityData> clearData = new ArrayList<>();
@@ -475,30 +471,29 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     /**
-     * Filters CUSTOM_NAME and CUSTOM_NAME_VISIBLE from the wrapper's entity data list
-     * when a TEXT_DISPLAY is active for the entity. This prevents the upstream handler's
-     * entity data from re-enabling the host entity's original nametag.
+     * 当实体有活动的 TEXT_DISPLAY 时，从 wrapper 的实体数据列表中
+     * 过滤掉 CUSTOM_NAME 和 CUSTOM_NAME_VISIBLE。这样可以防止上游处理器的
+     * 实体数据重新启用宿主实体原有的名称标签。
      * <p>
-     * Only used in the SET_ENTITY_DATA append handler. Uses {@code passthrough()} to
-     * transfer the entity data list from readableObjects to packetValues (the output),
-     * then modifies it in-place via {@code removeIf}. The list reference in packetValues
-     * is the same object, so in-place changes are reflected in the serialized packet.
+     * 仅在 SET_ENTITY_DATA 的 append 处理器中使用。使用 {@code passthrough()} 把
+     * 实体数据列表从 readableObjects 转移到 packetValues（输出），
+     * 然后通过 {@code removeIf} 就地修改它。packetValues 中的列表引用
+     * 是同一个对象，因此就地修改会反映到序列化后的数据包中。
      * <p>
-     * Must be called AFTER {@link #handleEntityDataUpdate} (which may create/remove displays).
-     * Must NOT use {@code read()} — that would poll the list from readableObjects without
-     * adding it to packetValues, causing the entity data list to be entirely missing from
-     * the output packet.
+     * 必须在 {@link #handleEntityDataUpdate} 之后调用（该调用可能创建/移除显示实体）。
+     * 绝不能使用 {@code read()}——那样只会从 readableObjects 取出列表却不会
+     * 加入 packetValues，导致实体数据列表在输出数据包中完全缺失。
      */
     private void filterHostNametagFromPacket(final Entity entity, final PacketWrapper wrapper) {
-        // Player entities use team-based nametags, not CUSTOM_NAME — no filtering needed
+        // 玩家实体使用基于队伍的名称标签，而非 CUSTOM_NAME——无需过滤
         if (entity instanceof PlayerEntity) return;
 
         final NametagDisplayInfo existing = displays.get(entity.uniqueId());
         if (!(existing instanceof TextDisplayInfo)) return;
 
-        // passthrough() polls the entity data list from readableObjects and adds it to
-        // packetValues (the output). Since it returns the same ArrayList reference,
-        // removeIf modifies the data that will be serialized to the client.
+        // passthrough() 从 readableObjects 取出实体数据列表并加入
+        // packetValues（输出）。由于返回的是同一个 ArrayList 引用，
+        // removeIf 修改的就是将要序列化给客户端的数据。
         final List<EntityData> entityDataList = wrapper.passthrough(VersionedTypes.V26_1.entityDataList);
         final int customNameIndex = entity.getJavaEntityDataIndex(EntityDataFields.CUSTOM_NAME);
         final int customNameVisibleIndex = entity.getJavaEntityDataIndex(EntityDataFields.CUSTOM_NAME_VISIBLE);
@@ -506,26 +501,26 @@ public class MultilineNametagTracker extends StoredObject {
                 ed.id() == customNameIndex || ed.id() == customNameVisibleIndex);
     }
 
-    // ---- Armor Stand strategy (player entities) ----
+    // ---- 盔甲架策略（玩家实体） ----
 
     private void createArmorStandDisplay(final PlayerEntity entity, final String name) {
         final EntityTracker entityTracker = this.user().get(EntityTracker.class);
         if (entityTracker == null) return;
 
         final String[] allLines = name.split("\n");
-        final int armorStandCount = allLines.length - 1; // bottom line goes on player team nametag
+        final int armorStandCount = allLines.length - 1; // 最下面一行放到玩家队伍名称标签上
         final PlayerNametagRenderState renderState = resolvePlayerRenderState(entity);
 
         final ArmorStandInfo info = new ArmorStandInfo(entity.uniqueId(), entity.javaId(), name);
         displays.put(entity.uniqueId(), info);
         hostJavaIdToUniqueId.put(entity.javaId(), entity.uniqueId());
 
-        // 1. Set player team nametag to the bottom line only
+        // 1. 把玩家队伍名称标签设为仅最下面一行
         sendPlayerTeamPrefix(entity, allLines[allLines.length - 1]);
 
-        // 2. Spawn armor stands for the remaining lines (from bottom to top)
+        // 2. 为其余各行生成盔甲架（从下到上）
         for (int i = 0; i < armorStandCount; i++) {
-            final int lineIndex = i + 1; // 1-based index for scale formula
+            final int lineIndex = i + 1; // 用于缩放公式的从 1 开始的索引
             final String lineText = allLines[allLines.length - 1 - lineIndex];
             final int javaId = entityTracker.getNextJavaEntityId();
             final UUID uuid = UUID.randomUUID();
@@ -537,7 +532,7 @@ public class MultilineNametagTracker extends StoredObject {
         }
         info.lastRenderState = renderState;
 
-        // 3. Make all armor stands ride the player entity
+        // 3. 让所有盔甲架骑乘该玩家实体
         sendSetPassengers(entity.javaId(), info.getVirtualEntityIds());
     }
 
@@ -557,36 +552,36 @@ public class MultilineNametagTracker extends StoredObject {
         final int currentCount = info.lines.size();
         boolean passengersChanged = false;
 
-        // Update player team nametag to the new bottom line
+        // 把玩家队伍名称标签更新为新的最下面一行
         sendPlayerTeamPrefix(entity, allLines[allLines.length - 1]);
 
         if (requiredCount < currentCount) {
-            // Decrease: remove excess armor stands
+            // 减少：移除多余的盔甲架
             final List<ArmorStandLine> removed = new ArrayList<>(
                     info.lines.subList(requiredCount, currentCount));
             info.lines.subList(requiredCount, currentCount).clear();
 
-            // Update passengers first (without removed IDs), then remove entities
+            // 先更新乘客（不含被移除的 ID），再移除实体
             sendSetPassengers(entity.javaId(), info.getVirtualEntityIds());
             final int[] removeIds = removed.stream().mapToInt(l -> l.javaId).toArray();
             final PacketWrapper removeEntities = PacketWrapper.create(
                     ClientboundPackets26_1.REMOVE_ENTITIES, this.user());
             removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, removeIds);
             removeEntities.send(BedrockProtocol.class);
-            // passengersChanged stays false — SET_PASSENGERS already sent above
+            // passengersChanged 保持为 false——SET_PASSENGERS 已在上面发送
         } else if (requiredCount > currentCount) {
-            // Increase: spawn new armor stands
+            // 增加：生成新的盔甲架
             for (int i = currentCount; i < requiredCount; i++) {
                 final int javaId = entityTracker.getNextJavaEntityId();
                 final UUID uuid = UUID.randomUUID();
                 info.lines.add(new ArmorStandLine(javaId, uuid, ""));
                 spawnArmorStand(entity, javaId, uuid);
-                sendArmorStandEntityData(javaId, "", renderState); // text updated below
+                sendArmorStandEntityData(javaId, "", renderState); // 文本在下面更新
             }
             passengersChanged = true;
         }
 
-        // Update text for all armor stands
+        // 更新所有盔甲架的文本
         for (int i = 0; i < info.lines.size(); i++) {
             final int lineIndex = i + 1;
             final String lineText = allLines[allLines.length - 1 - lineIndex];
@@ -597,8 +592,8 @@ public class MultilineNametagTracker extends StoredObject {
             }
         }
 
-        // Send scale for any newly added armor stands
-        // (existing ones already have correct scale — it doesn't depend on host entity)
+        // 为任何新加入的盔甲架发送缩放值
+        // （已有的盔甲架缩放值已正确——它不依赖宿主实体）
         if (passengersChanged) {
             for (int i = currentCount; i < info.lines.size(); i++) {
                 sendArmorStandScale(info.lines.get(i).javaId, getArmorStandScale(i + 1));
@@ -606,36 +601,36 @@ public class MultilineNametagTracker extends StoredObject {
             sendSetPassengers(entity.javaId(), info.getVirtualEntityIds());
         }
 
-        // Newly added lines already have renderState; only retained lines need a state delta.
+        // 新加入的行已有 renderState；只有保留下来的行需要状态增量。
         applyArmorStandRenderState(info, renderState, Math.min(currentCount, requiredCount));
     }
 
     private void removeArmorStandDisplay(final ArmorStandInfo info) {
         if (!info.lines.isEmpty()) {
-            // Clear riding relationship
+            // 清除骑乘关系
             sendSetPassengers(info.hostJavaId);
-            // Remove all armor stand entities
+            // 移除所有盔甲架实体
             final PacketWrapper removeEntities = PacketWrapper.create(ClientboundPackets26_1.REMOVE_ENTITIES, this.user());
             removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, info.getVirtualEntityIds());
             removeEntities.send(BedrockProtocol.class);
         }
-        // No need to restore team prefix — either the entity is being removed (team removed too),
-        // or the name became single-line (upstream PlayerEntity.updateName already sent correct team update).
+        // 无需恢复队伍前缀——要么实体正在被移除（队伍也一并移除），
+        // 要么名称已变成单行（上游 PlayerEntity.updateName 已发送正确的队伍更新）。
     }
 
     private void spawnArmorStand(final Entity hostEntity, final int javaId, final UUID uuid) {
         final PacketWrapper addEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, this.user());
-        addEntity.write(Types.VAR_INT, javaId); // entity id
-        addEntity.write(Types.UUID, uuid); // uuid
-        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.ARMOR_STAND.getId()); // type id
-        addEntity.write(Types.DOUBLE, (double) hostEntity.position().x()); // x
-        addEntity.write(Types.DOUBLE, (double) hostEntity.position().y()); // y
-        addEntity.write(Types.DOUBLE, (double) hostEntity.position().z()); // z
-        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // velocity
-        addEntity.write(Types.BYTE, (byte) 0); // pitch
-        addEntity.write(Types.BYTE, (byte) 0); // yaw
-        addEntity.write(Types.BYTE, (byte) 0); // head yaw
-        addEntity.write(Types.VAR_INT, 0); // data
+        addEntity.write(Types.VAR_INT, javaId); // 实体 ID
+        addEntity.write(Types.UUID, uuid); // UUID
+        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.ARMOR_STAND.getId()); // 类型 ID
+        addEntity.write(Types.DOUBLE, (double) hostEntity.position().x()); // X
+        addEntity.write(Types.DOUBLE, (double) hostEntity.position().y()); // Y
+        addEntity.write(Types.DOUBLE, (double) hostEntity.position().z()); // Z
+        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // 速度
+        addEntity.write(Types.BYTE, (byte) 0); // 俯仰角
+        addEntity.write(Types.BYTE, (byte) 0); // 偏航角
+        addEntity.write(Types.BYTE, (byte) 0); // 头部偏航角
+        addEntity.write(Types.VAR_INT, 0); // 数据
         addEntity.send(BedrockProtocol.class);
     }
 
@@ -643,19 +638,19 @@ public class MultilineNametagTracker extends StoredObject {
                                           final PlayerNametagRenderState renderState) {
         final List<EntityData> data = new ArrayList<>();
 
-        // Always hide the armor stand model; 0x02 mirrors the host's sneaking name style.
+        // 始终隐藏盔甲架模型；0x02 与宿主潜行时的名称样式一致。
         data.add(new EntityData(
                 armorStandIndex(EntityDataFields.SHARED_FLAGS),
                 VersionedTypes.V26_1.entityDataTypes().byteType,
                 renderState.sharedFlags));
 
-        // CUSTOM_NAME — the line text
+        // CUSTOM_NAME —— 该行文本
         data.add(new EntityData(
                 armorStandIndex(EntityDataFields.CUSTOM_NAME),
                 VersionedTypes.V26_1.entityDataTypes().optionalComponentType,
                 TextUtil.stringToNbt(text)));
 
-        // ArmorStandRenderer bypasses player distance/invisibility checks, so visibility is explicit.
+        // ArmorStandRenderer 绕过了玩家距离/隐身检查，因此可见性必须显式设置。
         data.add(new EntityData(
                 armorStandIndex(EntityDataFields.CUSTOM_NAME_VISIBLE),
                 VersionedTypes.V26_1.entityDataTypes().booleanType,
@@ -667,8 +662,8 @@ public class MultilineNametagTracker extends StoredObject {
                 VersionedTypes.V26_1.entityDataTypes().booleanType,
                 true));
 
-        // CLIENT_FLAGS: 0x04 (no base plate). NOT marker (0x10) — marker makes height=0,
-        // which would prevent scale-based vertical positioning of nametags.
+        // CLIENT_FLAGS：0x04（无底板）。不是 marker（0x10）——marker 会让 height=0，
+        // 从而阻止基于缩放的名称标签垂直定位。
         data.add(new EntityData(
                 armorStandIndex(EntityDataFields.CLIENT_FLAGS),
                 VersionedTypes.V26_1.entityDataTypes().byteType,
@@ -723,11 +718,11 @@ public class MultilineNametagTracker extends StoredObject {
 
     private void sendArmorStandScale(final int javaId, final double scale) {
         final PacketWrapper updateAttributes = PacketWrapper.create(ClientboundPackets26_1.UPDATE_ATTRIBUTES, this.user());
-        updateAttributes.write(Types.VAR_INT, javaId); // entity id
-        updateAttributes.write(Types.VAR_INT, 1); // attribute count
-        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.SCALE)); // attribute id
-        updateAttributes.write(Types.DOUBLE, scale); // base value
-        updateAttributes.write(Types.VAR_INT, 0); // modifier count
+        updateAttributes.write(Types.VAR_INT, javaId); // 实体 ID
+        updateAttributes.write(Types.VAR_INT, 1); // 属性数量
+        updateAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.SCALE)); // 属性 ID
+        updateAttributes.write(Types.DOUBLE, scale); // 基础值
+        updateAttributes.write(Types.VAR_INT, 0); // 修饰符数量
         updateAttributes.send(BedrockProtocol.class);
     }
 
@@ -744,21 +739,19 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     /**
-     * Sends a corrective team update for a player entity, setting the team prefix
-     * to the specified bottom line text. PlayerEntity already sends the bottom line
-     * for Java team prefixes; this packet keeps the prefix in sync if a later
-     * metadata batch rewrites the team.
+     * 为玩家实体发送纠正性队伍更新，把队伍前缀设为
+     * 指定的最下面一行文本。PlayerEntity 已经为 Java 队伍前缀
+     * 发送最下面一行；如果后续的元数据批次重写了队伍，
+     * 这个数据包会让前缀保持同步。
      */
     private void sendPlayerTeamPrefix(final PlayerEntity entity, final String bottomLine) {
         final boolean hasVisibleName = !TextUtil.stripFormatting(bottomLine).isEmpty();
         entity.updateTeamPresentation(hasVisibleName ? bottomLine : "", hasVisibleName);
     }
 
-    // ---- Shared methods ----
+    // ---- 共用方法 ----
 
-    /**
-     * Updates this feature's virtual passengers without overwriting real Bedrock riding passengers.
-     */
+    /** 更新本功能的虚拟乘客，同时不覆盖真正的基岩骑乘乘客。 */
     private void sendSetPassengers(final int vehicleJavaId, final int... passengerJavaIds) {
         final JavaPassengerTracker passengerTracker = this.user().get(JavaPassengerTracker.class);
         if (passengerTracker != null) {
@@ -766,7 +759,7 @@ public class MultilineNametagTracker extends StoredObject {
         }
     }
 
-    // ---- Utilities ----
+    // ---- 工具方法 ----
 
     private static String getEntityName(final Entity entity) {
         final EntityData nameData = entity.entityData().get(ActorDataIDs.NAME);
@@ -785,7 +778,7 @@ public class MultilineNametagTracker extends StoredObject {
         if (alwaysShowData != null) {
             return TextUtil.nametagAlwaysShown((Number) alwaysShowData.getValue());
         }
-        // Default: true for entities with a name (Bedrock default behavior)
+        // 默认：对有名称的实体为 true（基岩版默认行为）
         return true;
     }
 
@@ -833,35 +826,35 @@ public class MultilineNametagTracker extends StoredObject {
     }
 
     /**
-     * Calculates the TRANSLATION Y offset from passenger attachment point to nametag position.
-     * Used by the TEXT_DISPLAY strategy.
+     * 计算从乘客挂载点到名称标签位置的 TRANSLATION Y 偏移。
+     * 供 TEXT_DISPLAY 策略使用。
      * <p>
-     * Java LivingEntity passenger attachment Y ≈ (entityHeight - 0.0625) * scale.
-     * Desired nametag Y ≈ entityHeight * scale + 0.25.
-     * Difference = 0.0625 * scale + 0.25 (height cancels out).
+     * Java LivingEntity 的乘客挂载 Y ≈ (entityHeight - 0.0625) * scale。
+     * 期望的名称标签 Y ≈ entityHeight * scale + 0.25。
+     * 差值 = 0.0625 * scale + 0.25（高度被抵消）。
      */
     private static float getTranslationY(final float scale) {
         return PASSENGER_OFFSET * scale + 0.25f;
     }
 
     /**
-     * Calculates the minecraft:scale attribute value for an armor stand at the given line index.
-     * Used by the armor stand strategy.
+     * 为指定行索引处的盔甲架计算 minecraft:scale 属性值。
+     * 供盔甲架策略使用。
      * <p>
-     * In Minecraft 1.21.x, both PASSENGER and NAME_TAG attachment points use AT_HEIGHT,
-     * meaning they are both at Y = entityHeight * scale. Since the armor stand's position
-     * as a passenger equals the vehicle's PASSENGER attachment point, and the nametag renders
-     * at the armor stand's NAME_TAG attachment point + 0.5:
+     * 在 Minecraft 1.21.x 中，PASSENGER 和 NAME_TAG 挂载点都使用 AT_HEIGHT，
+     * 即都位于 Y = entityHeight * scale。由于盔甲架作为乘客的位置
+     * 等于载具的 PASSENGER 挂载点，而名称标签渲染在
+     * 盔甲架的 NAME_TAG 挂载点 + 0.5 处：
      * <pre>
      * asNametagY = passengerY + ARMOR_STAND_BASE_HEIGHT * asScale + 0.5
      * playerNametagY = playerY + playerHeight * playerScale + 0.5
      * passengerY = playerY + playerHeight * playerScale  (PASSENGER = AT_HEIGHT)
      * gap = asNametagY - playerNametagY = ARMOR_STAND_BASE_HEIGHT * asScale
      * </pre>
-     * Solving for asScale: {@code asScale = LINE_HEIGHT * lineIndex / ARMOR_STAND_BASE_HEIGHT}.
-     * The formula is independent of host entity scale, height, or pose.
+     * 解出 asScale：{@code asScale = LINE_HEIGHT * lineIndex / ARMOR_STAND_BASE_HEIGHT}。
+     * 该公式与宿主实体的缩放、高度和姿态无关。
      *
-     * @param lineIndex 1-based index (1 = first line above the player's team nametag)
+     * @param lineIndex 从 1 开始的索引（1 = 玩家队伍名称标签上方的第一行）
      */
     private static double getArmorStandScale(final int lineIndex) {
         return (LINE_HEIGHT * lineIndex) / ARMOR_STAND_BASE_HEIGHT;
@@ -885,7 +878,7 @@ public class MultilineNametagTracker extends StoredObject {
         return index;
     }
 
-    // ---- Inner classes ----
+    // ---- 内部类 ----
 
     private static abstract class NametagDisplayInfo {
         final long entityUniqueId;

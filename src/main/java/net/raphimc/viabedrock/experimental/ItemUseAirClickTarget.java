@@ -28,9 +28,9 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Resolves Java {@code USE_ITEM} (click air) into a Bedrock CLICK_BLOCK target.
- * Java fluids/boats/lily pads/filled buckets often miss as air; MOT only runs
- * {@code Item.onActivate} from CLICK_BLOCK.
+ * 把 Java 的 {@code USE_ITEM}（点击空气）解析为基岩 CLICK_BLOCK 目标。
+ * Java 的流体/船/睡莲/已装满的桶常常被当作空点击而错过；MOT 只从 CLICK_BLOCK
+ * 调用 {@code Item.onActivate}。
  */
 public final class ItemUseAirClickTarget {
 

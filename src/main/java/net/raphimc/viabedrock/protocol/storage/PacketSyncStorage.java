@@ -47,10 +47,9 @@ public class PacketSyncStorage extends StoredObject {
 
     public static final int UNKNOWN_LATENCY = -1;
     /**
-     * Marker timestamp for a Java-only PING/PONG sample. Used by the NetEase
-     * spawn heartbeat for HUD ping when no server {@code NETWORK_STACK_LATENCY}
-     * is in flight. A probe with this timestamp must not be forwarded back
-     * to Bedrock.
+     * 仅 Java 的 PING/PONG 采样的标记时间戳。在没有服务器 {@code NETWORK_STACK_LATENCY}
+     * 在途时，供网易出生心跳用于 HUD 延迟显示。带此时间戳的探测不得转发回
+     * 基岩。
      */
     public static final long JAVA_ONLY_LATENCY_PROBE = Long.MIN_VALUE;
     static final long LATENCY_UPDATE_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(1L);
@@ -111,19 +110,19 @@ public class PacketSyncStorage extends StoredObject {
     }
 
     /**
-     * MOT 860 keepalive is {@code new NetworkStackLatencyPacket()} (timestamp 0).
-     * Mapping that onto Java PING lets GanAC queue id 0 and {@code releaseThrough(0)}
-     * drain every in-flight GanAC ping. Echo it locally instead.
-     * Ref: MOT Player.java age % 200.
+     * MOT 860 的保活是 {@code new NetworkStackLatencyPacket()}（时间戳 0）。
+     * 把它映射到 Java PING 会让 GanAC 排队 id 0 并由 {@code releaseThrough(0)}
+     * 抽干所有在途的 GanAC ping。改为在本地回显。
+     * 参考：MOT Player.java age % 200。
      */
     public static boolean isMotKeepaliveTimestamp(final long timestamp) {
         return timestamp == 0L;
     }
 
     /**
-     * Measures Java-client RTT without touching Bedrock {@code NETWORK_STACK_LATENCY}.
-     * Server NSL on the NetEase path already round-trips through Java PING/PONG;
-     * this probe only fills HUD samples between those pings.
+     * 在不触碰基岩 {@code NETWORK_STACK_LATENCY} 的情况下测量 Java 客户端 RTT。
+     * 网易路径上的服务器 NSL 已经通过 Java PING/PONG 往返；
+     * 此探测只用于填补这些 ping 之间的 HUD 采样。
      */
     public void sendJavaLatencyProbe() {
         if (this.user().getProtocolInfo().getServerState() != State.PLAY
@@ -132,7 +131,7 @@ public class PacketSyncStorage extends StoredObject {
         }
         final int id = this.addNetworkStackLatencyResponse(JAVA_ONLY_LATENCY_PROBE);
         final PacketWrapper pingPacket = PacketWrapper.create(ClientboundPackets26_1.PING, this.user());
-        pingPacket.write(Types.INT, id); // parameter
+        pingPacket.write(Types.INT, id); // 参数
         pingPacket.send(BedrockProtocol.class);
     }
 
@@ -282,7 +281,7 @@ public class PacketSyncStorage extends StoredObject {
 
         final State state = this.user().getProtocolInfo().getServerState();
         final PacketWrapper pingPacket = PacketWrapper.create(state == State.PLAY ? ClientboundPackets26_1.PING : ClientboundConfigurationPackets1_21_9.PING, this.user());
-        pingPacket.write(Types.INT, id); // parameter
+        pingPacket.write(Types.INT, id); // 参数
         pingPacket.send(BedrockProtocol.class);
     }
 

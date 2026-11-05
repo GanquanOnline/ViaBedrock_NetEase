@@ -26,15 +26,15 @@ import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock INVENTORY_CONTENT (packet 0x31).
+ * 基岩 INVENTORY_CONTENT（数据包 0x31）的线上布局辅助工具。
  * <p>
- * INVENTORY_SLOT gained a 974 optional-boolean fork, but Nukkit-MOT never added
- * that fork to content packets. Official 975 and NetEase 860 both still write:
- * {@code containerId, items, required full container name, required storage item}.
- * Items stay on the legacy slot codec until protocol 1001, so official 975 must
- * keep {@code itemArrayType()} rather than network item stack descriptors.
- * Reading either packet as optional container fields leaves the real item payload
- * unread and makes backpack takes look empty.
+ * INVENTORY_SLOT 在 974 增加了可选 boolean 分支，但 Nukkit-MOT 从未把
+ * 该分支加到内容数据包上。官方 975 和网易 860 仍然都写入：
+ * {@code containerId, items, required full container name, required storage item}。
+ * 物品在协议 1001 之前仍使用旧的槽位编解码器，所以官方 975 必须
+ * 继续使用 {@code itemArrayType()} 而非网络物品堆描述符。
+ * 把任一种包按可选容器字段来读取，会漏掉真正的物品载荷，
+ * 使背包取出看起来是空的。
  */
 public final class InventoryContentLayout {
 

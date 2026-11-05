@@ -28,8 +28,8 @@ import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
 /**
- * Bedrock stores shulker box facing in block-entity NBT ({@code facing}), not in the block state.
- * Java stores it as the {@code facing} block state, so the mapped Java state has to be rewritten here.
+ * 基岩把潜影盒的朝向存在方块实体 NBT 的 {@code facing} 中，而不是方块状态里。
+ * Java 把它作为 {@code facing} 方块状态保存，因此必须在此重写已映射的 Java 状态。
  */
 public class ShulkerBoxBlockEntityRewriter extends LootableContainerBlockEntityRewriter {
 

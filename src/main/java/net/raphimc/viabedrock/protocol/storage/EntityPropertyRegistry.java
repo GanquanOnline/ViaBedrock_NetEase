@@ -24,7 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Parses and resolves the per-entity MOT synced-property registry. */
+/** 解析并求出每个实体的 MOT 同步属性注册表。 */
 public final class EntityPropertyRegistry {
 
     private final Map<String, List<EntityPropertyDefinition>> definitions = new LinkedHashMap<>();
@@ -66,9 +66,9 @@ public final class EntityPropertyRegistry {
     }
 
     /**
-     * Resolves the two positional MOT arrays without merging with an older snapshot.
-     * Integer-like definitions occupy the integer array; float definitions occupy the
-     * float array. The raw maps remain on EntityProperties for lossless inspection.
+     * 解析 MOT 的两个按位置排列的数组，不与更早的快照合并。
+     * 类整数的定义占用整数数组；浮点定义占用浮点数组。
+     * 原始映射仍保留在 EntityProperties 上以便无损检查。
      */
     public EntityProperties resolve(final String entityIdentifier, final EntityProperties raw) {
         final List<EntityPropertyDefinition> registered = this.definitions(entityIdentifier);

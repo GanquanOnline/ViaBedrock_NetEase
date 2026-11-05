@@ -32,9 +32,8 @@ public record ItemUseHandContext(
 ) {
 
     /**
-     * MOT {@code PlayerInventory.equipItem} rejects {@code slot < 0}. Keep this
-     * marker for local offhand identification only; entity TX must write the
-     * selected hotbar index via {@link #entityTransactionHotbarSlot(int)}.
+     * MOT {@code PlayerInventory.equipItem} 会拒绝 {@code slot < 0}。此标记只用于本地识别副手；
+     * 实体事务必须通过 {@link #entityTransactionHotbarSlot(int)} 写入选中的快捷栏索引。
      */
     public static final int JAVA_OFFHAND_HOTBAR_SLOT = -1;
 
@@ -78,8 +77,8 @@ public record ItemUseHandContext(
     }
 
     /**
-     * MOT / GanAC {@code handleUseOnActor} require {@code hotbarSlot == heldItemSlot}.
-     * Offhand interact still puts the offhand stack in {@code itemInHand}.
+     * MOT / GanAC 的 {@code handleUseOnActor} 要求 {@code hotbarSlot == heldItemSlot}。
+     * 副手交互仍会把副手堆叠放进 {@code itemInHand}。
      */
     public int entityTransactionHotbarSlot(final int selectedHotbarSlot) {
         return this.transactionHotbarSlot < 0 ? Math.max(0, selectedHotbarSlot) : this.transactionHotbarSlot;

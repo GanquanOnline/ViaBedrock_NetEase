@@ -77,7 +77,7 @@ public class JavaDataEnumGenerator {
         codeGen.addType(extractFromEnum("ClientCommandAction", classNodes.get("net.minecraft.network.protocol.game.ServerboundClientCommandPacket$Action")));
         codeGen.addType(extractFromFieldsWithId("ContainerInput", classNodes.get("net.minecraft.world.inventory.ContainerInput"), 2));
         codeGen.addType(extractFromEnum("CustomChatCompletionsAction", classNodes.get("net.minecraft.network.protocol.game.ClientboundCustomChatCompletionsPacket$Action")));
-        codeGen.addType(extractFromEnum("EquipmentSlot", classNodes.get("net.minecraft.world.entity.EquipmentSlot"))); // Has multiple different id systems
+        codeGen.addType(extractFromEnum("EquipmentSlot", classNodes.get("net.minecraft.world.entity.EquipmentSlot"))); // 有多个不同的 id 系统
         codeGen.addType(extractFromFieldsWithId("GameMode", classNodes.get("net.minecraft.world.level.GameType"), 2));
         codeGen.addType(extractFromFieldsWithId("HeightmapType", classNodes.get("net.minecraft.world.level.levelgen.Heightmap$Types"), 2));
         codeGen.addType(extractFromFieldsWithId("InteractionHand", classNodes.get("net.minecraft.world.InteractionHand"), 2));

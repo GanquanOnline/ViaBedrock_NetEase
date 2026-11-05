@@ -38,9 +38,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Java loom result clicks become MOT {@code CraftLoom}. Pattern short codes come
- * from the pattern item in slot 2 ({@code creeper} → {@code cre}). Stripe-only
- * patterns that Java selects via recipe-book display ids are left unmapped.
+ * Java 的织布机结果点击会变成 MOT {@code CraftLoom}。图案短代码来自槽位 2 的图案物品（{@code creeper} → {@code cre}）。
+ * Java 通过配方书显示 id 选择的仅条纹图案保持不映射。
  */
 public final class LoomSimulator {
 

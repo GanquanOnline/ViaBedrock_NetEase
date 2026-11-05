@@ -49,7 +49,7 @@ public class BlockEntityRewriter {
     private static final Rewriter MOD_BLOCK_REWRITER = new ModBlockBlockEntityRewriter();
 
     static {
-        // TODO: Enhancement: Add missing block entities
+        // TODO: 增强：补上缺失的方块实体
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.BREWING_STAND, NOOP_REWRITER);
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CALIBRATED_SCULK_SENSOR, NOOP_REWRITER);
         BLOCK_ENTITY_REWRITERS.put(CustomBlockTags.CAMPFIRE, NOOP_REWRITER);

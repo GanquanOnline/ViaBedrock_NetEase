@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Java stairs carry a {@code shape} (straight / inner|outer left|right) that Bedrock computes on the client from
- * neighboring stairs. This rule recomputes the shape for a single stair from its neighbors.
+ * Java 楼梯带有 {@code shape}（straight / inner|outer left|right），基岩则由客户端根据
+ * 相邻楼梯计算。该规则会依据邻居重新计算单个楼梯的形状。
  */
 public final class StairShapeRule implements NeighborAwareBlockRule {
 
@@ -44,7 +44,7 @@ public final class StairShapeRule implements NeighborAwareBlockRule {
     private final Int2ObjectMap<StairProperties> stairProperties = new Int2ObjectOpenHashMap<>();
 
     public StairShapeRule(final BiMap<BlockState, Integer> javaBlockStates) {
-        // Group stair block states by (namespacedIdentifier + facing + half + waterlogged), collecting the 5 shape variant IDs
+        // 按（命名空间标识符 + facing + half + waterlogged）对楼梯方块状态分组，收集 5 种 shape 变体 ID
         final Map<String, Map<String, Integer>> stairsByGroup = new HashMap<>();
 
         for (Map.Entry<BlockState, Integer> entry : javaBlockStates.entrySet()) {
@@ -101,7 +101,7 @@ public final class StairShapeRule implements NeighborAwareBlockRule {
     private int computeShape(final BlockNeighborView view, final BlockPosition position, final StairProperties stair) {
         final BlockFace facing = stair.facing;
 
-        // Check the block in front (facing direction)
+        // 检查前方（facing 方向）的方块
         final StairProperties frontStair = this.stairProperties.get(view.getJavaBlockState(position.getRelative(facing)));
         if (frontStair != null && frontStair.bottom == stair.bottom) {
             final BlockFace frontFacing = frontStair.facing;
@@ -113,7 +113,7 @@ public final class StairShapeRule implements NeighborAwareBlockRule {
             }
         }
 
-        // Check the block behind (opposite of facing direction)
+        // 检查后方（facing 方向的反向）的方块
         final StairProperties backStair = this.stairProperties.get(view.getJavaBlockState(position.getRelative(facing.opposite())));
         if (backStair != null && backStair.bottom == stair.bottom) {
             final BlockFace backFacing = backStair.facing;

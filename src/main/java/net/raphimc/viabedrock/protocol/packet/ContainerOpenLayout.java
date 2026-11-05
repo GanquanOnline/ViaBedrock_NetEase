@@ -21,18 +21,21 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Trailer helpers for Bedrock CONTAINER_OPEN (packet 0x2E).
+ * Bedrock CONTAINER_OPEN（数据包 0x2E）的尾部字段辅助方法。
  * <p>
- * Official Bedrock still ends after {@code entityUniqueId}. NetEase 860
- * ({@code V1_21_124_NETEASE}) appends an extra boolean after that unique id.
- * PacketWrapper copies leftover Bedrock bytes onto Java {@code OPEN_SCREEN},
- * so leaving the boolean unread makes 1.21.11 drop the GUI as extra data.
+ * 官方 Bedrock 在 {@code entityUniqueId} 之后就结束。网易 860
+ * （{@code V1_21_124_NETEASE}）在该唯一 ID 之后追加一个额外布尔值，网易 898
+ * （{@code V1_21_130_NETEASE}）在其后追加 {@code screenName}、{@code customDescription} 和
+ * {@code isClosedDropItem}。PacketWrapper 会把 Bedrock 剩余的字节拷到 Java
+ * {@code OPEN_SCREEN} 上，所以不读尾部会让 1.21.11 把该 GUI 当作多余数据丢掉。
  */
 public final class ContainerOpenLayout {
 
     public static final int NETEASE_TRAILER_PROTOCOL = 860;
+    public static final int NETEASE_EXTENDED_TRAILER_PROTOCOL = 898;
 
     private ContainerOpenLayout() {
     }
@@ -45,9 +48,22 @@ public final class ContainerOpenLayout {
         return emulateNetEase && protocol >= NETEASE_TRAILER_PROTOCOL;
     }
 
+    public static boolean usesNetEaseExtendedTrailer(final boolean emulateNetEase, final int protocol) {
+        return emulateNetEase && protocol >= NETEASE_EXTENDED_TRAILER_PROTOCOL;
+    }
+
     public static void skipTrailer(final PacketWrapper wrapper) {
-        if (usesNetEaseTrailer()) {
-            wrapper.read(Types.BOOLEAN);
+        skipTrailer(wrapper, emulateNetEase(), netEaseProtocol());
+    }
+
+    public static void skipTrailer(final PacketWrapper wrapper, final boolean emulateNetEase, final int protocol) {
+        if (usesNetEaseTrailer(emulateNetEase, protocol)) {
+            wrapper.read(Types.BOOLEAN); // 是否为忽略方块
+        }
+        if (usesNetEaseExtendedTrailer(emulateNetEase, protocol)) {
+            wrapper.read(BedrockTypes.STRING); // 界面名称
+            wrapper.read(BedrockTypes.STRING); // 自定义描述
+            wrapper.read(Types.BOOLEAN); // 是否关闭时丢弃物品
         }
     }
 
@@ -55,10 +71,20 @@ public final class ContainerOpenLayout {
         if (usesNetEaseTrailer(emulateNetEase, protocol)) {
             buffer.readBoolean();
         }
+        if (usesNetEaseExtendedTrailer(emulateNetEase, protocol)) {
+            BedrockTypes.STRING.read(buffer);
+            BedrockTypes.STRING.read(buffer);
+            buffer.readBoolean();
+        }
     }
 
     public static void writeTrailer(final ByteBuf buffer, final boolean emulateNetEase, final int protocol) {
         if (usesNetEaseTrailer(emulateNetEase, protocol)) {
+            buffer.writeBoolean(false);
+        }
+        if (usesNetEaseExtendedTrailer(emulateNetEase, protocol)) {
+            BedrockTypes.STRING.write(buffer, "");
+            BedrockTypes.STRING.write(buffer, "");
             buffer.writeBoolean(false);
         }
     }

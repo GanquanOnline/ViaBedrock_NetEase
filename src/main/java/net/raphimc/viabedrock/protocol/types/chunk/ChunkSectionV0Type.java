@@ -33,8 +33,8 @@ public class ChunkSectionV0Type extends Type<BedrockChunkSection> {
     @Override
     public BedrockChunkSection read(ByteBuf buffer) {
         final BedrockBlockArray blockArray = new BedrockBlockArray();
-        buffer.readBytes(blockArray.getBlocks()); // block ids
-        buffer.readBytes(blockArray.getData().getHandle()); // block data
+        buffer.readBytes(blockArray.getBlocks()); // 方块 id
+        buffer.readBytes(blockArray.getData().getHandle()); // 方块数据
 
         final BedrockChunkSection chunkSection = new BedrockChunkSectionImpl();
         chunkSection.addPalette(PaletteType.BLOCKS, blockArray);
@@ -44,8 +44,8 @@ public class ChunkSectionV0Type extends Type<BedrockChunkSection> {
     @Override
     public void write(ByteBuf buffer, BedrockChunkSection value) {
         final BedrockBlockArray blockArray = (BedrockBlockArray) value.palette(PaletteType.BLOCKS);
-        buffer.writeBytes(blockArray.getBlocks()); // block ids
-        buffer.writeBytes(blockArray.getData().getHandle()); // block data
+        buffer.writeBytes(blockArray.getBlocks()); // 方块 id
+        buffer.writeBytes(blockArray.getData().getHandle()); // 方块数据
     }
 
 }

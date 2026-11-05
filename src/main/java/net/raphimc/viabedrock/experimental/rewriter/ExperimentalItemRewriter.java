@@ -65,7 +65,7 @@ public class ExperimentalItemRewriter {
 
     static final long MAP_INFO_REQUEST_THROTTLE_MS = 1000L;
 
-    // BedrockTag can be null
+    // BedrockTag 可能为 null
     public static void handleItem(final UserConnection user, final BedrockItem bedrockItem, final CompoundTag bedrockTag, final Item javaItem) {
         if (isSwordBlockingAnimationItem(user.get(ItemRewriter.class), bedrockItem)) {
             javaItem.dataContainer().set(StructuredDataKey.CONSUMABLE1_21_2, VISUAL_BLOCK_CONSUMABLE);
@@ -94,8 +94,8 @@ public class ExperimentalItemRewriter {
 
                 javaItem.dataContainer().set(StructuredDataKey.MAP_ID, map.getJavaId());
 
-                // Bedrock servers (e.g. Nukkit) only send MAP_ITEM_DATA in response to a MapInfoRequest.
-                // Request the texture if we don't have it yet, throttled to avoid spamming the server.
+                // 基岩服务端（例如 Nukkit）只会在收到 MapInfoRequest 时才发送 MAP_ITEM_DATA。
+                // 如果还没有该纹理就发起请求，并做限流以避免刷屏服务端。
                 requestMapInfoIfNeeded(user, map);
             }
 
@@ -117,8 +117,8 @@ public class ExperimentalItemRewriter {
                 if (javaEnchantments.size() > 0) {
                     javaItem.dataContainer().set(StructuredDataKey.ENCHANTMENTS1_21_5, javaEnchantments);
                 } else {
-                    // Empty ench lists, numeric-but-unmapped ids, and unknown custom enchantments
-                    // still request the Java glint even when no tooltip entries can be translated.
+                    // 空的附魔列表、有数值但未映射的 id 以及未知的自定义附魔，
+                    // 即使没有任何提示框条目可以转换，也仍然请求 Java 的光泽效果。
                     javaItem.dataContainer().set(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE, true);
                 }
             }

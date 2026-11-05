@@ -56,10 +56,10 @@ public class BedrockItemType extends Type<BedrockItem> {
         item.setBlockRuntimeId(BedrockTypes.VAR_INT.read(buffer));
 
         final IntSortedSet validBlockStates = this.blockItemValidBlockStates.get(item.identifier());
-        if (validBlockStates != null) { // Block item
+        if (validBlockStates != null) { // 方块物品
             item.setData(0);
             item.setBlockRuntimeId(BlockItemMappingLayout.sanitizeBlockRuntimeId(validBlockStates, item.blockRuntimeId()));
-        } else { // Meta item
+        } else { // 元数据物品
             item.setBlockRuntimeId(0);
         }
 
@@ -72,7 +72,7 @@ public class BedrockItemType extends Type<BedrockItem> {
                     return item;
                 }
                 item.setTag((CompoundTag) BedrockTypes.TAG_LE.read(userData));
-            } else if (marker != 0) { // Bedrock client crashes if marker isn't -1 or 0
+            } else if (marker != 0) { // 标记不是 -1 或 0 时基岩客户端会崩溃
                 throw new IllegalStateException("Expected -1 or 0 marker but got " + marker);
             }
             item.setCanPlace(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
@@ -81,7 +81,7 @@ public class BedrockItemType extends Type<BedrockItem> {
                 item.setBlockingTicks(userData.readLongLE());
             }
         } catch (IndexOutOfBoundsException ignored) {
-            // Bedrock client stops reading at whatever point and loads whatever it has read successfully
+            // 基岩客户端会在任意位置停止读取，并加载它已成功读到的内容
         }
 
         return item;

@@ -71,7 +71,7 @@ import java.util.logging.Level;
 
 public class ResourcePackPackets {
 
-    /** One Java connection owns one translated Bedrock stack; a later push replaces the prior stack. */
+    /** 一个 Java 连接只拥有一个转换后的基岩包栈；后续推送会替换先前的栈。 */
     static final UUID JAVA_TRANSLATED_PACK_ID = UUID.fromString("f777c5a3-8ae6-4a58-a3ea-1bca4f0aa847");
     private static final int RESOURCE_PACK_CHUNK_REQUEST_WINDOW = 4;
     private static final Type<byte[]> RESOURCE_PACK_CONTENT_KEY = new BoundedByteArrayType(0, 4 * 1024);
@@ -88,14 +88,14 @@ public class ResourcePackPackets {
                     final boolean forceDisableVibrantVisuals = wrapper.read(Types.BOOLEAN);
                     final UUID worldTemplateId = wrapper.read(BedrockTypes.UUID);
                     final String worldTemplateVersion = wrapper.read(BedrockTypes.STRING);
-                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE)]; // resource packs size
+                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE)]; // 资源包数量
                     for (int i = 0; i < infos.length; i++) {
-                        final UUID id = wrapper.read(BedrockTypes.UUID); // pack id
-                        final String version = wrapper.read(BedrockTypes.STRING); // pack version
-                        final long packSize = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // pack size
-                        final byte[] contentKey = wrapper.read(RESOURCE_PACK_CONTENT_KEY); // content key
-                        final String subpackNames = wrapper.read(BedrockTypes.STRING); // subpack names
-                        final String contentId = wrapper.read(BedrockTypes.STRING); // content identity
+                        final UUID id = wrapper.read(BedrockTypes.UUID); // 包 ID
+                        final String version = wrapper.read(BedrockTypes.STRING); // 包版本
+                        final long packSize = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // 包大小
+                        final byte[] contentKey = wrapper.read(RESOURCE_PACK_CONTENT_KEY); // 内容密钥
+                        final String subpackNames = wrapper.read(BedrockTypes.STRING); // 子包名称
+                        final String contentId = wrapper.read(BedrockTypes.STRING); // 内容标识
                         final boolean packHasScripts = wrapper.read(Types.BOOLEAN);
                         final boolean addonPack = wrapper.read(Types.BOOLEAN);
                         final boolean rayTracingCapable = wrapper.read(Types.BOOLEAN);
@@ -167,7 +167,7 @@ public class ResourcePackPackets {
                         loadStateTracker.markJavaClientDeclined();
                         finishBedrockPackDownloadsWhenReady(wrapper.user(), loadStateTracker);
                     }
-                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // Bedrock client ignores resource packs after the initial info packet
+                }, State.PLAY, (PacketHandler) PacketWrapper::cancel // 基岩客户端在初始信息包之后会忽略资源包
         );
         protocol.registerClientbound(ClientboundBedrockPackets.RESOURCE_PACK_STACK, null, wrapper -> {
             wrapper.cancel();
@@ -183,19 +183,19 @@ public class ResourcePackPackets {
 
             final boolean resourcePackRequired = wrapper.read(Types.BOOLEAN);
             if (ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
-                // NetEase / protocol 860 still serializes the behaviour-pack stack first.
+                // 网易 / 协议 860 仍然先序列化行为包栈。
                 skipPackStackEntries(wrapper);
             }
-            final ResourcePack.Key[] keys = new ResourcePack.Key[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // resource packs size
+            final ResourcePack.Key[] keys = new ResourcePack.Key[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 资源包数量
             final String[] subpacks = new String[keys.length];
             for (int i = 0; i < keys.length; i++) {
-                final UUID id = UUID.fromString(wrapper.read(BedrockTypes.STRING)); // id
-                final String version = wrapper.read(BedrockTypes.STRING); // version
-                subpacks[i] = wrapper.read(BedrockTypes.STRING); // subpack name
+                final UUID id = UUID.fromString(wrapper.read(BedrockTypes.STRING)); // ID
+                final String version = wrapper.read(BedrockTypes.STRING); // 版本
+                subpacks[i] = wrapper.read(BedrockTypes.STRING); // 子包名称
                 keys[i] = new ResourcePack.Key(id, version);
             }
             final String baseGameVersion = wrapper.read(BedrockTypes.STRING);
-            final Experiment[] experiments = wrapper.read(BedrockTypes.EXPERIMENT_ARRAY); // experiments
+            final Experiment[] experiments = wrapper.read(BedrockTypes.EXPERIMENT_ARRAY); // 实验性功能
             final boolean experimentsPreviouslyToggled = wrapper.read(Types.BOOLEAN);
             final boolean includeEditorPacks = wrapper.read(Types.BOOLEAN);
             for (Experiment experiment : experiments) {
@@ -266,13 +266,13 @@ public class ResourcePackPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.RESOURCE_PACK_DATA_INFO, null, wrapper -> {
             wrapper.cancel();
-            final String key = wrapper.read(BedrockTypes.STRING); // resource name
-            final long chunkSize = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // chunk size
-            wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // announced number of chunks
-            final long size = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // file size
-            final byte[] hash = wrapper.read(RESOURCE_PACK_HASH); // file hash
-            final boolean premium = wrapper.read(Types.BOOLEAN); // is premium pack
-            final PackType type = PackType.getByValue(wrapper.read(Types.UNSIGNED_BYTE), PackType.Invalid); // pack type
+            final String key = wrapper.read(BedrockTypes.STRING); // 资源名称
+            final long chunkSize = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 区块大小
+            wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 声明的区块数量
+            final long size = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // 文件大小
+            final byte[] hash = wrapper.read(RESOURCE_PACK_HASH); // 文件哈希
+            final boolean premium = wrapper.read(Types.BOOLEAN); // 是否为付费包
+            final PackType type = PackType.getByValue(wrapper.read(Types.UNSIGNED_BYTE), PackType.Invalid); // 包类型
 
             final ResourcePackLoadStateTracker loadStateTracker = wrapper.user().get(ResourcePackLoadStateTracker.class);
             final ResourcePackDownloadTracker downloadTracker =
@@ -320,10 +320,10 @@ public class ResourcePackPackets {
             }
             if (archiveClaim != null && archiveClaim.path().isDone()
                     && !archiveClaim.path().isCompletedExceptionally()) {
-                // Raw CAS hit: attach the shared archive immediately, but still run this
-                // connection's protocol transfer. The Downloading response listed every
-                // announced pack, and sequential senders (e.g. WaterdogPE) only advance to
-                // the next DATA_INFO after the current pack's chunk requests complete.
+                // 原始 CAS 命中：立即挂载共享归档，但仍要执行本连接的
+                // 协议传输。Downloading 响应列出了所有已声明的包，
+                // 而顺序发送方（例如 WaterdogPE）只有当前包的区块请求
+                // 完成后才会推进到下一个 DATA_INFO。
                 loadClaimedPack(wrapper.user(), loadStateTracker, packKey, info, archiveClaim);
                 startResourcePackDownload(wrapper.user(), key, packKey,
                         size, chunkSize, hash, premium, type, null);
@@ -339,10 +339,10 @@ public class ResourcePackPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.RESOURCE_PACK_CHUNK_DATA, null, wrapper -> {
             wrapper.cancel();
-            final String key = wrapper.read(BedrockTypes.STRING); // resource name
-            final long chunk = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // chunk id
-            final long byteOffset = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // byte offset
-            final byte[] data = wrapper.read(RESOURCE_PACK_CHUNK); // chunk data
+            final String key = wrapper.read(BedrockTypes.STRING); // 资源名称
+            final long chunk = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 区块 ID
+            final long byteOffset = wrapper.read(BedrockTypes.UNSIGNED_LONG_LE); // 字节偏移
+            final byte[] data = wrapper.read(RESOURCE_PACK_CHUNK); // 区块数据
 
             final UserConnection user = wrapper.user();
             final ResourcePackDownloadTracker downloadTracker = user.get(ResourcePackDownloadTracker.class);
@@ -359,8 +359,8 @@ public class ResourcePackPackets {
         });
 
         protocol.registerServerboundTransition(ServerboundConfigurationPackets1_21_9.RESOURCE_PACK, ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, wrapper -> {
-            wrapper.read(Types.UUID); // id
-            final ResourcePackAction action = ResourcePackAction.values()[wrapper.read(Types.VAR_INT)]; // action
+            wrapper.read(Types.UUID); // ID
+            final ResourcePackAction action = ResourcePackAction.values()[wrapper.read(Types.VAR_INT)]; // 动作
             final ResourcePackLoadStateTracker loadStateTracker =
                     wrapper.user().get(ResourcePackLoadStateTracker.class);
             if (loadStateTracker == null) {
@@ -612,9 +612,9 @@ public class ResourcePackPackets {
     private static void skipPackStackEntries(final PacketWrapper wrapper) {
         final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         for (int i = 0; i < count; i++) {
-            wrapper.read(BedrockTypes.STRING); // id
-            wrapper.read(BedrockTypes.STRING); // version
-            wrapper.read(BedrockTypes.STRING); // subpack name
+            wrapper.read(BedrockTypes.STRING); // ID
+            wrapper.read(BedrockTypes.STRING); // 版本
+            wrapper.read(BedrockTypes.STRING); // 子包名称
         }
         if (count > 0) {
             ViaBedrock.getPlatform().getLogger().log(Level.INFO,
@@ -760,9 +760,9 @@ public class ResourcePackPackets {
                     final PacketWrapper resourcePackClientResponse = PacketWrapper.create(
                             ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, liveUser);
                     resourcePackClientResponse.write(Types.BYTE,
-                            (byte) ResourcePackResponse.DownloadingFinished.getValue()); // status
+                            (byte) ResourcePackResponse.DownloadingFinished.getValue()); // 状态
                     resourcePackClientResponse.write(
-                            BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // downloading packs
+                            BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
                     resourcePackClientResponse.sendToServer(BedrockProtocol.class);
                 } catch (Throwable sendError) {
                     BedrockProtocol.kickForIllegalState(liveUser,
@@ -817,8 +817,8 @@ public class ResourcePackPackets {
             }
             final PacketWrapper request = PacketWrapper.create(
                     ServerboundBedrockPackets.RESOURCE_PACK_CHUNK_REQUEST, user);
-            request.write(BedrockTypes.STRING, key); // resource name
-            request.write(BedrockTypes.UNSIGNED_INT_LE, chunk); // chunk
+            request.write(BedrockTypes.STRING, key); // 资源名称
+            request.write(BedrockTypes.UNSIGNED_INT_LE, chunk); // 区块
             try {
                 request.sendToServer(BedrockProtocol.class);
             } catch (Exception e) {
@@ -1177,8 +1177,8 @@ public class ResourcePackPackets {
             }
             if (download.archiveClaim().path().isDone()
                     && !download.archiveClaim().path().isCompletedExceptionally()) {
-                // CAS hit: the pack was already attached from the shared archive. Drop the redundant
-                // protocol transfer without republishing, so the already-attached pack stays intact.
+                // CAS 命中：该包已从共享归档挂载。丢弃多余的
+                // 协议传输且不重新发布，从而保持已挂载的包完好。
                 downloadTracker.remove(key);
                 return;
             }
@@ -1260,8 +1260,8 @@ public class ResourcePackPackets {
     private static void sendResourcePackStackFinished(final UserConnection user) {
         try {
             final PacketWrapper resourcePackClientResponse = PacketWrapper.create(ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, user);
-            resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.ResourcePackStackFinished.getValue()); // status
-            resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // downloading packs
+            resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.ResourcePackStackFinished.getValue()); // 状态
+            resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
             resourcePackClientResponse.sendToServer(BedrockProtocol.class);
         } catch (Throwable e) {
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to send ResourcePackStackFinished to Bedrock server", e);

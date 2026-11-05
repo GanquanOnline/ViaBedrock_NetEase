@@ -876,7 +876,7 @@ public class ResourcePackHttpServer {
         return GsonUtil.getGson().toJson(root).getBytes(StandardCharsets.UTF_8);
     }
 
-    /** Mirrors the UUID-based archive paths: the topmost occurrence of one pack identity wins. */
+    /** 与基于 UUID 的归档路径一致：同一包标识最靠前的出现者优先。 */
     static List<ResourcePack> embeddedPackStackBottomToTop(ResourcePackStorage resourcePackStorage) {
         final List<ResourcePack> selectedTopToBottom = new ArrayList<>();
         final Set<UUID> selectedIds = new HashSet<>();

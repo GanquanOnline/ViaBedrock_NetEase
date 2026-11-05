@@ -26,10 +26,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * MOT {@code CraftRecipeOptionalProcessor.updateAnvilResult} consume count.
- * Repair-material loops spend {@code min(damage, maxDurability/4)} units per
- * item; combine / enchanted-book spends 1. Returns {@code -1} when MOT would
- * reject the request (repair material present but {@code repair <= 0}).
+ * MOT {@code CraftRecipeOptionalProcessor.updateAnvilResult} 的消耗数量。
+ * 修理材料循环对每个物品消耗 {@code min(damage, maxDurability/4)} 个单位；合并 / 附魔书消耗 1 个。
+ * 当 MOT 会拒绝该请求时返回 {@code -1}（存在修理材料但 {@code repair <= 0}）。
  */
 public final class AnvilRepairCost {
 

@@ -55,7 +55,7 @@ public class MessageCodec extends MessageToMessageCodec<RakMessage, ByteBuf> {
             return;
         }
         final int messageId = buf.readUnsignedByte();
-        if (messageId != MINECRAFT_MESSAGE_ID) { // Mojang client seems to ignore invalid messages
+        if (messageId != MINECRAFT_MESSAGE_ID) { // Mojang 客户端似乎会忽略非法消息
             ViaBedrock.getPlatform().getLogger().warning("Received invalid RakNet message id: " + messageId);
             return;
         }

@@ -87,8 +87,8 @@ public abstract class ItemModelResourceRewriter implements ResourcePackRewriter.
     }
 
     /**
-     * Keeps pre-1.21.11 element coordinates inside the vanilla [-16, 32] cube. The model's
-     * compensating display scale preserves its original world size.
+     * 把 1.21.11 之前的元素坐标保持在原版 [-16, 32] 立方体内。模型的
+     * 补偿显示缩放会保留其原始世界尺寸。
      */
     public static JavaItemModel prepareModelForClient(final JavaItemModel model, final boolean supportsFreeRotation) {
         if (supportsFreeRotation) {
@@ -129,16 +129,15 @@ public abstract class ItemModelResourceRewriter implements ResourcePackRewriter.
     }
 
     /**
-     * Vanilla requires every geometry model (one with "elements" and no parent) to declare a
-     * "particle" texture. CubeConverter only emits the numbered texture slots, so the vanilla
-     * loader logs "Missing texture references ... particle" for every generated entity/attachable
-     * model (thousands), synchronously stalling the resource reload. Point particle at the first
-     * existing texture slot so the model is complete. Version-independent: particle is required on
-     * all client versions.
+     * 原版要求每个几何模型（带 "elements" 且没有 parent 的模型）声明一个
+     * "particle" 纹理。CubeConverter 只输出带编号的纹理槽，因此原版
+     * 加载器会为每个生成的实体/挂饰模型（数千个）打印 "Missing texture references ... particle"，
+     * 并同步阻塞资源重载。把 particle 指向第一个
+     * 已存在的纹理槽，使模型完整。与版本无关：所有客户端版本都要求 particle。
      */
     private static void ensureParticleTexture(final JsonObject model) {
         if (!model.has("elements")) {
-            return; // item/generated-style models (no elements) don't require a particle texture
+            return; // item/generated 风格的模型（无 elements）不需要 particle 纹理
         }
         final JsonElement texturesElement = model.get("textures");
         if (texturesElement == null || !texturesElement.isJsonObject()) {
@@ -149,7 +148,7 @@ public abstract class ItemModelResourceRewriter implements ResourcePackRewriter.
             return;
         }
         final String firstKey = textures.keySet().iterator().next();
-        textures.add("particle", textures.get(firstKey)); // reuse the same texture
+        textures.add("particle", textures.get(firstKey)); // 复用同一个纹理
     }
 
     protected String getJavaTexturePath(final String bedrockPath) {
@@ -157,20 +156,20 @@ public abstract class ItemModelResourceRewriter implements ResourcePackRewriter.
     }
 
     /**
-     * CubeConverter emits element rotation in the free-rotation object form {x,y,z,origin} (legal only
-     * on MC >= 1.21.11). On older clients the vanilla model deserializer rejects it ("Missing axis"),
-     * which makes the whole model fail to load - and with thousands of generated entity/attachable
-     * models that previously stalled the resource reload for minutes (synchronous error logging) and
-     * timed the Bedrock connection out.
+     * CubeConverter 以自由旋转对象形式 {x,y,z,origin} 输出元素旋转（仅在
+     * MC >= 1.21.11 合法）。在更旧的客户端上，原版模型反序列化器会拒绝它（"Missing axis"），
+     * 导致整个模型加载失败——而数千个生成的实体/挂饰模型此前
+     * 会同步记录错误并让资源重载卡住数分钟，
+     * 最终使基岩连接超时。
      * <p>
-     * For clients that do not support free rotation, drop unsupported free rotations and malformed
-     * or out-of-range legacy rotations. The converter normally emits a legacy-compatible model;
-     * this final pass prevents one unexpected cube from invalidating the entire generated model.
-     * It also clamps element bounds to the legacy codec's [-16, 32] interval as a final safeguard.
+     * 对于不支持自由旋转的客户端，丢弃不支持的自由旋转以及格式错误
+     * 或超出范围的旧式旋转。转换器通常输出旧式兼容模型；
+     * 这最后一轮可防止某个意外方块使整个生成模型失效。
+     * 它还会把元素边界钳制到旧式编解码器的 [-16, 32] 区间作为最终保障。
      */
     private static void sanitizeLegacyElements(final JsonObject model, final boolean supportsFreeRotation) {
         if (supportsFreeRotation) {
-            return; // MC >= 1.21.11: free rotation is legal, keep as-is
+            return; // MC >= 1.21.11：自由旋转合法，保持原样
         }
         final JsonElement elementsElement = model.get("elements");
         if (elementsElement == null || !elementsElement.isJsonArray()) {

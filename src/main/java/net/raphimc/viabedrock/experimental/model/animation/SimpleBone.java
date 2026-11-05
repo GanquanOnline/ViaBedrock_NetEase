@@ -24,8 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Server-side IBoneTarget implementation for ViaBedrock proxy.
- * Pure data storage — no MC client dependencies.
+ * ViaBedrock 代理的服务端 IBoneTarget 实现。
+ * 纯数据存储，没有任何 MC 客户端依赖。
  */
 public class SimpleBone implements IBoneTarget {
 
@@ -34,12 +34,12 @@ public class SimpleBone implements IBoneTarget {
     private final Vector3f defaultRotation;
     private final boolean hasCubes;
 
-    // Mutable animation state (written by Animator each tick)
+    // 可变动画状态（每刻由 Animator 写入）
     private final Vector3f rotation = new Vector3f();
     private final Vector3f offset = new Vector3f();
     private float scaleX = 1, scaleY = 1, scaleZ = 1;
 
-    // Hierarchy
+    // 层级结构
     private SimpleBone parent;
     private final Map<String, IBoneTarget> children = new LinkedHashMap<>();
 

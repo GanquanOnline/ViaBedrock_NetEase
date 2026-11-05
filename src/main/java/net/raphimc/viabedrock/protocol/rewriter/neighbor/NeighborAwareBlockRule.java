@@ -20,32 +20,31 @@ package net.raphimc.viabedrock.protocol.rewriter.neighbor;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
 
 /**
- * A single family of "neighbor-aware" blocks whose correct Java block state cannot be produced by the static
- * Bedrock->Java state mapping alone, because Java stores information that Bedrock computes on the client from
- * adjacent blocks (stair corner shape, fence/pane connections, the shared halves of a door/bed, ...).
+ * 一类「依赖邻居」的方块，其正确的 Java 方块状态无法仅由静态
+ * 基岩→Java 状态映射产生，因为 Java 保存的信息在基岩中是由客户端根据
+ * 相邻方块计算的（楼梯拐角形状、栅栏/铁板连接、门/床共享的两半等）。
  * <p>
- * A rule only needs to recompute its own state from its neighbors; propagation to neighbors is handled uniformly by
- * the {@link NeighborAwareBlockRewriter}, which re-runs the whole rule set over the surrounding cells after a change.
+ * 规则只需从邻居重新计算自身状态；向邻居的传播由
+ * {@link NeighborAwareBlockRewriter} 统一处理，它在一次改动后会对周围格子重新运行整套规则。
  */
 public interface NeighborAwareBlockRule {
 
-    /**
-     * @return whether this rule owns the given Java block state id. Must be O(1) (backed by an int set/map).
-     */
+    /** @return 该规则是否拥有给定的 Java 方块状态 ID。必须是 O(1)（由 int 集合/映射支撑）。 */
     boolean handles(final int javaBlockStateId);
 
     /**
-     * Recomputes the correct Java block state for a single position by reading the neighbors it depends on.
+     * 通过读取所依赖的邻居，为单个位置重新计算正确的 Java 方块状态。
      *
-     * @param javaBlockStateId the position's current (pre-fix) Java block state id
-     * @return the corrected Java block state id, or the input unchanged when nothing applies
+     * @param javaBlockStateId 该位置当前（修正前）的 Java 方块状态 ID
+     *
+     * @return 修正后的 Java 方块状态 ID；无需处理时原样返回输入
      */
     int recompute(final BlockNeighborView view, final BlockPosition pos, final int javaBlockStateId);
 
     /**
-     * @return whether a stale value of this rule can be visually broken when the neighbor it depends on lives in a
-     * chunk that had not arrived yet (and therefore was not re-checked). Only such rules make it worth re-running the
-     * fix on an already sent neighbor chunk; they must be rare, as that costs a chunk resend.
+     * @return 当该规则依赖的邻居位于尚未到达（因而未被重新检查）的区块中时，
+     * 该规则的过期值是否会出现可见的错乱。只有这类规则才值得在已发送的邻居区块上重跑
+     * 修正；它们必须很少，因为那要付出一次区块重发。
      */
     default boolean affectsNeighborChunks() {
         return false;

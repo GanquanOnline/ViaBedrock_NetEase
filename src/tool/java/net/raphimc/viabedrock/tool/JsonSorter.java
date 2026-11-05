@@ -34,7 +34,7 @@ public class JsonSorter {
         final byte[] data = JsonSorter.class.getResourceAsStream("/assets/viabedrock/data/custom/item_mappings.json").readAllBytes();
         JsonObject obj = JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject();
 
-        // Sort top level keys
+        // 对顶层键排序
         final Map<String, JsonElement> sortedJson = new TreeMap<>();
         obj.entrySet().forEach(entry -> sortedJson.put(entry.getKey(), entry.getValue()));
         obj.entrySet().clear();

@@ -70,8 +70,8 @@ public class EntityTracker extends StoredObject {
     }
 
     /**
-     * Reverse-lookup data for an item frame fake entity. Item frames are blocks on Bedrock but fake Java entities,
-     * so a Java entity interaction has to be mapped back to the block position (and front face) to reach the server.
+     * 物品展示框伪实体的反向查找数据。物品展示框在基岩里是方块，但只是 Java 侧的伪实体，
+     * 因此 Java 的实体交互必须映射回方块坐标（以及正面）才能到达服务器。
      */
     public record ItemFrameInfo(BlockPosition position, int facingDirection) {
     }
@@ -150,7 +150,7 @@ public class EntityTracker extends StoredObject {
     private void removeEntityAndNotify(final Entity entity) {
         this.removeEntity(entity);
         final PacketWrapper removeEntities = PacketWrapper.create(ClientboundPackets26_1.REMOVE_ENTITIES, this.user());
-        removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{entity.javaId()}); // entity ids
+        removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{entity.javaId()}); // 实体 id
         removeEntities.send(BedrockProtocol.class);
     }
 
@@ -184,25 +184,24 @@ public class EntityTracker extends StoredObject {
         this.itemFrameInfoById.put(javaId, new ItemFrameInfo(position, facingDirection));
 
         final PacketWrapper spawnEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, this.user());
-        spawnEntity.write(Types.VAR_INT, javaId); // entity id
+        spawnEntity.write(Types.VAR_INT, javaId); // 实体 id
         spawnEntity.write(Types.UUID, UUID.randomUUID()); // uuid
-        spawnEntity.write(Types.VAR_INT, blockState.identifier().equals("frame") ? EntityTypes1_21_11.ITEM_FRAME.getId() : EntityTypes1_21_11.GLOW_ITEM_FRAME.getId()); // type id
+        spawnEntity.write(Types.VAR_INT, blockState.identifier().equals("frame") ? EntityTypes1_21_11.ITEM_FRAME.getId() : EntityTypes1_21_11.GLOW_ITEM_FRAME.getId()); // 类型 id
         spawnEntity.write(Types.DOUBLE, (double) position.x()); // x
         spawnEntity.write(Types.DOUBLE, (double) position.y()); // y
         spawnEntity.write(Types.DOUBLE, (double) position.z()); // z
-        spawnEntity.write(Types.LOW_PRECISION_VECTOR, Vector3d.ZERO); // velocity
-        spawnEntity.write(Types.BYTE, (byte) 0); // pitch
-        spawnEntity.write(Types.BYTE, (byte) 0); // yaw
-        spawnEntity.write(Types.BYTE, (byte) 0); // head yaw
-        spawnEntity.write(Types.VAR_INT, facingDirection); // data
+        spawnEntity.write(Types.LOW_PRECISION_VECTOR, Vector3d.ZERO); // 速度
+        spawnEntity.write(Types.BYTE, (byte) 0); // 俯仰角
+        spawnEntity.write(Types.BYTE, (byte) 0); // 偏航角
+        spawnEntity.write(Types.BYTE, (byte) 0); // 头部偏航角
+        spawnEntity.write(Types.VAR_INT, facingDirection); // 数据
         spawnEntity.send(BedrockProtocol.class);
 
-        // Populate the displayed item / rotation from the block entity supplied by the caller.
-        // The caller passes it directly (from the local chunk during chunk load, or from the chunk map on a block
-        // update) because looking it up via ChunkTracker here is unreliable during chunk load: the chunk being
-        // remapped is not registered in the chunk map yet, so the lookup would return null and the frame would
-        // render empty. If the block entity instead arrives later as a separate BLOCK_ENTITY_DATA packet,
-        // updateItemFrameContents is called again from that handler.
+        // 从调用方提供的方块实体填充显示的物品 / 旋转。
+        // 调用方直接传入它（区块加载时来自本地区块，方块更新时来自区块映射），
+        // 因为此时通过 ChunkTracker 查询并不可靠：正在被重映射的区块尚未注册到区块映射中，
+        // 查询会返回 null，展示框就会渲染为空。若方块实体之后作为单独的 BLOCK_ENTITY_DATA 数据包
+        // 到达，则会从该处理器再次调用 updateItemFrameContents。
         if (blockEntityTag != null) {
             this.updateItemFrameContents(position, blockEntityTag);
         }
@@ -214,7 +213,7 @@ public class EntityTracker extends StoredObject {
             return;
         }
 
-        // ITEM_FRAME and GLOW_ITEM_FRAME share the same entity data layout.
+        // ITEM_FRAME 与 GLOW_ITEM_FRAME 共享同一实体数据布局。
         final List<String> dataFields = BedrockProtocol.MAPPINGS.getJavaEntityDataFields().get(EntityTypes1_21_11.ITEM_FRAME);
 
         final Item javaItem;
@@ -234,14 +233,14 @@ public class EntityTracker extends StoredObject {
         entityData.add(new EntityData(dataFields.indexOf(EntityDataFields.ROTATION), VersionedTypes.V26_1.entityDataTypes.varIntType, rotation));
 
         final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user());
-        setEntityData.write(Types.VAR_INT, javaId); // entity id
-        setEntityData.write(VersionedTypes.V26_1.entityDataList, entityData); // entity data
+        setEntityData.write(Types.VAR_INT, javaId); // 实体 id
+        setEntityData.write(VersionedTypes.V26_1.entityDataList, entityData); // 实体数据
         setEntityData.send(BedrockProtocol.class);
     }
 
     private static int bedrockItemFrameRotationToJava(final float bedrockRotation) {
         int rotation = Math.round(bedrockRotation);
-        if (rotation >= 8) { // some servers store the rotation in degrees (0, 45, ..., 315)
+        if (rotation >= 8) { // 有些服务器以角度存储旋转（0, 45, ..., 315）
             rotation = Math.round(bedrockRotation / 45F);
         }
         return ((rotation % 8) + 8) % 8;
@@ -256,7 +255,7 @@ public class EntityTracker extends StoredObject {
         this.itemFrameInfoById.remove(javaId);
 
         final PacketWrapper removeEntities = PacketWrapper.create(ClientboundPackets26_1.REMOVE_ENTITIES, this.user());
-        removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{javaId}); // entity ids
+        removeEntities.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{javaId}); // 实体 id
         removeEntities.send(BedrockProtocol.class);
     }
 

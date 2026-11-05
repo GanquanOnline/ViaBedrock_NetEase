@@ -22,9 +22,9 @@ import com.viaversion.viaversion.libs.mcstructs.text.TextComponent;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerType;
 
 /**
- * MOT {@code TradeInventory} is three slots (buyA, buyB, unused result).
- * Villagers are opened with {@code UPDATE_TRADE} rather than {@code CONTAINER_OPEN},
- * so this container has no block position and is not distance-closed by a block tag.
+ * MOT 的 {@code TradeInventory} 有三个槽位（buyA、buyB、未使用的结果）。
+ * 村民通过 {@code UPDATE_TRADE} 而非 {@code CONTAINER_OPEN} 打开，
+ * 因此此容器没有方块位置，也不会因方块标签而按距离关闭。
  */
 public class TradeContainer extends Container {
 
@@ -36,21 +36,21 @@ public class TradeContainer extends Container {
     }
 
     static byte unsignedWindowId(final byte windowId) {
-        // MOT UPDATE_TRADE/INVENTORY_CONTENT use unsigned 500. The packet BYTE is -12.
+        // MOT 的 UPDATE_TRADE/INVENTORY_CONTENT 使用无符号 500，而包中的 BYTE 为 -12。
         return windowId == 0 ? (byte) JAVA_WINDOW_ID : windowId;
     }
 
     @Override
     public int javaContainerId() {
-        // MOT assigns window 500. Java MERCHANT_OFFERS/CONTAINER_CLICK are VAR_INT,
-        // so keep the untruncated id instead of the signed-byte 244/-12 alias.
+        // MOT 分配窗口 500。Java 的 MERCHANT_OFFERS/CONTAINER_CLICK 是 VAR_INT，
+        // 因此保留未截断的 id，而不是有符号字节的 244/-12 别名。
         return JAVA_WINDOW_ID;
     }
 
     @Override
     public byte bedrockCloseContainerId() {
-        // MOT looks up window 500, but CONTAINER_CLOSE only carries a signed byte.
-        // The 860 villager path therefore treats client close -1 as "close trade".
+        // MOT 查找窗口 500，但 CONTAINER_CLOSE 只携带一个有符号字节。
+        // 因此 860 的村民路径把客户端关闭 -1 视为「关闭交易」。
         return MOT_CLOSE_CONTAINER_ID;
     }
 }

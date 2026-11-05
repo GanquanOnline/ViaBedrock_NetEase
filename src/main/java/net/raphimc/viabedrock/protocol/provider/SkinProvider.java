@@ -81,8 +81,8 @@ public class SkinProvider implements Provider {
     }
 
     /**
-     * Asynchronously fetches a Java Edition player's skin from Mojang API.
-     * Runs on a worker thread to avoid blocking the Netty EventLoop.
+     * 从 Mojang API 异步获取 Java 版玩家的皮肤。
+     * 运行在工作线程上，以免阻塞 Netty EventLoop。
      */
     public CompletableFuture<JavaSkinData> fetchJavaSkinAsync(final UUID uuid) {
         try {
@@ -90,7 +90,7 @@ public class SkinProvider implements Provider {
             try {
                 final String uuidStr = uuid.toString().replace("-", "");
 
-                // 1. Fetch profile from Mojang session server
+                // 1. 从 Mojang 会话服务器获取档案
                 final HttpURLConnection profileConn = (HttpURLConnection) new URL(
                         "https://sessionserver.mojang.com/session/minecraft/profile/" + uuidStr)
                         .openConnection();
@@ -109,7 +109,7 @@ public class SkinProvider implements Provider {
                     profileBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 }
 
-                // 2. Parse textures property
+                // 2. 解析 textures 属性
                 final JsonObject profileJson = JsonParser.parseString(profileBody).getAsJsonObject();
                 final JsonArray properties = profileJson.getAsJsonArray("properties");
                 String texturesBase64 = null;
@@ -128,7 +128,7 @@ public class SkinProvider implements Provider {
                         new String(Base64.getDecoder().decode(texturesBase64), StandardCharsets.UTF_8))
                         .getAsJsonObject().getAsJsonObject("textures");
 
-                // 3. Download skin image
+                // 3. 下载皮肤图片
                 BufferedImage skinImage = null;
                 boolean isSlim = false;
                 if (texturesJson.has("SKIN")) {
@@ -147,7 +147,7 @@ public class SkinProvider implements Provider {
                     }
                 }
 
-                // 4. Download cape image (optional)
+                // 4. 下载披风图片（可选）
                 BufferedImage capeImage = null;
                 if (texturesJson.has("CAPE")) {
                     try {
@@ -160,7 +160,7 @@ public class SkinProvider implements Provider {
                             capeImage = ImageIO.read(is);
                         }
                     } catch (Exception e) {
-                        // Cape download failure is non-critical
+                        // 披风下载失败不影响主流程
                     }
                 }
 
@@ -183,7 +183,7 @@ public class SkinProvider implements Provider {
         final AuthData authData = user.get(AuthData.class);
         final Map<String, Object> claims = new HashMap<>();
 
-        { // Skin claims
+        { // 皮肤声明
             final Content skinPackContent = BedrockProtocol.MAPPINGS.getBedrockSkinPacks().get(DataValues.VANILLA_SKIN_PACK_KEY).content();
             final BufferedImage skin = skinPackContent.getImage("steve.png").getImage();
             final JsonObject skinGeometry = skinPackContent.getSortedJson("geometry.json");
@@ -206,7 +206,7 @@ public class SkinProvider implements Provider {
             claims.put("PersonaPieces", new ArrayList<>());
             claims.put("PieceTintColors", new ArrayList<>());
         }
-        { // Cape claims (default empty)
+        { // 披风声明（默认为空）
             claims.put("CapeId", "");
             claims.put("CapeData", "");
             claims.put("CapeImageWidth", 0);
@@ -214,7 +214,7 @@ public class SkinProvider implements Provider {
             claims.put("CapeOnClassicSkin", false);
         }
 
-        // Try to apply Java Edition skin from async fetch result
+        // 尝试应用异步获取结果中的 Java 版皮肤
         if (authData.getJavaSkinFuture() != null) {
             final int timeout = authData.getJavaSkinWaitTimeoutMs() > 0
                     ? authData.getJavaSkinWaitTimeoutMs()
@@ -245,11 +245,11 @@ public class SkinProvider implements Provider {
         }
 
         final HandshakeStorage handshakeStorage = user.get(HandshakeStorage.class);
-        { // Session claims
+        { // 会话声明
             claims.put("ServerAddress", handshakeStorage.hostname() + ":" + handshakeStorage.port());
             claims.put("ThirdPartyName", user.getProtocolInfo().getUsername());
         }
-        { // Client claims
+        { // 客户端声明
             claims.put("GameVersion", ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                     ? ViaBedrock.getConfig().getNetEaseGameVersion()
                     : ProtocolConstants.BEDROCK_VERSION_NAME);
@@ -266,27 +266,27 @@ public class SkinProvider implements Provider {
             claims.put("IsEditorMode", false);
             claims.put("FilterProfanity", false);
         }
-        { // Device claims
+        { // 设备声明
             claims.put("DeviceId", authData.getDeviceId().toString().replace("-", ""));
             applyDeviceClaims(claims, handshakeStorage != null ? handshakeStorage.device() : null);
             claims.put("CurrentInputMode", InputMode.Mouse.getValue());
             claims.put("DefaultInputMode", InputMode.Mouse.getValue());
         }
-        { // Hardware claims
+        { // 硬件声明
             claims.put("MemoryTier", MemoryTier.SuperHigh.ordinal());
             claims.put("MaxViewDistance", 96);
             claims.put("CompatibleWithClientSideChunkGen", false);
         }
-        { // Platform claims
+        { // 平台声明
             claims.put("PlatformType", 0);
             claims.put("PlatformOfflineId", "");
             claims.put("PlatformOnlineId", "");
         }
 
-        { // ViaProxy auth token
-            // Waterdog HandshakeEntry treats a non-empty ViaProxyAuthToken as a Java
-            // client and skips fake-dimension transfers. The HMAC secret is optional;
-            // without it we still emit a sentinel so same-dimension proxy transfers work.
+        { // ViaProxy 认证令牌
+            // Waterdog 的 HandshakeEntry 会把非空的 ViaProxyAuthToken 视为 Java
+            // 客户端并跳过假维度传输。HMAC 密钥是可选的；
+            // 没有它时我们仍会写入一个哨兵值，使同维度代理传输可以工作。
             final String authSecret = ViaBedrock.getConfig().getViaProxyAuthSecret();
             if (authSecret != null && !authSecret.isEmpty()) {
                 final long timestamp = System.currentTimeMillis() / 1000;

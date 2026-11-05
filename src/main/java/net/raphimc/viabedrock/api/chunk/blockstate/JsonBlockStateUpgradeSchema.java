@@ -281,7 +281,7 @@ public class JsonBlockStateUpgradeSchema extends BlockStateUpgradeSchema {
             }
         }
 
-        // Apply the new name last, because the remappers are expecting the old name
+        // 最后再应用新名称，因为重映射器期望的是旧名称
         this.actions.add(tag -> {
             final String newName = tag.getString(NEW_NAME_KEY, null);
             if (newName != null) {

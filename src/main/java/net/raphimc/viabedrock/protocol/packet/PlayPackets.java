@@ -36,31 +36,31 @@ public class PlayPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.SET_DIFFICULTY, ClientboundPackets26_1.CHANGE_DIFFICULTY, new PacketHandlers() {
             @Override
             public void register() {
-                map(BedrockTypes.UNSIGNED_VAR_INT, Types.VAR_INT); // difficulty
-                create(Types.BOOLEAN, false); // locked
+                map(BedrockTypes.UNSIGNED_VAR_INT, Types.VAR_INT); // 难度
+                create(Types.BOOLEAN, false); // 已锁定
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.CLIENT_CACHE_MISS_RESPONSE, null, wrapper -> {
             wrapper.cancel();
             final BlobCache blobCache = wrapper.user().get(BlobCache.class);
-            final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // blob count
+            final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // blob 数量
             for (int i = 0; i < length; i++) {
-                final long hash = wrapper.read(BedrockTypes.LONG_LE); // blob hash
-                final byte[] blob = wrapper.read(BedrockTypes.BYTE_ARRAY); // blob data
+                final long hash = wrapper.read(BedrockTypes.LONG_LE); // blob 哈希
+                final byte[] blob = wrapper.read(BedrockTypes.BYTE_ARRAY); // blob 数据
                 blobCache.addBlob(hash, blob);
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.TRANSFER, ClientboundPackets26_1.TRANSFER, new PacketHandlers() {
             @Override
             protected void register() {
-                map(BedrockTypes.STRING, Types.STRING); // address
-                map(BedrockTypes.UNSIGNED_SHORT_LE, Types.VAR_INT); // port
+                map(BedrockTypes.STRING, Types.STRING); // 地址
+                map(BedrockTypes.UNSIGNED_SHORT_LE, Types.VAR_INT); // 端口
                 handler(TransferPacketMapping::consumeLegacyAndLeftoverFields);
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.GAME_RULES_CHANGED, null, wrapper -> {
             wrapper.cancel();
-            wrapper.user().get(GameRulesStorage.class).updateGameRules(wrapper.read(BedrockTypes.GAME_RULE_ARRAY)); // game rules
+            wrapper.user().get(GameRulesStorage.class).updateGameRules(wrapper.read(BedrockTypes.GAME_RULE_ARRAY)); // 游戏规则
         });
 
         protocol.registerServerbound(ServerboundPackets26_1.CLIENT_INFORMATION, ServerboundBedrockPackets.REQUEST_CHUNK_RADIUS, MultiStatePackets.CLIENT_SETTINGS_HANDLER);
@@ -79,7 +79,7 @@ public class PlayPackets {
         protocol.registerServerbound(ServerboundPackets26_1.PING_REQUEST, null, wrapper -> {
             wrapper.cancel();
             final PacketWrapper pongResponse = wrapper.create(ClientboundPackets26_1.PONG_RESPONSE);
-            pongResponse.write(Types.LONG, wrapper.read(Types.LONG)); // time
+            pongResponse.write(Types.LONG, wrapper.read(Types.LONG)); // 时间
             pongResponse.send(BedrockProtocol.class);
         });
     }

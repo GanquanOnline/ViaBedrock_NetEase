@@ -22,13 +22,13 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock FILTER_TEXT (packet 163).
+ * Bedrock FILTER_TEXT（数据包 163）的线上布局辅助方法。
  * <p>
- * MOT {@code FilterTextPacket} encodes {@code string text + boolean fromServer}.
- * The Java anvil rename packet has no Bedrock counterpart besides this echo:
- * the client sends {@code fromServer=false}, MOT copies the text back with
- * {@code fromServer=true}. The actual custom name is applied later by
- * {@code CraftRecipeOptional} using the ITEM_STACK_REQUEST filter-string trailer.
+ * MOT 的 {@code FilterTextPacket} 编码 {@code string text + boolean fromServer}。
+ * Java 的铁砧重命名数据包在 Bedrock 侧除了这个回显之外没有对应物：
+ * 客户端发送 {@code fromServer=false}，MOT 则以 {@code fromServer=true}
+ * 把文本回显回来。真正的自定义名称之后由
+ * {@code CraftRecipeOptional} 使用 ITEM_STACK_REQUEST 的 filter-string 尾部来应用。
  */
 public final class FilterTextLayout {
 

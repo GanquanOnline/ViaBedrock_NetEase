@@ -14,9 +14,7 @@ import java.security.MessageDigest;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * SHA-256 identity of an ordered resource pack mount stack.
- */
+/** 一个有序资源包挂载堆叠的 SHA-256 标识。 */
 public record RuntimeStackKey(String hex) {
 
     private static final byte[] DOMAIN = "ViaBedrock-RuntimeStack-v2\0".getBytes(StandardCharsets.US_ASCII);
@@ -38,9 +36,7 @@ public record RuntimeStackKey(String hex) {
         return new RuntimeStackKey(DigestSupport.toHex(digest.digest()));
     }
 
-    /**
-     * Includes runtime schema and bundled definition fingerprints that affect cross-pack linking.
-     */
+    /** 包含运行时 schema 以及影响跨包链接的内置定义指纹。 */
     public static RuntimeStackKey compute(final List<PackMount> mounts, final int runtimeSchemaVersion,
                                           final List<String> builtInFingerprints) {
         Objects.requireNonNull(mounts, "mounts");

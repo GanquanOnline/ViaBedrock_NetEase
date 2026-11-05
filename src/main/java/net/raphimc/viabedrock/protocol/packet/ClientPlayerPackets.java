@@ -115,10 +115,10 @@ public class ClientPlayerPackets {
         final GameMode gameMode = wrapper.user().get(SpectatorCameraTracker.class).projectJavaGameMode(clientPlayer.javaGameMode());
 
         final PacketWrapper playerInfoUpdate = PacketWrapper.create(ClientboundPackets26_1.PLAYER_INFO_UPDATE, wrapper.user());
-        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // actions
-        playerInfoUpdate.write(Types.VAR_INT, 1); // length
+        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // 动作
+        playerInfoUpdate.write(Types.VAR_INT, 1); // 长度
         playerInfoUpdate.write(Types.UUID, clientPlayer.javaUuid()); // uuid
-        playerInfoUpdate.write(Types.VAR_INT, gameMode.ordinal()); // game mode
+        playerInfoUpdate.write(Types.VAR_INT, gameMode.ordinal()); // 游戏模式
         playerInfoUpdate.send(BedrockProtocol.class);
     };
 
@@ -131,10 +131,10 @@ public class ClientPlayerPackets {
     public static void sendJavaGameMode(final UserConnection user, final GameMode gameMode) {
         final ClientPlayerEntity clientPlayer = user.get(EntityTracker.class).getClientPlayer();
         final PacketWrapper playerInfoUpdate = PacketWrapper.create(ClientboundPackets26_1.PLAYER_INFO_UPDATE, user);
-        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // actions
-        playerInfoUpdate.write(Types.VAR_INT, 1); // length
+        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // 动作
+        playerInfoUpdate.write(Types.VAR_INT, 1); // 长度
         playerInfoUpdate.write(Types.UUID, clientPlayer.javaUuid()); // uuid
-        playerInfoUpdate.write(Types.VAR_INT, gameMode.ordinal()); // game mode
+        playerInfoUpdate.write(Types.VAR_INT, gameMode.ordinal()); // 游戏模式
         playerInfoUpdate.send(BedrockProtocol.class);
 
         PacketFactory.sendJavaGameEvent(user, GameEventType.CHANGE_GAME_MODE, gameMode.ordinal());
@@ -195,8 +195,8 @@ public class ClientPlayerPackets {
             return;
         }
         final int javaBlockStateId = chunkTracker.getJavaBlockState(due.position());
-        // Delayed START-only blocks must not share a tick with StartDestroy. MOT 860
-        // EnumMap iterates Predict before Continue, so Continue after Predict restarts mining.
+        // 延迟的仅 START 方块不能与 StartDestroy 共用同一刻。MOT 860 的
+        // EnumMap 先迭代 Predict 再迭代 Continue，因此 Predict 之后的 Continue 会重新开始挖掘。
         if (!gameSession.isBlockBreakingServerAuthoritative()) {
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StopDestroyBlock));
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.CrackBlock, due.position(), due.direction().ordinal()));
@@ -224,9 +224,9 @@ public class ClientPlayerPackets {
     }
 
     private static void finishBlockBreak(final UserConnection user, final GameSessionStorage gameSession, final ClientPlayerEntity clientPlayer, final ChunkTracker chunkTracker, final BlockPosition position, final Direction direction) {
-        // MOT PredictDestroy already aborts then completes; StopDestroy also aborts.
-        // A same-tick Abort(face=0) is redundant and can leave lastBlockAction=Abort.
-        // Ref: MOT Player.java PREDICT_DESTROY_BLOCK / STOP_DESTROY_BLOCK.
+        // MOT 的 PredictDestroy 已经先中止再完成；StopDestroy 也会中止。
+        // 同一刻的 Abort(face=0) 是多余的，并且可能让 lastBlockAction=Abort。
+        // 参考：MOT Player.java PREDICT_DESTROY_BLOCK / STOP_DESTROY_BLOCK。
         if (!gameSession.isBlockBreakingServerAuthoritative()) {
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StopDestroyBlock));
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.CrackBlock, position, direction.ordinal()));
@@ -242,19 +242,34 @@ public class ClientPlayerPackets {
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_CLIENT_INPUT_LOCKS, null, wrapper -> {
             wrapper.cancel();
-            final int flags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
-            wrapper.user().get(EntityTracker.class).getClientPlayer().setInputLocks(flags);
+            final UpdateClientInputLocksLayout.DecodedLocks locks = UpdateClientInputLocksLayout.read(wrapper);
+            PacketLeftoverLayout.discardUnreadInput(wrapper);
+            final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
+            if (clientPlayer == null) {
+                return;
+            }
+            final boolean wasLocked = clientPlayer.isInputMovementLocked();
+            clientPlayer.setInputLocks(locks.lockComponentData());
+            clientPlayer.setInputMovementLocked(locks.movementLocked());
+            if (locks.movementLocked()) {
+                if (locks.serverPosition() != null) {
+                    clientPlayer.setPosition(locks.serverPosition());
+                }
+                if (!wasLocked) {
+                    clientPlayer.beginPositionSync(Relative.ROTATION);
+                }
+            }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.RESPAWN, ClientboundPackets26_1.RESPAWN, wrapper -> {
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final byte rawState = wrapper.read(Types.BYTE); // state
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final byte rawState = wrapper.read(Types.BYTE); // 状态
             final PlayerRespawnState state = PlayerRespawnState.getByValue(rawState);
             if (state == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown PlayerRespawnState: " + rawState);
                 wrapper.cancel();
                 return;
             }
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
             final ClientPlayerEntity respawningPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             if (respawningPlayer != null) {
                 respawningPlayer.deferredEntityActions().clear();
@@ -286,26 +301,26 @@ public class ClientPlayerPackets {
 
                         clientPlayer.setHealth(clientPlayer.attributes().get("minecraft:health").maxValue());
                         clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.Respawn, -1);
-                        wrapper.write(Types.VAR_INT, chunkTracker.getDimension().ordinal()); // dimension id
-                        wrapper.write(Types.STRING, chunkTracker.getDimensionKey()); // dimension name
-                        wrapper.write(Types.LONG, 0L); // hashed seed
+                        wrapper.write(Types.VAR_INT, chunkTracker.getDimension().ordinal()); // 维度 ID
+                        wrapper.write(Types.STRING, chunkTracker.getDimensionKey()); // 维度名称
+                        wrapper.write(Types.LONG, 0L); // 哈希种子
                         final SpectatorCameraTracker spectatorCamera = wrapper.user().get(SpectatorCameraTracker.class);
-                        wrapper.write(Types.BYTE, (byte) spectatorCamera.projectJavaGameMode(clientPlayer.javaGameMode()).ordinal()); // game mode
-                        wrapper.write(Types.BYTE, (byte) -1); // previous game mode
-                        wrapper.write(Types.BOOLEAN, false); // is debug
-                        wrapper.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // is flat
-                        wrapper.write(Types.OPTIONAL_GLOBAL_POSITION, null); // last death position
-                        wrapper.write(Types.VAR_INT, 0); // portal cooldown
-                        wrapper.write(Types.VAR_INT, 64); // sea level
-                        wrapper.write(Types.BYTE, (byte) (RespawnKeepFlag.ATTRIBUTE_MODIFIERS.getBit() | RespawnKeepFlag.ENTITY_DATA.getBit())); // keep data mask
+                        wrapper.write(Types.BYTE, (byte) spectatorCamera.projectJavaGameMode(clientPlayer.javaGameMode()).ordinal()); // 游戏模式
+                        wrapper.write(Types.BYTE, (byte) -1); // 上一游戏模式
+                        wrapper.write(Types.BOOLEAN, false); // 是否为调试世界
+                        wrapper.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // 是否为超平坦
+                        wrapper.write(Types.OPTIONAL_GLOBAL_POSITION, null); // 上次死亡位置
+                        wrapper.write(Types.VAR_INT, 0); // 传送门冷却
+                        wrapper.write(Types.VAR_INT, 64); // 海平面
+                        wrapper.write(Types.BYTE, (byte) (RespawnKeepFlag.ATTRIBUTE_MODIFIERS.getBit() | RespawnKeepFlag.ENTITY_DATA.getBit())); // 保留数据掩码
                         PacketLeftoverLayout.discardUnreadInput(wrapper);
                         wrapper.send(BedrockProtocol.class);
-                        clientPlayer.sendAttribute("minecraft:health"); // Ensure health is synced
+                        clientPlayer.sendAttribute("minecraft:health"); // 确保生命值已同步
                         wrapper.user().get(PlayerArmorHudTracker.class).forceSync();
                         chunkTracker.resetJavaChunkLoading();
                         clientPlayer.setDimensionChangeInfo(null);
-                        PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer()); // Java client always resets inventory on respawn. Resend it
-                        inventoryTracker.getInventoryContainer().sendSelectedHotbarSlotToClient(); // Java client always resets selected hotbar slot on respawn. Resend it
+                        PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer()); // Java 客户端重生时总会重置物品栏。重新发送
+                        inventoryTracker.getInventoryContainer().sendSelectedHotbarSlotToClient(); // Java 客户端重生时总会重置选中的快捷栏槽位。重新发送
                         spectatorCamera.restorePresentationAfterClientReset();
                     }
                     wrapper.cancel();
@@ -315,10 +330,10 @@ public class ClientPlayerPackets {
                 case SearchingForSpawn -> {
                     wrapper.cancel();
                     PacketLeftoverLayout.discardUnreadInput(wrapper);
-                    // MOT Player.kill() always sends SEARCHING. Combined with
-                    // DeathInfo it is the death signal; SHOW_DEATH_MESSAGES off
-                    // skips DeathInfo, so we still have to mark the Java player
-                    // dead here. Immediate-respawn then overlays SET_HEALTH.
+                    // MOT 的 Player.kill() 总会发送 SEARCHING。与
+                    // DeathInfo 组合即为死亡信号；关闭 SHOW_DEATH_MESSAGES 时会
+                    // 跳过 DeathInfo，因此这里仍须把 Java 玩家标记为
+                    // 死亡。紧接着的立即重生会覆盖 SET_HEALTH。
                     final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
                     if (clientPlayer == null || !clientPlayer.isInitiallySpawned() || clientPlayer.isDead()) {
                         return;
@@ -337,43 +352,24 @@ public class ClientPlayerPackets {
                 default -> throw new IllegalStateException("Unhandled PlayerRespawnState: " + state);
             }
         });
-        protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_CLIENT_INPUT_LOCKS, null, wrapper -> {
-            wrapper.cancel();
-            final UpdateClientInputLocksLayout.DecodedLocks locks = UpdateClientInputLocksLayout.read(wrapper);
-            PacketLeftoverLayout.discardUnreadInput(wrapper);
-            final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            if (clientPlayer == null) {
-                return;
-            }
-            final boolean wasLocked = clientPlayer.isInputMovementLocked();
-            clientPlayer.setInputMovementLocked(locks.movementLocked());
-            if (locks.movementLocked()) {
-                if (locks.serverPosition() != null) {
-                    clientPlayer.setPosition(locks.serverPosition());
-                }
-                if (!wasLocked) {
-                    clientPlayer.beginPositionSync(Relative.ROTATION);
-                }
-            }
-        });
         protocol.registerClientbound(ClientboundBedrockPackets.PLAYER_ACTION, null, wrapper -> {
             wrapper.cancel();
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final int rawAction = wrapper.read(BedrockTypes.VAR_INT); // action
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final int rawAction = wrapper.read(BedrockTypes.VAR_INT); // 动作
             final PlayerActionType action = PlayerActionType.getByValue(rawAction);
             if (action == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown PlayerActionType: " + rawAction);
                 return;
             }
-            wrapper.read(BedrockTypes.BLOCK_POSITION); // block position
-            wrapper.read(BedrockTypes.BLOCK_POSITION); // result position
-            wrapper.read(BedrockTypes.VAR_INT); // face
+            wrapper.read(BedrockTypes.BLOCK_POSITION); // 方块位置
+            wrapper.read(BedrockTypes.BLOCK_POSITION); // 结果位置
+            wrapper.read(BedrockTypes.VAR_INT); // 面
 
             if (action == PlayerActionType.ChangeDimensionAck) {
                 final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-                // Waterdog injects a server-originated DIMENSION_CHANGE_SUCCESS after
-                // CHANGE_DIMENSION. Echo the ACK even if WorldPackets already cleared
-                // dimensionChangeInfo, so Java same-dimension PHASE_2 can still complete.
+                // Waterdog 会在 CHANGE_DIMENSION 之后注入一个由服务端发出的
+                // DIMENSION_CHANGE_SUCCESS。即使 WorldPackets 已清除
+                // dimensionChangeInfo，仍要回显该 ACK，好让 Java 同维度的 PHASE_2 仍能完成。
                 clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
                 if (clientPlayer.dimensionChangeInfo() != null) {
                     PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, clientPlayer.dimensionChangeInfo().loadingScreenId());
@@ -385,23 +381,23 @@ public class ClientPlayerPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.CORRECT_PLAYER_MOVE_PREDICTION, ClientboundPackets26_1.PLAYER_POSITION, wrapper -> {
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
 
-            final byte rawRewindType = wrapper.read(Types.BYTE); // rewind type
+            final byte rawRewindType = wrapper.read(Types.BYTE); // 回退类型
             final RewindType rewindType = RewindType.getByValue(rawRewindType);
             if (rewindType == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown RewindType: " + rawRewindType);
                 return;
             }
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            wrapper.read(BedrockTypes.POSITION_3F); // position delta
-            wrapper.read(BedrockTypes.POSITION_2F); // vehicle rotation
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            wrapper.read(BedrockTypes.POSITION_3F); // 位置增量
+            wrapper.read(BedrockTypes.POSITION_2F); // 载具旋转
             if (wrapper.read(Types.BOOLEAN)) {
-                wrapper.read(BedrockTypes.FLOAT_LE); // vehicle angular velocity
+                wrapper.read(BedrockTypes.FLOAT_LE); // 载具角速度
             }
             switch (rewindType) {
                 case Player -> {
                     final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-                    final boolean onGround = wrapper.read(Types.BOOLEAN); // on ground
-                    final long tick = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+                    final boolean onGround = wrapper.read(Types.BOOLEAN); // 是否在地面
+                    final long tick = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
                     if (tick > clientPlayer.age() || tick < clientPlayer.age() - gameSession.getMovementRewindHistorySize()) {
                         wrapper.cancel();
                         return;
@@ -420,7 +416,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
+                    wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // 游戏类型
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
                 handler(CLIENT_PLAYER_GAME_MODE_UPDATE);
@@ -431,7 +427,7 @@ public class ClientPlayerPackets {
             protected void register() {
                 handler(wrapper -> {
                     wrapper.cancel();
-                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // game type
+                    wrapper.user().get(GameSessionStorage.class).setLevelGameType(GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT))); // 游戏类型
                     wrapper.user().get(EntityTracker.class).getClientPlayer().updateJavaGameMode();
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
@@ -443,9 +439,9 @@ public class ClientPlayerPackets {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             final PlayerListStorage playerList = wrapper.user().get(PlayerListStorage.class);
 
-            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // game type
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // 游戏类型
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
 
             final Pair<UUID, String> playerListEntry = playerList.getPlayer(entityUniqueId);
             if (playerListEntry == null) {
@@ -453,8 +449,8 @@ public class ClientPlayerPackets {
                 return;
             }
 
-            wrapper.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // actions
-            wrapper.write(Types.VAR_INT, 1); // length
+            wrapper.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_GAME_MODE)); // 动作
+            wrapper.write(Types.VAR_INT, 1); // 长度
             wrapper.write(Types.UUID, playerListEntry.key()); // uuid
             final boolean clientPlayerUpdate = playerListEntry.key().equals(clientPlayer.javaUuid());
             GameMode javaGameMode = GameTypeRewriter.getEffectiveGameMode(
@@ -474,33 +470,33 @@ public class ClientPlayerPackets {
                 spectatorMenu.refreshProfile(playerListEntry.key());
                 return;
             }
-            wrapper.write(Types.VAR_INT, javaGameMode.ordinal()); // game mode
+            wrapper.write(Types.VAR_INT, javaGameMode.ordinal()); // 游戏模式
         });
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_ADVENTURE_SETTINGS, null, wrapper -> {
             wrapper.cancel();
-            wrapper.read(Types.BOOLEAN); // no player vs mobs
-            wrapper.read(Types.BOOLEAN); // no mobs vs player
-            wrapper.user().get(GameSessionStorage.class).setImmutableWorld(wrapper.read(Types.BOOLEAN)); // immutable world
-            wrapper.read(Types.BOOLEAN); // show name tags
-            wrapper.read(Types.BOOLEAN); // auto jump
+            wrapper.read(Types.BOOLEAN); // 玩家不伤害生物
+            wrapper.read(Types.BOOLEAN); // 生物不伤害玩家
+            wrapper.user().get(GameSessionStorage.class).setImmutableWorld(wrapper.read(Types.BOOLEAN)); // 世界不可变
+            wrapper.read(Types.BOOLEAN); // 显示名称标签
+            wrapper.read(Types.BOOLEAN); // 自动跳跃
         });
         protocol.registerClientbound(ClientboundBedrockPackets.OPEN_SIGN, ClientboundPackets26_1.OPEN_SIGN_EDITOR, wrapper -> {
-            // MOT OpenSignPacket.encode() is getBlockVector3() + boolean. The mapped
-            // Java OPEN_SIGN_EDITOR has no trailer; leftover Bedrock bytes kick 1.21.11.
-            wrapper.write(Types.BLOCK_POSITION1_14, wrapper.read(BedrockTypes.BLOCK_POSITION)); // position
-            wrapper.write(Types.BOOLEAN, wrapper.read(Types.BOOLEAN)); // front
+            // MOT 的 OpenSignPacket.encode() 是 getBlockVector3() + boolean。映射后的
+            // Java OPEN_SIGN_EDITOR 没有尾部字段；残留的基岩字节会让 1.21.11 踢出玩家。
+            wrapper.write(Types.BLOCK_POSITION1_14, wrapper.read(BedrockTypes.BLOCK_POSITION)); // 位置
+            wrapper.write(Types.BOOLEAN, wrapper.read(Types.BOOLEAN)); // 正面
             PacketLeftoverLayout.discardUnreadInput(wrapper);
         });
 
         protocol.registerServerbound(ServerboundPackets26_1.CLIENT_COMMAND, ServerboundBedrockPackets.RESPAWN, wrapper -> {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final ClientCommandAction action = ClientCommandAction.values()[wrapper.read(Types.VAR_INT)]; // action
+            final ClientCommandAction action = ClientCommandAction.values()[wrapper.read(Types.VAR_INT)]; // 动作
 
             switch (action) {
                 case PERFORM_RESPAWN -> {
-                    wrapper.write(BedrockTypes.POSITION_3F, Position3f.ZERO); // position
-                    wrapper.write(Types.BYTE, (byte) PlayerRespawnState.ClientReadyToSpawn.getValue()); // state
-                    wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // entity runtime id
+                    wrapper.write(BedrockTypes.POSITION_3F, Position3f.ZERO); // 位置
+                    wrapper.write(Types.BYTE, (byte) PlayerRespawnState.ClientReadyToSpawn.getValue()); // 状态
+                    wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
                 }
                 case REQUEST_STATS, REQUEST_GAMERULE_VALUES -> wrapper.cancel();
                 default -> throw new IllegalStateException("Unhandled ClientCommandAction: " + action);
@@ -514,12 +510,12 @@ public class ClientPlayerPackets {
         protocol.registerServerbound(ServerboundPackets26_1.PLAYER_COMMAND, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            wrapper.read(Types.VAR_INT); // entity id
-            final PlayerCommandAction action = PlayerCommandAction.values()[wrapper.read(Types.VAR_INT)]; // action
-            final int data = wrapper.read(Types.VAR_INT); // data
+            wrapper.read(Types.VAR_INT); // 实体 ID
+            final PlayerCommandAction action = PlayerCommandAction.values()[wrapper.read(Types.VAR_INT)]; // 动作
+            final int data = wrapper.read(Types.VAR_INT); // 数据
             if (action == PlayerCommandAction.STOP_SLEEPING) {
-                // Java leave-bed is PLAYER_COMMAND. MOT 860 stopSleep() is PlayerAction 6.
-                // Ref: MOT Player.java case 6 / PlayerActionPacket.ACTION_STOP_SLEEPING.
+                // Java 的离床是 PLAYER_COMMAND。MOT 860 的 stopSleep() 是 PlayerAction 6。
+                // 参考：MOT Player.java case 6 / PlayerActionPacket.ACTION_STOP_SLEEPING。
                 clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.StopSleeping);
                 return;
             }
@@ -529,8 +525,8 @@ public class ClientPlayerPackets {
             }
 
             if (action == PlayerCommandAction.START_SPRINTING) {
-                // Nukkit START_SPRINTING calls setUsingItem(false). Keep eating from being cancelled
-                // by a Java sprint that started after the use animation began.
+                // Nukkit 的 START_SPRINTING 会调用 setUsingItem(false)。避免进食被
+                // 在使用动画开始之后才发起的 Java 疾跑取消。
                 if (ItemUseSemantics.suppressStartSprintingWhileUsingItem(ViaBedrock.getConfig().shouldEmulateNetEaseClient(), clientPlayer.isUsingItem())) {
                     return;
                 }
@@ -538,9 +534,9 @@ public class ClientPlayerPackets {
             } else if (action == PlayerCommandAction.STOP_SPRINTING) {
                 clientPlayer.setSprinting(false);
             } else if (action == PlayerCommandAction.START_FALL_FLYING) {
-                // Do not emit StartGliding on this packet. Java often still reports
-                // onGround; GanAC ElytraF would suppress it. Emit on the first
-                // airborne AuthInput instead (applyJavaGlideStart).
+                // 不要在这个包上发出 StartGliding。Java 常常仍报告
+                // onGround；GanAC 的 ElytraF 会把它抑制掉。改为在第一个
+                // 离地的 AuthInput 上发出（applyJavaGlideStart）。
                 clientPlayer.requestStartGliding();
                 return;
             }
@@ -551,10 +547,10 @@ public class ClientPlayerPackets {
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
-            final PlayerActionAction action = PlayerActionAction.values()[wrapper.read(Types.VAR_INT)]; // action
-            final BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // block position
-            final Direction direction = Direction.values()[wrapper.read(Types.UNSIGNED_BYTE)]; // face
-            final int sequence = wrapper.read(Types.VAR_INT); // sequence number
+            final PlayerActionAction action = PlayerActionAction.values()[wrapper.read(Types.VAR_INT)]; // 动作
+            final BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // 方块位置
+            final Direction direction = Direction.values()[wrapper.read(Types.UNSIGNED_BYTE)]; // 面
+            final int sequence = wrapper.read(Types.VAR_INT); // 序列号
 
             if (isSelectedHandPlayerAction(action)
                     && !clientPlayer.canProcessHandSensitiveAction(InteractionHand.MAIN_HAND, false)) {
@@ -567,7 +563,7 @@ public class ClientPlayerPackets {
 
             final boolean isMining = action == PlayerActionAction.START_DESTROY_BLOCK || action == PlayerActionAction.ABORT_DESTROY_BLOCK || action == PlayerActionAction.STOP_DESTROY_BLOCK;
             if (isMining && (gameSession.isImmutableWorld() || !clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Mine))) {
-                // TODO: Prevent breaking and cancel any packets that would be sent (swing, player action)
+                // TODO: 阻止破坏方块，并取消所有会被发送的包（挥手、玩家动作）
                 final int rawBlockState = chunkTracker.getJavaBlockState(position);
                 final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
                 final int fixedBlockState = BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, rawBlockState).getOrDefault(position, rawBlockState);
@@ -576,21 +572,21 @@ public class ClientPlayerPackets {
                 return;
             }
 
-            // TODO: Block breaking: Send correct inventory transactions
+            // TODO: 破坏方块：发送正确的物品栏事务
 
             switch (action) {
                 case START_DESTROY_BLOCK -> {
                     clientPlayer.sendSwingPacketToServer();
                     clientPlayer.cancelNextSwingPacket();
-                    // Creative and hardness-0 blocks: Java only sends START_DESTROY_BLOCK.
-                    // TODO: Test breaking fire
-                    // TODO: The java client keeps spamming swing packets while waiting for the block break cooldown. Those need to be cancelled
+                    // 创造模式和硬度为 0 的方块：Java 只发送 START_DESTROY_BLOCK。
+                    // TODO: 测试破坏火
+                    // TODO: Java 客户端在等待方块破坏冷却期间会不断发送挥手包。这些需要被取消
 
                     clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StartDestroyBlock, position, direction.ordinal()));
                     if (isInstantBreak(wrapper.user(), chunkTracker, position)) {
-                        // Instant-break cases (creative, 0 destroy time, shears on leaves): Java only
-                        // sends START_DESTROY_BLOCK and never a STOP. MOT SAI ignores CreativeDestroyBlock(13)
-                        // and only breaks on PredictDestroyBlock, so finish in this same tick.
+                        // 瞬破情形（创造模式、破坏时间为 0、剪刀剪树叶）：Java 只
+                        // 发送 START_DESTROY_BLOCK，从不发送 STOP。MOT SAI 忽略 CreativeDestroyBlock(13)，
+                        // 只在 PredictDestroyBlock 时才破坏，因此要在同一刻完成。
                         clientPlayer.clearDelayedMotBreak();
                         finishBlockBreak(wrapper.user(), gameSession, clientPlayer, chunkTracker, position, direction);
                     } else {
@@ -611,13 +607,13 @@ public class ClientPlayerPackets {
                     finishBlockBreak(wrapper.user(), gameSession, clientPlayer, chunkTracker, position, direction);
                 }
                 case DROP_ALL_ITEMS, DROP_ITEM -> {
-                    // ExperimentalFeatures prepend owns this when experimental inventory is on.
-                    // Keep a resync fallback for the official non-experimental path.
+                    // 实验性物品栏开启时，由 ExperimentalFeatures 的前置处理负责此项。
+                    // 为官方非实验性路径保留重新同步的回退。
                     PacketFactory.sendJavaContainerSetContent(wrapper.user(), wrapper.user().get(InventoryTracker.class).getInventoryContainer());
                 }
                 case RELEASE_USE_ITEM -> {
-                    // ExperimentalFeatures owns the Bedrock finish/cancel translation. Resyncing
-                    // here would overwrite Nukkit's just-consumed stack with the pre-eat snapshot.
+                    // 基岩的完成/取消转换由 ExperimentalFeatures 负责。在此重新同步
+                    // 会用进食前的快照覆盖 Nukkit 刚消耗的堆叠。
                 }
                 case SWAP_ITEM_WITH_OFFHAND -> {
                     if (!ExperimentalFeatures.tryHandleSwapHands(wrapper.user())) {
@@ -625,10 +621,10 @@ public class ClientPlayerPackets {
                     }
                 }
                 case STAB -> {
-                    // Java riptide is PLAYER_ACTION.STAB. MOT 860 only starts spin from
-                    // AuthInput START_SPIN_ATTACK (protocol >= 748). Wire bit 58 still fits
-                    // the NetEase 860 64-bit mask (ordinal 56 + 2 extra flags).
-                    // Ref: MOT Player.java AuthInputAction.START_SPIN_ATTACK -> onSpinAttack.
+                    // Java 的激流是 PLAYER_ACTION.STAB。MOT 860 只会从
+                    // AuthInput 的 START_SPIN_ATTACK（协议 >= 748）开始旋转攻击。线格式的 bit 58 仍落在
+                    // 网易 860 的 64 位掩码内（序号 56 加 2 个额外标志）。
+                    // 参考：MOT Player.java AuthInputAction.START_SPIN_ATTACK -> onSpinAttack。
                     clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.StartSpinAttack);
                     if (ItemUseSemantics.sendStandaloneSpinAttackPlayerAction(ViaBedrock.getConfig().shouldEmulateNetEaseClient())) {
                         clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.StartSpinAttack);
@@ -646,7 +642,7 @@ public class ClientPlayerPackets {
         protocol.registerServerbound(ServerboundPackets26_1.ATTACK, ServerboundBedrockPackets.INVENTORY_TRANSACTION, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
-            final int entityId = wrapper.read(Types.VAR_INT); // entity id
+            final int entityId = wrapper.read(Types.VAR_INT); // 实体 ID
             final Entity entity = entityTracker.getEntityByJid(entityId);
             if (entity == null) {
                 if (!clientPlayer.canProcessHandSensitiveAction(InteractionHand.MAIN_HAND, false)) {
@@ -665,8 +661,8 @@ public class ClientPlayerPackets {
             if (!clientPlayer.canProcessHandSensitiveAction(InteractionHand.MAIN_HAND, false)) {
                 EntityInteractionPacketSender.enqueueDeferred(clientPlayer, entity,
                         ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue(), clickPosition, true);
-                // The Java client emits a separate SWING after ATTACK. Suppress it while the
-                // promoted layout is active; the deferred sender emits one after confirmation.
+                // Java 客户端在 ATTACK 之后还会另外发出一次 SWING。提升布局生效期间
+                // 抑制它；延迟发送器会在确认之后补发一次。
                 clientPlayer.cancelNextSwingPacket();
                 wrapper.cancel();
                 return;
@@ -684,8 +680,8 @@ public class ClientPlayerPackets {
         });
         protocol.registerServerbound(ServerboundPackets26_1.INTERACT, ServerboundBedrockPackets.INVENTORY_TRANSACTION, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
-            final int entityId = wrapper.read(Types.VAR_INT); // entity id
-            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // hand
+            final int entityId = wrapper.read(Types.VAR_INT); // 实体 ID
+            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // 手
             final Entity entity = entityTracker.getEntityByJid(entityId);
             if (entity == null) {
                 final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
@@ -694,8 +690,8 @@ public class ClientPlayerPackets {
                     wrapper.cancel();
                     return;
                 }
-                // Item frames and custom-block overlays are fake Java entities over real Bedrock blocks.
-                // Translate the right-click into the block interaction the server expects.
+                // 物品展示框和自定义方块叠加层是覆盖在真实基岩方块上的假 Java 实体。
+                // 把右键转换成服务端期望的方块交互。
                 if (!ExperimentalFeatures.tryHandleItemFrameInteract(wrapper.user(), entityId, hand)) {
                     ExperimentalFeatures.tryHandleCustomBlockOverlayInteract(wrapper.user(), entityId, hand);
                 }
@@ -708,10 +704,10 @@ public class ClientPlayerPackets {
             }
 
             final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
-            final Vector3d location = wrapper.read(Types.LOW_PRECISION_VECTOR); // location
+            final Vector3d location = wrapper.read(Types.LOW_PRECISION_VECTOR); // 位置
             final Position3f clickPosition = entity.position().add(
                     (float) location.x(), (float) location.y(), (float) location.z());
-            wrapper.read(Types.BOOLEAN); // using secondary action
+            wrapper.read(Types.BOOLEAN); // 使用次要操作
 
             if (!clientPlayer.canProcessHandSensitiveAction(hand, false)) {
                 if (hand == InteractionHand.MAIN_HAND) {
@@ -725,8 +721,8 @@ public class ClientPlayerPackets {
                 EntityInteractionPacketSender.flushDeferred(wrapper.user(), clientPlayer);
             }
 
-            // MOT transaction type 3 equips hotbarSlot, compares itemInHand with
-            // getItemInHand(), and passes that main-hand stack to Entity.onInteract.
+            // MOT 的事务类型 3 会装备 hotbarSlot，把 itemInHand 与
+            // getItemInHand() 做比较，并把该主手堆叠传给 Entity.onInteract。
             final ItemUseHandContext handContext = ExperimentalFeatures.motContextForEntityInteraction(
                     wrapper.user(), clientPlayer, hand);
             if (handContext == null) {
@@ -737,7 +733,7 @@ public class ClientPlayerPackets {
                 return;
             }
 
-            // TODO: Bedrock client sends INTERACT packet when hovered entity changes. Might be used by anticheats
+            // TODO: 基岩客户端在悬停实体变化时发送 INTERACT 包。可能被反作弊使用
             EntityInteractionPacketSender.write(wrapper, entity.runtimeId(),
                     ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
                     handContext.entityTransactionHotbarSlot(wrapper.user().get(InventoryTracker.class)
@@ -745,7 +741,7 @@ public class ClientPlayerPackets {
                     handContext.item(), clientPlayer.position(), clickPosition);
 
             if (hand == InteractionHand.OFF_HAND && clientPlayer.isOffhandPromoted()) {
-                // Preserve wire order: promote swap, type-3 interaction, restore swap.
+                // 保持线格式顺序：提升交换、类型 3 交互、恢复交换。
                 wrapper.sendToServer(BedrockProtocol.class);
                 wrapper.cancel();
                 ExperimentalFeatures.restorePromotedOffhand(wrapper.user(), clientPlayer);
@@ -779,12 +775,12 @@ public class ClientPlayerPackets {
         protocol.registerServerbound(ServerboundPackets26_1.ACCEPT_TELEPORTATION, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            clientPlayer.confirmTeleport(wrapper.read(Types.VAR_INT)); // teleport id
+            clientPlayer.confirmTeleport(wrapper.read(Types.VAR_INT)); // 传送 ID
         });
         protocol.registerServerbound(ServerboundPackets26_1.PLAYER_INPUT, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final Set<InputFlag> inputFlags = EnumUtil.getEnumSetFromBitmask(InputFlag.class, wrapper.read(Types.BYTE), InputFlag::ordinal); // input flags
+            final Set<InputFlag> inputFlags = EnumUtil.getEnumSetFromBitmask(InputFlag.class, wrapper.read(Types.BYTE), InputFlag::ordinal); // 输入标志
             final SpectatorCameraTracker spectatorCamera = wrapper.user().get(SpectatorCameraTracker.class);
             if (spectatorCamera.handleShiftInput(inputFlags.contains(InputFlag.SHIFT))) {
                 inputFlags.remove(InputFlag.SHIFT);
@@ -801,10 +797,10 @@ public class ClientPlayerPackets {
             clientPlayer.deferredEntityActions().discardExpired(clientPlayer.age());
             final boolean immobile = clientPlayer.isInputMovementLocked() || clientPlayer.hasEntityFlag(ActorFlags.NOAI);
 
-            // MOT PlayerJumpEvent is START_JUMPING only. Emitting it every grounded
-            // tick while JUMP is held makes GanAC AirJump see a second jump after MOT
-            // is already airborne. One pulse per press or landing is enough.
-            // Ref: MOT Player.java START_JUMPING; GanAC AirJumpCheck.
+            // MOT 的 PlayerJumpEvent 只有 START_JUMPING。在按住 JUMP 的每个着地刻
+            // 都发出它，会让 GanAC 的 AirJump 在 MOT 已经离地之后又看到一次跳跃。
+            // 每次按下或每次落地发一次脉冲就足够了。
+            // 参考：MOT Player.java START_JUMPING；GanAC AirJumpCheck。
             if (shouldEmitStartJumping(
                     prevOnGround,
                     clientPlayer.isOnGround(),
@@ -857,8 +853,8 @@ public class ClientPlayerPackets {
             if (clientPlayer.inputFlags().contains(InputFlag.SHIFT)
                     || (clientPlayer.isUsingItem() && clientPlayer.isShieldSneakEmulated())) {
                 clientPlayer.addAuthInputData(PlayerAuthInputPacket_InputData.SneakDown, PlayerAuthInputPacket_InputData.Sneaking, PlayerAuthInputPacket_InputData.WantDown, PlayerAuthInputPacket_InputData.SneakCurrentRaw);
-                // MOT unused PersistSneak: NukkitMOTJE ShieldSneakListener restores
-                // standing AABB for Java shield-as-sneak without shrinking to 1.49.
+                // MOT 中未使用的 PersistSneak：NukkitMOTJE 的 ShieldSneakListener
+                // 会为 Java 的举盾即潜行恢复站立 AABB，而不缩到 1.49。
                 if (ItemUseSemantics.persistSneakWhileShieldBlocking(
                         ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
                         clientPlayer.isShieldSneakEmulated() && !clientPlayer.inputFlags().contains(InputFlag.SHIFT))) {
@@ -905,7 +901,7 @@ public class ClientPlayerPackets {
                 } else {
                     dy -= neteaseAuthInputGravity(wrapper.user());
                 }
-                // Slow falling does not change the velocity when standing still
+                // 缓慢下落不会改变静止站立时的速度
 
                 velocity = new Position3f(dx * 0.91F, dy * 0.98F, dz * 0.91F);
             }
@@ -921,32 +917,32 @@ public class ClientPlayerPackets {
                 authInputContext.setDelta(Position3f.ZERO);
             }
 
-            // MOT EnumMap iterates START then ABORT. Coalesce before the bitmask so
-            // an emptied action list can drop PerformBlockActions on the wire.
+            // MOT 的 EnumMap 先迭代 START 再迭代 ABORT。在生成位掩码之前先合并，
+            // 这样动作列表被清空时可以在线格式上去掉 PerformBlockActions。
             final List<ClientPlayerEntity.AuthInputBlockAction> blockActions =
                     coalesceAuthInputBlockActions(clientPlayer.authInputBlockActions());
             if (blockActions.isEmpty()) {
                 clientPlayer.authInputData().remove(PlayerAuthInputPacket_InputData.PerformBlockActions);
             }
 
-            // wrapDegrees(180)==-180. Write the wrapped heading so GanAC BadPacketB
-            // and MOT AuthInput stay in (-180, 180]. Java yRot can be +180.
-            // Ref: MOT PlayerAuthInputPacket.decode() LFloat yaw; GanAC MathUtil.wrapDegrees.
-            wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // pitch
-            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // yaw
-            wrapper.write(BedrockTypes.POSITION_3F, authInputContext.position()); // position
-            wrapper.write(BedrockTypes.POSITION_2F, immobile ? new Position2f(0F, 0F) : MathUtil.calculateMovementDirections(clientPlayer.authInputData(), clientPlayer.isSneaking())); // move vector
-            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().z())); // head yaw
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // input flags
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, InputMode.Mouse.getValue()); // input mode
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, ClientPlayMode.Screen.getValue()); // play mode
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // interaction mode
-            wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // interact pitch
-            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // interact yaw
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, (long) clientPlayer.age()); // tick
-            wrapper.write(BedrockTypes.POSITION_3F, authInputContext.delta()); // delta
+            // wrapDegrees(180)==-180。写入经 wrap 处理的朝向，使 GanAC 的 BadPacketB
+            // 和 MOT 的 AuthInput 都保持在 (-180, 180] 内。Java 的 yRot 可能是 +180。
+            // 参考：MOT PlayerAuthInputPacket.decode() LFloat yaw；GanAC MathUtil.wrapDegrees。
+            wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // 俯仰角
+            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // 偏航角
+            wrapper.write(BedrockTypes.POSITION_3F, authInputContext.position()); // 位置
+            wrapper.write(BedrockTypes.POSITION_2F, immobile ? new Position2f(0F, 0F) : MathUtil.calculateMovementDirections(clientPlayer.authInputData(), clientPlayer.isSneaking())); // 移动向量
+            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().z())); // 头部偏航角
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // 输入标志
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, InputMode.Mouse.getValue()); // 输入模式
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, ClientPlayMode.Screen.getValue()); // 游玩模式
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式
+            wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // 交互俯仰角
+            wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // 交互偏航角
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, (long) clientPlayer.age()); // 刻
+            wrapper.write(BedrockTypes.POSITION_3F, authInputContext.delta()); // 增量
             if (PlayerAuthInputLayout.usesCameraDeparted()) {
-                wrapper.write(Types.BOOLEAN, false); // camera departed (NetEase >= 422)
+                wrapper.write(Types.BOOLEAN, false); // 相机已离开（网易 >= 422）
             }
             if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformItemInteraction)) {
                 final BedrockInventoryTransaction itemInteraction = clientPlayer.authInputItemInteraction();
@@ -955,22 +951,22 @@ public class ClientPlayerPackets {
                 }
             }
             if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformBlockActions)) {
-                wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // player block actions count
+                wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // 玩家方块动作数量
                 for (ClientPlayerEntity.AuthInputBlockAction blockAction : blockActions) {
-                    wrapper.write(BedrockTypes.VAR_INT, blockAction.action().getValue()); // action
+                    wrapper.write(BedrockTypes.VAR_INT, blockAction.action().getValue()); // 动作
                     switch (blockAction.action()) {
-                        // StopDestroyBlock does not have additional data even tho bedrock protocol docs claim it does
+                        // StopDestroyBlock 没有附加数据，尽管基岩协议文档声称它有
                         case StartDestroyBlock, AbortDestroyBlock, CrackBlock, PredictDestroyBlock, ContinueDestroyBlock -> {
-                            wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // signed position
-                            wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // facing
+                            wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // 有符号位置
+                            wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // 朝向
                         }
                     }
                 }
             }
             if (authInputContext.hasPredictedVehicle()) {
-                wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehiclePitch()); // vehicle pitch
-                wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehicleYaw()); // vehicle yaw
-                wrapper.write(BedrockTypes.VAR_LONG, authInputContext.predictedVehicleUniqueId()); // predicted vehicle entity unique id
+                wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehiclePitch()); // 载具俯仰角
+                wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehicleYaw()); // 载具偏航角
+                wrapper.write(BedrockTypes.VAR_LONG, authInputContext.predictedVehicleUniqueId()); // 预测载具实体唯一 ID
             }
             final Position2f analogMoveVector = immobile
                     ? new Position2f(0F, 0F)
@@ -978,9 +974,9 @@ public class ClientPlayerPackets {
             final Position2f rawMoveVector = immobile
                     ? new Position2f(0F, 0F)
                     : MathUtil.calculateMovementDirections(clientPlayer.authInputData(), false);
-            wrapper.write(BedrockTypes.POSITION_2F, analogMoveVector); // analog move vector
-            wrapper.write(BedrockTypes.POSITION_3F, MathUtil.calculateCameraOrientation(clientPlayer.rotation().y(), clientPlayer.rotation().x())); // camera orientation
-            wrapper.write(BedrockTypes.POSITION_2F, rawMoveVector); // raw move vector
+            wrapper.write(BedrockTypes.POSITION_2F, analogMoveVector); // 模拟移动向量
+            wrapper.write(BedrockTypes.POSITION_3F, MathUtil.calculateCameraOrientation(clientPlayer.rotation().y(), clientPlayer.rotation().x())); // 相机朝向
+            wrapper.write(BedrockTypes.POSITION_2F, rawMoveVector); // 原始移动向量
 
             // 当前 AuthInput 的所有字段已构建完成，且已越过未出生/死亡的取消分支。
             // 在这里立即推进 tick-end 序号并释放就绪 ACK，不等待额外 movement 或其他包。
@@ -1004,7 +1000,7 @@ public class ClientPlayerPackets {
         protocol.registerServerbound(ServerboundPackets26_1.PLAYER_ABILITIES, null, wrapper -> {
             wrapper.cancel();
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final byte flags = wrapper.read(Types.BYTE); // flags
+            final byte flags = wrapper.read(Types.BYTE); // 标志
             final boolean flying = (flags & AbilitiesFlag.FLYING.getBit()) != 0;
             if (flying != clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Flying)) {
                 clientPlayer.abilities().getOrCreateCacheLayer().setAbility(AbilitiesIndex.Flying, flying);
@@ -1019,7 +1015,7 @@ public class ClientPlayerPackets {
                         wrapper.cancel();
                         return;
                     }
-                    final GameMode gameMode = GameMode.values()[wrapper.read(Types.VAR_INT)]; // game mode
+                    final GameMode gameMode = GameMode.values()[wrapper.read(Types.VAR_INT)]; // 游戏模式
                     final GameType gameType = switch (gameMode) {
                         case SURVIVAL -> GameType.Survival;
                         case CREATIVE -> GameType.Creative;
@@ -1027,7 +1023,7 @@ public class ClientPlayerPackets {
                         case SPECTATOR -> GameType.Spectator;
                         default -> throw new IllegalStateException("Unhandled GameMode: " + gameMode);
                     };
-                    wrapper.write(BedrockTypes.VAR_INT, gameType.getValue()); // game type
+                    wrapper.write(BedrockTypes.VAR_INT, gameType.getValue()); // 游戏类型
                     wrapper.user().get(EntityTracker.class).getClientPlayer().setGameType(gameType);
                 });
                 handler(CLIENT_PLAYER_GAME_MODE_INFO_UPDATE);
@@ -1037,7 +1033,7 @@ public class ClientPlayerPackets {
         protocol.registerServerbound(ServerboundPackets26_1.SWING, ServerboundBedrockPackets.ANIMATE, wrapper -> {
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // hand
+            final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)]; // 手
             final boolean cancelSwing = clientPlayer.checkCancelSwingPacket();
             if (hand != InteractionHand.MAIN_HAND || cancelSwing || clientPlayer.isOffhandPromoted()) {
                 wrapper.cancel();
@@ -1047,10 +1043,10 @@ public class ClientPlayerPackets {
                 return;
             }
 
-            EntityPacketLayout.writeAnimateAction(wrapper, AnimatePacketPayload_Action.Swing.getValue()); // action
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // entity runtime id
-            wrapper.write(BedrockTypes.FLOAT_LE, 0F); // data
-            EntityPacketLayout.writeAnimateTrailer(wrapper, ActorSwingSource.Attack.name().toLowerCase(Locale.ROOT)); // swing source (897+)
+            EntityPacketLayout.writeAnimateAction(wrapper, AnimatePacketPayload_Action.Swing.getValue()); // 动作
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
+            wrapper.write(BedrockTypes.FLOAT_LE, 0F); // 数据
+            EntityPacketLayout.writeAnimateTrailer(wrapper, ActorSwingSource.Attack.name().toLowerCase(Locale.ROOT)); // 挥手来源（897+）
 
             if (clientPlayer.blockBreakingInfo() != null) {
                 if (!gameSession.isBlockBreakingServerAuthoritative()) {
@@ -1068,10 +1064,10 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * AuthInput flags and block actions are queued across Java packets in the same tick
-     * and only cleared after a successful PLAYER_AUTH_INPUT write. Cancelling
-     * CLIENT_TICK_END (not spawned / dead) must still drop those leftovers or the next
-     * live AuthInput would replay START_JUMPING / PERFORM_BLOCK_ACTIONS.
+     * AuthInput 标志和方块动作会在同一刻内跨多个 Java 包排队，
+     * 只有在 PLAYER_AUTH_INPUT 成功写入之后才清除。取消
+     * CLIENT_TICK_END（未生成 / 已死亡）时仍必须丢弃这些残留，否则下一次
+     * 有效的 AuthInput 会重放 START_JUMPING / PERFORM_BLOCK_ACTIONS。
      */
     static void discardPendingAuthInput(final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null) {
@@ -1083,14 +1079,14 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT 860 stores AuthInput block actions in {@code EnumMap<PlayerActionType,>} and
-     * iterates declaration order ({@code START, ABORT, STOP, ..., PREDICT, CONTINUE}).
-     * A same-tick Java retarget of Abort(old)+Start(new) therefore runs START then ABORT
-     * and cancels the new break. Native Bedrock does not put Abort+Start in one AuthInput;
-     * MOT already aborts the previous target when the next action's position differs.
-     * Same-tick Start+Continue+Predict is kept: MOT EnumMap order is START then
-     * PREDICT then CONTINUE, which starts then finishes the same block.
-     * Ref: MOT Player.java SAI loop; PlayerAuthInputPacket.decodeBlockActions.
+     * MOT 860 把 AuthInput 方块动作存放在 {@code EnumMap<PlayerActionType,>} 中，
+     * 并按声明顺序迭代（{@code START, ABORT, STOP, ..., PREDICT, CONTINUE}）。
+     * 因此同一刻内 Java 对 Abort(old)+Start(new) 的重定向会先执行 START 再执行 ABORT，
+     * 从而取消新的破坏。原生基岩不会把 Abort+Start 放进同一个 AuthInput；
+     * 当下一个动作的位置不同时，MOT 已经会中止上一个目标。
+     * 同一刻的 Start+Continue+Predict 予以保留：MOT 的 EnumMap 顺序是 START、
+     * PREDICT、CONTINUE，即开始然后完成同一个方块。
+     * 参考：MOT Player.java 的 SAI 循环；PlayerAuthInputPacket.decodeBlockActions。
      */
     static List<ClientPlayerEntity.AuthInputBlockAction> coalesceAuthInputBlockActions(
             final List<ClientPlayerEntity.AuthInputBlockAction> queued) {
@@ -1131,8 +1127,8 @@ public class ClientPlayerPackets {
         if (gravity == null) {
             return ProtocolConstants.PLAYER_GRAVITY;
         }
-        // MOT writes SET_LEVEL_GRAVITY as a signed acceleration (join reset = -0.08).
-        // PLAYER_AUTH_INPUT already subtracts a positive gravity constant, so take abs.
+        // MOT 把 SET_LEVEL_GRAVITY 写成带符号的加速度（进入时重置为 -0.08）。
+        // PLAYER_AUTH_INPUT 已经减去了一个正的重力常量，因此取绝对值。
         return Math.abs(gravity);
     }
 
@@ -1146,10 +1142,10 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT fires {@code PlayerJumpEvent} on {@code START_JUMPING}. Vanilla Bedrock pulses
-     * that bit on the first airborne tick of a jump, not every grounded tick JUMP is held.
-     * Java can keep JUMP down across landings, so emit on a new press while grounded or
-     * on the first grounded tick after a landing with JUMP still held.
+     * MOT 在 {@code START_JUMPING} 时触发 {@code PlayerJumpEvent}。原版基岩只在跳跃的
+     * 第一个离地刻发出该位，而不是在按住 JUMP 的每个着地刻。
+     * Java 可能在多次落地之间一直按住 JUMP，因此在着地时新按下，或
+     * 在落地后的第一个着地刻且 JUMP 仍按住时发出。
      */
     static boolean shouldEmitStartJumping(final boolean prevOnGround, final boolean onGround,
                                           final boolean jumpHeld, final boolean prevJumpHeld) {
@@ -1157,9 +1153,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Riding JUMP is Java START_RIDING_JUMP, not a player jump. MOT 860 never
-     * applies horse jump from START_JUMPING, and GanAC AirJump scores that bit
-     * while the passenger is airborne.
+     * 骑乘时的 JUMP 是 Java 的 START_RIDING_JUMP，不是玩家跳跃。MOT 860 从不
+     * 根据 START_JUMPING 应用马跳跃，而 GanAC 的 AirJump 会在乘客离地时
+     * 对该位计分。
      */
     static boolean shouldEmitStartJumping(final boolean prevOnGround, final boolean onGround,
                                           final boolean jumpHeld, final boolean prevJumpHeld,
@@ -1171,9 +1167,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT abort particles use BlockFace.fromIndex(facing). Prefer the face from this
-     * abort packet, then the cached START/CONTINUE face, then DOWN (MOT itself uses
-     * DOWN when aborting because the target block changed).
+     * MOT 的中止粒子使用 BlockFace.fromIndex(facing)。优先取这个
+     * 中止包中的面，其次取缓存的 START/CONTINUE 面，最后取 DOWN（MOT 自身在
+     * 因目标方块变化而中止时用的就是 DOWN）。
      */
     static int abortDestroyFacing(final Direction packetDirection, final ClientPlayerEntity.BlockBreakingInfo breakingInfo) {
         if (packetDirection != null) {
@@ -1186,11 +1182,11 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Java never emits Bedrock {@code START/STOP_SWIMMING} or {@code STOP_GLIDING}. MOT 860 and
-     * GanAC only enter the swimming/gliding pose from those AuthInput flags, so translate the
-     * Java sprint-in-water and land/water/unequip/vehicle glide-stop edges here.
-     * Java jump-to-cancel is not synthesized: fireworks keep JUMP held while gliding.
-     * Ref: MOT Player.java START_GLIDING/STOP_GLIDING and onGround/chestplate clear.
+     * Java 从不发出基岩的 {@code START/STOP_SWIMMING} 或 {@code STOP_GLIDING}。MOT 860 和
+     * GanAC 只会根据这些 AuthInput 标志进入游泳/滑翔姿态，因此在这里转换
+     * Java 的水中疾跑以及落地/入水/卸下/上载具等滑翔停止边界。
+     * 不合成 Java 的跳跃取消：烟花推进期间 JUMP 会一直按住。
+     * 参考：MOT Player.java 的 START_GLIDING/STOP_GLIDING 以及 onGround/胸甲清除。
      */
     static void applyJavaPoseTransitions(final UserConnection user, final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null) {
@@ -1203,9 +1199,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT SAI STOP_SPIN_ATTACK is what clears DATA_FLAG_SPIN_ATTACK. riptideTicks
-     * only skips speed checks and never drops the flag. Pulse Stop after MOT
-     * duration {@code 50+(level<<5)}.
+     * MOT SAI 的 STOP_SPIN_ATTACK 才是清除 DATA_FLAG_SPIN_ATTACK 的动作。riptideTicks
+     * 只跳过速度检查，从不丢弃该标志。在 MOT 的时长 {@code 50+(level<<5)} 之后
+     * 发出一次 Stop 脉冲。
      */
     static void applyJavaRiptideStop(final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null || !clientPlayer.shouldStopRiptideSpin()) {
@@ -1219,9 +1215,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Java auto-crawls in a 1-block gap. MOT 860 only enters crawl from AuthInput
-     * START_CRAWLING. Infer when VBU never reports pose: sneak + onGround + a
-     * solid 1.5 blocks above the feet (standing AABB would collide).
+     * Java 会在 1 格高的空隙中自动爬行。MOT 860 只会根据 AuthInput 的
+     * START_CRAWLING 进入爬行。当 VBU 从不报告姿态时推断：潜行 + onGround + 脚上方
+     * 1.5 格处有实心方块（站立 AABB 会碰撞）。
      */
     static boolean inferJavaCrawling(final UserConnection user, final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null || !clientPlayer.isSneaking() || !clientPlayer.isOnGround()
@@ -1274,11 +1270,11 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT {@code START_SWIMMING} uses the feet block from <em>before</em> this AuthInput
-     * position is applied. The first in-water tick is cancelled with {@code needSendData}
-     * and never sets {@code ActorFlags.SWIMMING}. Java still predicts pose 3 locally.
-     * Do not latch {@link ClientPlayerEntity#isSwimming()} on the emit; retry Start
-     * until MOT metadata confirms, otherwise observers stay on {@code POSE=STANDING}.
+     * MOT 的 {@code START_SWIMMING} 使用的是应用本次 AuthInput
+     * 位置<em>之前</em>的脚部方块。水中的第一刻会被 {@code needSendData} 取消，
+     * 并且从不设置 {@code ActorFlags.SWIMMING}。Java 在本地仍预测姿态 3。
+     * 不要在发出时就锁定 {@link ClientPlayerEntity#isSwimming()}；重试 Start
+     * 直到 MOT 元数据确认，否则观察者会停留在 {@code POSE=STANDING}。
      */
     static void applyJavaSwimTransition(final UserConnection user, final ClientPlayerEntity clientPlayer) {
         final boolean wantSwim = wantsJavaSwim(user, clientPlayer);
@@ -1330,9 +1326,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * {@code motSwimming} is MOT {@link ActorFlags#SWIMMING}, not a local prediction.
-     * {@code wantSwim && !motSwimming} must keep returning Start so a cancelled first
-     * tick can be retried after MOT applies the in-water coordinates.
+     * {@code motSwimming} 是 MOT 的 {@link ActorFlags#SWIMMING}，不是本地预测。
+     * {@code wantSwim && !motSwimming} 必须继续返回 Start，以便在 MOT 应用
+     * 水中坐标之后重试被取消的第一刻。
      */
     static PlayerAuthInputPacket_InputData swimTransitionFlag(final boolean wantSwim, final boolean motSwimming) {
         if (wantSwim && !motSwimming) {
@@ -1345,8 +1341,8 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Mirror MOT confirmation only while Java still wants to swim. A Stop emit must
-     * drop the local latch even if SET_ACTOR_DATA has not cleared the flag yet.
+     * 只在 Java 仍想游泳时才镜像 MOT 的确认。即使 SET_ACTOR_DATA 尚未
+     * 清除该标志，发出 Stop 也必须丢弃本地锁定状态。
      */
     static boolean localSwimmingAfterTransition(final boolean wantSwim, final boolean motSwimming) {
         return wantSwim && motSwimming;
@@ -1357,8 +1353,8 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT auto-clears GLIDING on land, missing/broken chestplate, or vehicle. Java water
-     * also cancels fall-flying; jump-to-cancel is omitted so firework boosts stay gliding.
+     * MOT 会在落地、胸甲缺失/损坏或上载具时自动清除 GLIDING。Java 的入水
+     * 也会取消滑翔；这里省略跳跃取消，以便烟花推进期间保持滑翔。
      */
     static boolean shouldStopGliding(final boolean gliding, final boolean onGround,
                                      final boolean inWater, final boolean riding,
@@ -1410,12 +1406,12 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * MOT {@code Entity#isInsideOfWater()} checks the feet block on layer 0, then layer 1
-     * waterlogging. ClientPlayerEntity.position() is the eye, so subtract {@code eyeOffset()}.
-     * {@link ChunkTracker#getBlockState(int, BlockPosition)} returns air when the column is
-     * missing, which would invert a swim edge; keep the last in-water sample until the feet
-     * chunk is loaded. Do not reuse {@link ClientPlayerEntity#isSwimming()} for that sample:
-     * StartSwimming is retried before MOT sets {@link ActorFlags#SWIMMING}.
+     * MOT 的 {@code Entity#isInsideOfWater()} 先检查 0 层的脚部方块，再检查 1 层的
+     * 水浸。ClientPlayerEntity.position() 是眼睛位置，因此要减去 {@code eyeOffset()}。
+     * 当柱缺失时，{@link ChunkTracker#getBlockState(int, BlockPosition)} 返回空气，
+     * 这会颠倒游泳边界；在脚部区块加载之前保留最后一次水中采样。不要用
+     * {@link ClientPlayerEntity#isSwimming()} 来做这个采样：
+     * 在 MOT 设置 {@link ActorFlags#SWIMMING} 之前 StartSwimming 会被重试。
      */
     static boolean isInsideOfWater(final UserConnection user, final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null) {
@@ -1429,9 +1425,9 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Pending StartSwimming ticks have no MOT flag yet. Remember the last loaded
-     * feet sample, and treat confirmed {@link ActorFlags#SWIMMING} as still in water
-     * when the column is missing.
+     * 挂起的 StartSwimming 刻还没有 MOT 标志。记住最后一次已加载的
+     * 脚部采样，并在柱缺失时把已确认的 {@link ActorFlags#SWIMMING}
+     * 视为仍在水中。
      */
     static boolean lastInsideOfWaterSample(final boolean lastInside, final boolean motSwimming) {
         return lastInside || motSwimming;
@@ -1451,8 +1447,8 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * {@code null} means the feet column is not loaded yet. A loaded column with no section
-     * (Y out of world) is dry air, matching {@link ChunkTracker#getBlockState(int, BlockPosition)}.
+     * {@code null} 表示脚部柱尚未加载。已加载但没有 section
+     * （Y 超出世界）的柱是干燥空气，与 {@link ChunkTracker#getBlockState(int, BlockPosition)} 一致。
      */
     static Boolean knownInsideOfWater(final UserConnection user, final ClientPlayerEntity clientPlayer) {
         if (user == null || clientPlayer == null || clientPlayer.position() == null) {
@@ -1481,8 +1477,8 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * {@code null} keeps the last in-water sample. A loaded column whose Y is outside the
-     * world is dry; a missing in-world section is still pending and must not look like air.
+     * {@code null} 会保留最后一次水中采样。已加载但 Y 超出世界的柱是干燥的；
+     * 缺失的世界内 section 仍处于挂起状态，不能当作空气。
      */
     static Boolean waterSampleFromChunkState(final boolean chunkPresent, final boolean sectionInWorld,
                                              final boolean sectionPresent, final boolean water) {
@@ -1521,8 +1517,8 @@ public class ClientPlayerPackets {
     }
 
     /**
-     * Java ATTACK is entity-id only. MOT combat does not consume clickPos; emit the current look
-     * direction so the field is a unit vector instead of ZERO.
+     * Java 的 ATTACK 只带实体 ID。MOT 的战斗逻辑不消费 clickPos；发出当前视线
+     * 方向，使该字段是单位向量而不是 ZERO。
      */
     static Position3f attackClickPosition(final ClientPlayerEntity clientPlayer) {
         if (clientPlayer == null || clientPlayer.rotation() == null) {

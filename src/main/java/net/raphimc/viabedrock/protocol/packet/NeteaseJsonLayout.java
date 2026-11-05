@@ -25,14 +25,14 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire layout for NetEase NeteaseJson (packet 203 / 0xCB).
+ * 网易 NeteaseJson（203 / 0xCB 号包）的线路布局。
  * <p>
- * MOT {@code NeteaseJsonPacket} is a single string of JSON. The only payload
- * MOT itself currently emits is {@code SET_LEVEL_GRAVITY} with a {@code gravity}
- * number ({@code Player.sendNetEaseLevelGravityReset()} writes {@code -0.08}).
- * Other event names exist as constants on the packet class, but neither MOT
- * nor NukkitMaster in this workspace serialises their fields, so those events
- * are consumed without inventing a schema.
+ * MOT {@code NeteaseJsonPacket} 是单个 JSON 字符串。MOT 自身目前唯一会
+ * 发出的载荷是带 {@code gravity} 数字的 {@code SET_LEVEL_GRAVITY}
+ * （{@code Player.sendNetEaseLevelGravityReset()} 写入 {@code -0.08}）。
+ * 其他事件名作为常量存在于该数据包类上，但本工作区中的 MOT
+ * 与 NukkitMaster 都没有序列化它们的字段，因此这些事件
+ * 只被消费，不臆造 schema。
  */
 public final class NeteaseJsonLayout {
 

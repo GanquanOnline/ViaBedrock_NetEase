@@ -38,10 +38,9 @@ import net.raphimc.viabedrock.protocol.packet.ItemStackRequestLayout;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
 /**
- * Maps a Bedrock container-id/slot pair onto Nukkit's ItemStackRequest slot info.
- * Network slot numbers follow {@code NetworkMapping.toInternalSlot}: player inventory
- * stays 0-35, armor stays 0-3, cursor is HUD 0, and fake-UI menus (anvil, enchant,
- * grindstone, ...) still send the PlayerUI slot rather than the Java menu index.
+ * 把基岩的容器 id/槽位对映射到 Nukkit 的 ItemStackRequest 槽位信息上。
+ * 网络槽位编号遵循 {@code NetworkMapping.toInternalSlot}：玩家物品栏保持 0-35，盔甲保持 0-3，光标是 HUD 0，
+ * 而假 UI 菜单（铁砧、附魔、砂轮……）仍发送 PlayerUI 槽位，而不是 Java 菜单索引。
  */
 public final class ItemStackSlotMapper {
 
@@ -185,12 +184,9 @@ public final class ItemStackSlotMapper {
             return new ItemStackRequestLayout.SlotInfo(ContainerEnumName.LevelEntityContainer, slot, 0);
         }
         if (container instanceof HorseContainer) {
-            // MOT NetworkMapping.getInventory: HORSE_EQUIP -> HorseInventory,
-            // LEVEL_ENTITY -> topWindow (HorseInventory while this menu is open).
-            // Cargo is NOT HOTBAR_AND_INVENTORY on the request path: that type
-            // resolves to player.getInventory() and would steal horse cargo.
-            // MOT responses still tag cargo as HOTBAR_AND_INVENTORY; see
-            // resolveResponseSlot. Ref: NetworkMapping.getSlotType / getInventory.
+            // MOT NetworkMapping.getInventory：HORSE_EQUIP → HorseInventory，LEVEL_ENTITY → topWindow（此菜单打开时为 HorseInventory）。
+            // 在请求路径上货物栏不是 HOTBAR_AND_INVENTORY：该类型解析为 player.getInventory()，会抢走马的货物栏。
+            // MOT 的响应仍把货物栏标记为 HOTBAR_AND_INVENTORY；见 resolveResponseSlot。参考：NetworkMapping.getSlotType / getInventory。
             if (slot <= HorseContainer.SLOT_ARMOR) {
                 return new ItemStackRequestLayout.SlotInfo(ContainerEnumName.HorseEquipContainer, slot, 0);
             }
@@ -245,9 +241,9 @@ public final class ItemStackSlotMapper {
     }
 
     /**
-     * Inverse of {@link #fromOpenContainer} / {@link #playerInventory} / {@link #hud}.
-     * MOT ITEM_STACK_RESPONSE slots use the same network numbers as ItemStackRequest.
-     * Ref: MOT NetworkMapping.toInternalSlot and TransferItemActionProcessor.buildContainer.
+     * {@link #fromOpenContainer} / {@link #playerInventory} / {@link #hud} 的逆映射。
+     * MOT ITEM_STACK_RESPONSE 的槽位使用与 ItemStackRequest 相同的网络编号。
+     * 参考：MOT NetworkMapping.toInternalSlot 与 TransferItemActionProcessor.buildContainer。
      */
     public static BedrockSlotRef resolveResponseSlot(final InventoryTracker tracker, final FullContainerName containerName, final int networkSlot) {
         if (tracker == null || containerName == null || containerName.name() == null) {
@@ -268,8 +264,7 @@ public final class ItemStackSlotMapper {
                 yield new BedrockSlotRef(ContainerID.CONTAINER_ID_INVENTORY.getValue(), networkSlot, tracker.getInventoryContainer());
             }
             case CombinedHotbarAndInventoryContainer -> {
-                // MOT getSlotType(HorseInventory) tags cargo (slot >= 2) as
-                // HOTBAR_AND_INVENTORY. Player inv responses use HOTBAR / INVENTORY.
+                // MOT 的 getSlotType(HorseInventory) 把货物栏（槽位 >= 2）标记为 HOTBAR_AND_INVENTORY。玩家物品栏的响应使用 HOTBAR / INVENTORY。
                 if (tracker.getCurrentContainer() instanceof HorseContainer horse
                         && networkSlot >= HorseContainer.SLOT_CHEST_BASE && networkSlot < horse.size()) {
                     yield new BedrockSlotRef(horse.containerId(), networkSlot, horse);

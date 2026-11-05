@@ -58,9 +58,9 @@ public final class JavaPlayerStateStorage implements StorableObject {
     }
 
     /**
-     * Prefer ViaBedrockUtility {@code player_state} when it has ever reported a pose.
-     * Workspace VBU has no sender, so Java 1-block crawl would otherwise never reach
-     * MOT SAI START/STOP_CRAWLING. Infer only while VBU is silent.
+     * 当 ViaBedrockUtility 的 {@code player_state} 曾经上报过姿态时优先使用它。
+     * 工作区版 VBU 没有发送方，所以 Java 的 1 格爬行否则永远到不了
+     * MOT SAI 的 START/STOP_CRAWLING。仅在 VBU 沉默时才自行推断。
      */
     public PlayerAuthInputPacket_InputData consumeCrawlingTransition() {
         return consumeCrawlingTransition(false);
@@ -68,7 +68,7 @@ public final class JavaPlayerStateStorage implements StorableObject {
 
     public PlayerAuthInputPacket_InputData consumeCrawlingTransition(final boolean inferredCrawling) {
         final boolean desiredCrawling = this.hasDesiredState ? this.hasState(FLAG_CRAWLING) : inferredCrawling;
-        // VBU-silent inference still has to emit StopCrawling after StartCrawling.
+        // VBU 沉默时的推断仍必须在 StartCrawling 之后发出 StopCrawling。
         if ((!this.hasDesiredState && !inferredCrawling && !this.forwardedCrawling && !this.forceNextCrawlingTransition)
                 || (!this.forceNextCrawlingTransition && desiredCrawling == this.forwardedCrawling)) {
             return null;

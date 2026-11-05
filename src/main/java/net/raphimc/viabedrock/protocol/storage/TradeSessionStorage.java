@@ -26,9 +26,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Last {@code UPDATE_TRADE} offer list and the Java-selected slot for the open merchant.
- * {@code SELECT_TRADE} only stores the MOT {@code netId}; the actual trade is the later
- * result-slot click encoded as {@code CraftRecipe} + TRADE2 Consume + created-output Take.
+ * 当前打开商人的最近一次 {@code UPDATE_TRADE} 报价列表以及 Java 选中的槽位。
+ * {@code SELECT_TRADE} 只存储 MOT 的 {@code netId}；真正的交易是之后的结果槽点击，
+ * 编码为 {@code CraftRecipe} + TRADE2 Consume + created-output Take。
  */
 public final class TradeSessionStorage extends StoredObject {
 

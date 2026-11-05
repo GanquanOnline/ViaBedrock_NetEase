@@ -62,16 +62,16 @@ public class PlayerEntity extends LivingEntity {
 
     public final void createTeam() {
         final PacketWrapper setPlayerTeam = PacketWrapper.create(ClientboundPackets26_1.SET_PLAYER_TEAM, this.user);
-        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // team name
-        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.ADD.ordinal()); // mode
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("vb_" + this.javaId)); // display name
-        setPlayerTeam.write(Types.BYTE, (byte) 3); // flags
-        setPlayerTeam.write(Types.VAR_INT, TeamVisibility.ALWAYS.ordinal()); // name tag visibility
-        setPlayerTeam.write(Types.VAR_INT, TeamCollisionRule.NEVER.ordinal()); // collision rule
-        setPlayerTeam.write(Types.VAR_INT, this.glowTeamColorOrdinal()); // color
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // prefix
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // suffix
-        setPlayerTeam.write(Types.STRING_ARRAY, new String[]{this.javaTeamMemberName()}); // players
+        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // 队伍名称
+        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.ADD.ordinal()); // 模式
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("vb_" + this.javaId)); // 显示名称
+        setPlayerTeam.write(Types.BYTE, (byte) 3); // 标志位
+        setPlayerTeam.write(Types.VAR_INT, TeamVisibility.ALWAYS.ordinal()); // 名称标签可见性
+        setPlayerTeam.write(Types.VAR_INT, TeamCollisionRule.NEVER.ordinal()); // 碰撞规则
+        setPlayerTeam.write(Types.VAR_INT, this.glowTeamColorOrdinal()); // 颜色
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // 前缀
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // 后缀
+        setPlayerTeam.write(Types.STRING_ARRAY, new String[]{this.javaTeamMemberName()}); // 玩家
         setPlayerTeam.send(BedrockProtocol.class);
     }
 
@@ -81,10 +81,10 @@ public class PlayerEntity extends LivingEntity {
 
     public final void updateName(final String name) {
         this.setName(name);
-        // Trim blank lines so the single-line team prefix never carries leading/trailing newlines
-        // (which the Java client renders as missing-glyph boxes). The multiline tracker reads the
-        // raw stored name from entity data and attaches extra lines to virtual armor stands.
-        // Java team prefixes cannot render interior newlines, so only the bottom line stays here.
+        // 裁剪空行，使单行的队伍前缀不会带首尾换行
+        // （Java 客户端会把这种换行渲染成缺字形方框）。多行追踪器从实体数据中读取
+        // 原始存储的名称，并把额外行挂到虚拟盔甲架上。
+        // Java 的队伍前缀无法渲染内部换行，因此这里只保留最下面一行。
         final String trimmed = TextUtil.trimBlankLines(name);
         final String prefix = TextUtil.lastLine(trimmed);
         final boolean hasVisibleName = prefix != null && !TextUtil.stripFormatting(prefix).isEmpty();
@@ -95,15 +95,15 @@ public class PlayerEntity extends LivingEntity {
         this.teamPrefix = prefix;
         this.teamNameTagVisible = nameTagVisible;
         final PacketWrapper setPlayerTeam = PacketWrapper.create(ClientboundPackets26_1.SET_PLAYER_TEAM, this.user);
-        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // team name
-        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.CHANGE.ordinal()); // mode
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("vb_" + this.javaId)); // display name
-        setPlayerTeam.write(Types.BYTE, (byte) 3); // flags
-        setPlayerTeam.write(Types.VAR_INT, (nameTagVisible ? TeamVisibility.ALWAYS : TeamVisibility.NEVER).ordinal()); // name tag visibility
-        setPlayerTeam.write(Types.VAR_INT, TeamCollisionRule.NEVER.ordinal()); // collision rule
-        setPlayerTeam.write(Types.VAR_INT, this.glowTeamColorOrdinal()); // color
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt(prefix)); // prefix
-        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // suffix
+        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // 队伍名称
+        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.CHANGE.ordinal()); // 模式
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("vb_" + this.javaId)); // 显示名称
+        setPlayerTeam.write(Types.BYTE, (byte) 3); // 标志位
+        setPlayerTeam.write(Types.VAR_INT, (nameTagVisible ? TeamVisibility.ALWAYS : TeamVisibility.NEVER).ordinal()); // 名称标签可见性
+        setPlayerTeam.write(Types.VAR_INT, TeamCollisionRule.NEVER.ordinal()); // 碰撞规则
+        setPlayerTeam.write(Types.VAR_INT, this.glowTeamColorOrdinal()); // 颜色
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt(prefix)); // 前缀
+        setPlayerTeam.write(Types.TAG, TextUtil.stringToNbt("")); // 后缀
         setPlayerTeam.send(BedrockProtocol.class);
     }
 
@@ -121,8 +121,8 @@ public class PlayerEntity extends LivingEntity {
         entityData.add(new EntityData(this.getJavaEntityDataIndex(EntityDataFields.PLAYER_MODE_CUSTOMISATION), VersionedTypes.V26_1.entityDataTypes.byteType, (byte) 0xFF));
 
         final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user);
-        setEntityData.write(Types.VAR_INT, this.javaId); // entity id
-        setEntityData.write(VersionedTypes.V26_1.entityDataList, entityData); // entity data
+        setEntityData.write(Types.VAR_INT, this.javaId); // 实体 id
+        setEntityData.write(VersionedTypes.V26_1.entityDataList, entityData); // 实体数据
         setEntityData.send(BedrockProtocol.class);
     }
 
@@ -145,8 +145,8 @@ public class PlayerEntity extends LivingEntity {
         super.remove();
 
         final PacketWrapper setPlayerTeam = PacketWrapper.create(ClientboundPackets26_1.SET_PLAYER_TEAM, this.user);
-        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // team name
-        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.REMOVE.ordinal()); // mode
+        setPlayerTeam.write(Types.STRING, "vb_" + this.javaId); // 队伍名称
+        setPlayerTeam.write(Types.BYTE, (byte) PlayerTeamMethod.REMOVE.ordinal()); // 模式
         setPlayerTeam.send(BedrockProtocol.class);
     }
 
@@ -185,21 +185,21 @@ public class PlayerEntity extends LivingEntity {
         return switch (attribute.name()) {
             case "minecraft:absorption" -> {
                 javaEntityData.add(new EntityData(this.getJavaEntityDataIndex(EntityDataFields.PLAYER_ABSORPTION), VersionedTypes.V26_1.entityDataTypes.floatType, attribute.computeClampedValue()));
-                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MAX_ABSORPTION)); // attribute id
-                javaAttributes.write(Types.DOUBLE, (double) attribute.maxValue()); // base value
-                javaAttributes.write(Types.VAR_INT, 0); // modifier count
+                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.MAX_ABSORPTION)); // 属性 id
+                javaAttributes.write(Types.DOUBLE, (double) attribute.maxValue()); // 基础值
+                javaAttributes.write(Types.VAR_INT, 0); // 修饰符数量
                 attributeCount.incrementAndGet();
                 yield true;
             }
             case "minecraft:luck" -> {
-                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.LUCK)); // attribute id
-                javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // base value
-                javaAttributes.write(Types.VAR_INT, 0); // modifier count
+                javaAttributes.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaEntityAttributes().get(Attributes.LUCK)); // 属性 id
+                javaAttributes.write(Types.DOUBLE, (double) attribute.computeClampedValue()); // 基础值
+                javaAttributes.write(Types.VAR_INT, 0); // 修饰符数量
                 attributeCount.incrementAndGet();
                 yield true;
             }
             case "minecraft:player.hunger", "minecraft:player.saturation", "minecraft:player.experience", "minecraft:player.level", "minecraft:player.exhaustion" ->
-                    true; // Ignore for non client player entities
+                    true; // 非客户端玩家实体忽略
             default -> super.translateAttribute(attribute, javaAttributes, attributeCount, javaEntityData);
         };
     }

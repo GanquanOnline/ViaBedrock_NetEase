@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
-/** Retains a build failure briefly so repeatedly requested bad keys cannot create a retry storm. */
+/** 短暂保留构建失败，避免反复请求的坏键造成重试风暴。 */
 public final class FailureBackoff<K> {
 
     public static final long RETRY_DELAY_NANOS = TimeUnit.SECONDS.toNanos(5L);

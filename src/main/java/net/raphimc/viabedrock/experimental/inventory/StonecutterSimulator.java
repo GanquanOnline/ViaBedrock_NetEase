@@ -38,9 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java stonecutter result clicks become MOT {@code CraftRecipe} when CRAFTING_DATA
- * has exactly one {@code tag=stonecutter} recipe for the input. Java recipe-book
- * display ids are not Bedrock networkIds, so ambiguous inputs are left unmapped.
+ * 当 CRAFTING_DATA 中针对该输入恰好只有一条 {@code tag=stonecutter} 配方时，Java 的切石机结果点击会变成 MOT {@code CraftRecipe}。
+ * Java 的配方书显示 id 不是基岩的 networkId，因此有歧义的输入保持不映射。
  */
 public final class StonecutterSimulator {
 

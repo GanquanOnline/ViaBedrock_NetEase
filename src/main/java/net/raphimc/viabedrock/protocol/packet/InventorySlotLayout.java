@@ -27,16 +27,16 @@ import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock INVENTORY_SLOT (packet 0x32).
+ * 基岩 INVENTORY_SLOT（数据包 0x32）的线上布局辅助工具。
  * <p>
- * Official Bedrock 1.21.90+ / protocol 974+ and Nukkit-MOT's matching branch encode:
- * {@code containerId, slot, optional full container name, optional storage item, item}.
+ * 官方基岩 1.21.90+ / 协议 974+ 以及 Nukkit-MOT 的对应分支编码为：
+ * {@code containerId, slot, optional full container name, optional storage item, item}。
  * <p>
- * NetEase / Nukkit-MOT protocol 860 still uses the pre-974 layout:
- * {@code containerId, slot, required full container name, required storage item, item}.
- * Treating that packet as 974+ consumes the container-name byte as a boolean and then
- * leaves the real item payload unread. PacketWrapper appends those leftover Bedrock
- * bytes onto Java {@code container_set_slot}, which 1.21.11 rejects as extra data.
+ * 网易 / Nukkit-MOT 协议 860 仍使用 974 之前的布局：
+ * {@code containerId, slot, required full container name, required storage item, item}。
+ * 把该包按 974+ 处理会把容器名字节当作 boolean 读掉，
+ * 从而漏掉真正的物品载荷。PacketWrapper 会把这些残留的基岩
+ * 字节追加到 Java {@code container_set_slot} 上，1.21.11 会以多余数据拒绝它。
  */
 public final class InventorySlotLayout {
 

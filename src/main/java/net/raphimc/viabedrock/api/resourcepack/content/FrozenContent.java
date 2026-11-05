@@ -17,9 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Read-only content whose byte arrays are ownership-transferred from a completed pack build.
- */
+/** 只读内容，其字节数组的所有权由一次已完成的包构建转移而来。 */
 public final class FrozenContent extends Content {
 
     private final Map<String, byte[]> content;

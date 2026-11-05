@@ -84,6 +84,7 @@ public class ItemRewriter extends StoredObject {
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_PLACE_ON = VersionedTypes.V26_1.structuredDataKeys().canPlaceOn;
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_BREAK = VersionedTypes.V26_1.structuredDataKeys().canBreak;
     private static final StructuredDataKey<Item[]> JAVA_CHARGED_PROJECTILES = VersionedTypes.V26_1.structuredDataKeys().chargedProjectiles;
+    private static final int NEW_ITEM_DESCRIPTOR_PROTOCOL = 975;
     private static final Set<String> DYEABLE_LEATHER_ITEMS = Set.of(
             "minecraft:leather_helmet",
             "minecraft:leather_chestplate",
@@ -107,7 +108,7 @@ public class ItemRewriter extends StoredObject {
     private final Type<BedrockItem[]> newItemArrayType;
 
     static {
-        // TODO: Add missing item nbt rewriters
+        // TODO: 补上缺失的物品 NBT 重写器
         ITEM_NBT_REWRITERS.put(CustomItemTags.BUNDLE, new BundleItemRewriter());
     }
 
@@ -139,9 +140,9 @@ public class ItemRewriter extends StoredObject {
                 }
             }
         }
-        // MOT 860 still ships colored beds (and similar) as one identifier + meta 0-15.
-        // Those identifiers also name an undyed block, so treating them as block items
-        // would zero aux data and collapse every color to white_bed / the undyed Java item.
+        // MOT 860 仍把带色床（及类似物品）作为单个标识符 + meta 0-15 发送。
+        // 这些标识符同时也命名了一个未染色方块，因此把它们当作方块物品
+        // 会把附加数据清零，并使所有颜色都塌缩成 white_bed / 未染色的 Java 物品。
         blockItems.removeIf(identifier -> !this.items.containsKey(identifier) || isMetaOnlyItem(identifier));
 
         this.blockItemValidBlockStates = new Int2ObjectOpenHashMap<>(blockItems.size());
@@ -175,10 +176,12 @@ public class ItemRewriter extends StoredObject {
         this.itemType = new BedrockItemType(this.items.getOrDefault("minecraft:shield", 0), this.blockItemValidBlockStates, false);
         this.optionalItemType = new OptionalType<>(this.itemType);
         this.itemArrayType = new ArrayType<>(this.itemType, BedrockTypes.UNSIGNED_VAR_INT);
-        // NetEase 860 still serializes NetworkItemStackDescriptor slots with the legacy item layout (varint id)
+        // Nukkit-MOT 对 NetworkItemStackDescriptor 切换点以下的每个协议版本
+        // 仍使用 975 之前的物品布局序列化槽位描述符；两个网易配置都
+        // 处于该范围内，因此 898 必须保留旧的描述符而不是 975 的那个。
         final boolean netEaseLegacyItemLayout = ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                 && ViaBedrock.getConfig().getNetEaseProtocolVersion() > 0
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() < 898;
+                && ViaBedrock.getConfig().getNetEaseProtocolVersion() < NEW_ITEM_DESCRIPTOR_PROTOCOL;
         this.newItemType = netEaseLegacyItemLayout
                 ? this.itemType
                 : new NetworkItemStackDescriptorType(this.items.getOrDefault("minecraft:shield", 0), this.blockItemValidBlockStates, false);
@@ -190,8 +193,8 @@ public class ItemRewriter extends StoredObject {
         try {
             return this.javaItem0(bedrockItem);
         } catch (final RuntimeException e) {
-            // MOT 860 custom/unmapped block items (askyblockwar:*, cinnabar walls) used to NPE
-            // IntSortedSet.firstInt() inside ADD_PLAYER / MOB_EQUIPMENT and kick Java 1.21.11.
+            // MOT 860 的自定义/未映射方块物品（askyblockwar:*、朱砂墙）过去会在
+            // ADD_PLAYER / MOB_EQUIPMENT 中让 IntSortedSet.firstInt() 抛 NPE 并踢出 Java 1.21.11。
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to rewrite Bedrock item id=" + (bedrockItem != null ? bedrockItem.identifier() : -1), e);
             return StructuredItem.empty();
         }
@@ -209,9 +212,9 @@ public class ItemRewriter extends StoredObject {
         final BedrockMappingData.JavaItemMapping javaItemMapping;
         final Map<BlockState, BedrockMappingData.JavaItemMapping> blockItemMappings = BedrockProtocol.MAPPINGS.getBedrockToJavaBlockItems().get(identifier);
         if (blockItemMappings != null) {
-            if (bedrockItem.blockRuntimeId() == 0) { // Manually constructed items might not have a valid block state set
-                // MOT 860 / NetEase extras can list the identifier without a session palette.
-                // firstInt() on a missing IntSortedSet used to NPE ADD_PLAYER / MOB_EQUIPMENT.
+            if (bedrockItem.blockRuntimeId() == 0) { // 手动构造的物品可能没有设置有效的方块状态
+                // MOT 860 / 网易附加项可能列出标识符却没有会话调色板。
+                // 对缺失的 IntSortedSet 调用 firstInt() 过去会让 ADD_PLAYER / MOB_EQUIPMENT 抛 NPE。
                 bedrockItem.setBlockRuntimeId(BlockItemMappingLayout.fallbackBlockRuntimeId(
                         this.blockItemValidBlockStates.get(bedrockItem.identifier())));
             }
@@ -316,8 +319,8 @@ public class ItemRewriter extends StoredObject {
             if (bedrockTag.get("display") instanceof CompoundTag display) {
                 final List<Tag> additionalLore = new ArrayList<>();
 
-                // Handle display.Name (support \n line breaks)
-                if (display.contains("Name")) { // Bedrock client defaults to empty string if the type is wrong
+                // 处理 display.Name（支持 \n 换行）
+                if (display.contains("Name")) { // 类型不对时基岩客户端默认为空字符串
                     final String name = display.getString("Name", "");
                     if (name.contains("\n")) {
                         final String[] nameLines = name.split("\n", -1);
@@ -330,7 +333,7 @@ public class ItemRewriter extends StoredObject {
                     }
                 }
 
-                // Convert display.Lore (Bedrock Lore is ListTag<StringTag>)
+                // 转换 display.Lore（基岩的 Lore 是 ListTag<StringTag>）
                 if (display.get("Lore") instanceof ListTag<?> bedrockLore) {
                     for (Tag loreEntry : bedrockLore) {
                         if (loreEntry instanceof StringTag loreString) {
@@ -339,7 +342,7 @@ public class ItemRewriter extends StoredObject {
                     }
                 }
 
-                // Merge: name overflow lines + Bedrock Lore + existing debug Lore
+                // 合并：名称溢出产生的行 + 基岩 Lore + 已有的调试 Lore
                 if (!additionalLore.isEmpty()) {
                     final Tag[] existingLore = javaItem.dataContainer().get(StructuredDataKey.LORE);
                     if (existingLore != null) {
@@ -1213,8 +1216,8 @@ public class ItemRewriter extends StoredObject {
         if (identifier != null) {
             return identifier;
         }
-        // BedrockItem.setIdentifier() stores id % 65536. MOT custom block items
-        // are negative (255 - nukkitId); look up both signed and unsigned forms.
+        // BedrockItem.setIdentifier() 会存储 id % 65536。MOT 的自定义方块物品
+        // 是负数（255 - nukkitId）；要同时按有符号和无符号形式查找。
         if (itemId > 32767) {
             return this.items.inverse().get(itemId - 65536);
         }

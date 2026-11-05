@@ -67,9 +67,7 @@ public class BedrockPackDownloader {
         return this.downloadTo(target, Long.MAX_VALUE);
     }
 
-    /**
-     * Streams the response into a caller-owned temp file and removes it if the transfer is incomplete.
-     */
+    /** 把响应流式写入调用方拥有的临时文件，若传输不完整则删除它。 */
     public long downloadTo(final Path target, final long maxBytes) throws IOException {
         try (OutputStream output = Files.newOutputStream(target,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -84,7 +82,7 @@ public class BedrockPackDownloader {
         }
     }
 
-    /** Streams into a caller-owned output without closing it. */
+    /** 流式写入调用方拥有的输出，且不关闭它。 */
     public long downloadTo(final OutputStream output, final long maxBytes) throws IOException {
         if (maxBytes < 0L) {
             throw new IllegalArgumentException("Resource pack size limit must not be negative");

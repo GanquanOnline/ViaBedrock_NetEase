@@ -67,9 +67,7 @@ import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/**
- * Exact raw-archive CAS plus single-flight expansion/decryption.
- */
+/** 精确的原始归档 CAS，加上 single-flight 展开/解密。 */
 public final class ResourcePackArchiveStore {
 
     private static final long MIB = 1024L * 1024L;
@@ -398,8 +396,8 @@ public final class ResourcePackArchiveStore {
         this.metrics.setCasDiskUsage(
                 this.archiveDiskBytes + this.contentDiskBytes + this.tombstoneDiskBytes,
                 this.archiveDiskFiles + this.contentDiskFiles + this.tombstoneDiskFiles);
-        // Raw and canonical content share one disk quota; these maxima are the same governing cap,
-        // not two independent allowances that may be added together.
+        // 原始内容和规范内容共用一个磁盘配额；这些上限是同一个约束值，
+        // 而不是两个可以相加的独立额度。
         this.metrics.setWeight(Tier.ARCHIVE, this.archiveDiskBytes, this.diskBudgetBytes);
         this.metrics.setWeight(Tier.CONTENT, this.contentDiskBytes, this.diskBudgetBytes);
         this.metrics.setTrustedAliasConflictState(
@@ -556,7 +554,7 @@ public final class ResourcePackArchiveStore {
         return false;
     }
 
-    // The cleaner holds this monitor across its protection check and delete operation.
+    // 清理器在保护检查和删除操作期间一直持有该监视器。
     private synchronized void acquireActivePath(final Path path) {
         final Path normalized = path.toAbsolutePath().normalize();
         this.activePaths.compute(normalized, (ignored, current) -> {
@@ -636,9 +634,7 @@ public final class ResourcePackArchiveStore {
         return this.verifiedPacks.get(Objects.requireNonNull(pack, "pack"));
     }
 
-    /**
-     * Ensures an exact effective pack exists in the canonical CAS without retaining the source object.
-     */
+    /** 确保规范 CAS 中存在完全一致的有效包，同时不保留源对象。 */
     public synchronized void ensureCanonical(final ResourcePack pack, final ContentDigest digest) throws IOException {
         final ContentDigest actual = pack.content() instanceof ZipFileContent zipFileContent
                 && zipFileContent.contentDigest() != null
@@ -678,9 +674,7 @@ public final class ResourcePackArchiveStore {
         }
     }
 
-    /**
-     * Opens one strongly verified, disk-backed blob without keeping a canonical lease open after construction.
-     */
+    /** 打开一个经过强校验、落盘存储的 blob，构造完成后不保留规范租约。 */
     public FrozenPackBlob openFrozenBlob(final ContentDigest digest) throws IOException {
         Objects.requireNonNull(digest, "digest");
         final Path canonical = this.contentPath(digest);
@@ -719,7 +713,7 @@ public final class ResourcePackArchiveStore {
         }
     }
 
-    /** Opens a ref-counted lease that prevents the canonical file from being removed by the cleaner. */
+    /** 打开一个引用计数的租约，防止规范文件被清理器删除。 */
     public synchronized CanonicalContentLease leaseCanonical(final ContentDigest digest) throws IOException {
         final Path canonical = this.contentPath(digest);
         this.activeContentLeases.compute(canonical, (ignored, current) -> {
@@ -740,7 +734,7 @@ public final class ResourcePackArchiveStore {
         }
     }
 
-    /** Returns a lightweight immutable view that acquires a canonical lease only while reading. */
+    /** 返回轻量的不可变视图，仅在读取期间获取规范租约。 */
     public Content canonicalView(final ContentDigest digest) {
         return new CanonicalContentView(this, digest);
     }
@@ -857,7 +851,7 @@ public final class ResourcePackArchiveStore {
         final Claim claim;
         boolean leader = false;
         synchronized (this.rawFlightLock) {
-            // Publication can finish between the lock-free fast path above and joining the flight.
+            // 发布可能在上面的无锁快速路径与加入 flight 之间完成。
             final RawArchiveLease racedLease = this.tryLeaseRaw(digest);
             if (racedLease != null) {
                 this.rawFailures.clear(digest.hex());
@@ -893,9 +887,7 @@ public final class ResourcePackArchiveStore {
         return claim;
     }
 
-    /**
-     * Creates an owned download file on the raw CAS filesystem. The caller must either publish it or delete it.
-     */
+    /** 在原始 CAS 文件系统上创建一个由调用方持有的下载文件。调用方必须发布它或删除它。 */
     public Path createRawTemp(final Claim claim) throws IOException {
         requireLeader(claim);
         return this.createRawTemp(claim.digest().hex() + "-");
@@ -923,8 +915,8 @@ public final class ResourcePackArchiveStore {
     }
 
     /**
-     * Publishes an owned, completed temp file after streaming SHA-256 verification.
-     * The supplied file is consumed and removed on every outcome.
+     * 在流式校验 SHA-256 之后，发布一个已完成且由调用方持有的临时文件。
+     * 无论结果如何，传入的文件都会被消费并删除。
      */
     public Path publish(final Claim claim, final Path completedTemp) throws IOException {
         final Path ownedTemp = completedTemp.toAbsolutePath().normalize();
@@ -980,9 +972,7 @@ public final class ResourcePackArchiveStore {
         }
     }
 
-    /**
-     * Transfers ownership immediately and performs file hashing/publication away from the Netty event loop.
-     */
+    /** 立即转移所有权，并在 Netty 事件循环之外完成文件哈希/发布。 */
     public CompletableFuture<Path> publishAsync(final Claim claim, final Path completedTemp) {
         final Path ownedTemp = completedTemp.toAbsolutePath().normalize();
         try {
@@ -1036,8 +1026,8 @@ public final class ResourcePackArchiveStore {
     }
 
     /**
-     * Lazily imports the legacy UUID/version archive only after an exact raw SHA-256 match. A miss leaves the
-     * leader claim open so the caller can continue with normal protocol chunks.
+     * 仅在原始 SHA-256 完全匹配之后才惰性导入旧式 UUID/版本归档。未命中时
+     * 保持 leader 认领处于打开状态，以便调用方继续走正常的协议分块。
      */
     public CompletableFuture<Boolean> tryImportLegacy(final Claim claim, final ResourcePack.Key declaredKey) {
         requireLeader(claim);
@@ -1068,7 +1058,7 @@ public final class ResourcePackArchiveStore {
         });
     }
 
-    /** Releases a disconnected claimant without recording a failure backoff. A waiting claimant is promoted. */
+    /** 释放已断开的申请者且不记录失败退避。等待中的申请者会被提升。 */
     public void abandon(final Claim claim, final Throwable reason) {
         claim.close();
         Claim promoted = null;
@@ -1079,7 +1069,7 @@ public final class ResourcePackArchiveStore {
                 return;
             }
             if (flight.leader == claim) {
-                // Once atomic publication starts, the work is detached from the connection and should finish.
+                // 原子发布一旦开始，该工作就与连接解绑，应当执行到底。
                 if (flight.publishing) {
                     return;
                 }
@@ -2309,12 +2299,12 @@ public final class ResourcePackArchiveStore {
             return this.path;
         }
 
-        /** Completes true when this claim owns the flight, or false if the flight ends before it is promoted. */
+        /** 当本次认领拥有该 flight 时以 true 完成；若 flight 在其被提升之前结束则为 false。 */
         public CompletableFuture<Boolean> leadership() {
             return this.leadership.thenApply(promoted -> promoted);
         }
 
-        /** Releases an unconsumed claim-to-expansion raw CAS lease. Safe to call more than once. */
+        /** 释放未被消费的、从认领到展开的原始 CAS 租约。可安全重复调用。 */
         @Override
         public void close() {
             if (this.closed.compareAndSet(false, true)) {
@@ -2529,9 +2519,9 @@ public final class ResourcePackArchiveStore {
     @FunctionalInterface
     public interface ArchivePathLoader {
         /**
-         * Compatibility entry point for loaders that require a {@link Path}. Arbitrary path writes cannot be
-         * bounded while the loader is running, so the store validates and deletes oversized output immediately
-         * after this method returns. New loaders should use {@link ArchiveStreamLoader} for an enforced write limit.
+         * 面向需要 {@link Path} 的加载器的兼容入口。加载器运行期间无法限制任意路径写入，
+         * 因此 store 会在本方法返回后立即校验并删除超限的输出。新的加载器应使用
+         * {@link ArchiveStreamLoader} 以获得强制写入上限。
          */
         void load(Path target) throws Exception;
     }
@@ -2543,7 +2533,7 @@ public final class ResourcePackArchiveStore {
 
     @FunctionalInterface
     private interface SourceArchiveLoader {
-        /** Returns the digest when it was computed while streaming, or null for a path compatibility loader. */
+        /** 若摘要是流式处理时算出的则返回该摘要；路径兼容加载器返回 null。 */
         ArchiveDigest load(Path target) throws Exception;
     }
 

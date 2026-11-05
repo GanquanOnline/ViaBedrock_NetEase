@@ -27,11 +27,11 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorFlags;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerType;
 
 /**
- * MOT {@code InventoryType.HORSE} (network type 12) is {@code HorseInventory}:
- * slot 0 saddle, slot 1 armor, slots 2+ chest cargo ({@code 2 + chestSize}).
- * Java 1.21.11 opens that UI with {@code MOUNT_SCREEN_OPEN}, not {@code OPEN_SCREEN}.
- * Ref: MOT {@code HorseInventory}, {@code ContainerInventory.onOpen},
- * {@code NetworkMapping} {@code HORSE_EQUIP}.
+ * MOT 的 {@code InventoryType.HORSE}（网络类型 12）对应 {@code HorseInventory}：
+ * 槽位 0 为鞍，槽位 1 为护甲，槽位 2+ 为箱子货物（{@code 2 + chestSize}）。
+ * Java 1.21.11 通过 {@code MOUNT_SCREEN_OPEN} 打开该界面，而不是 {@code OPEN_SCREEN}。
+ * 参考：MOT {@code HorseInventory}、{@code ContainerInventory.onOpen}、
+ * {@code NetworkMapping} 的 {@code HORSE_EQUIP}。
  */
 public class HorseContainer extends Container {
 
@@ -65,11 +65,11 @@ public class HorseContainer extends Container {
     }
 
     /**
-     * Java 1.21+ {@code MOUNT_SCREEN_OPEN} inventory columns.
-     * Cargo slots are {@code columns * 3} after the saddle/armor pair.
-     * Ref: ViaVersion 1.20.5→1.21 {@code HORSE_SCREEN_OPEN} rewrite {@code (size - 1) / 3}
-     * on the legacy slot-count field; MOT cargo is {@code size - 2}, which is the same
-     * column count when {@code size = 2 + 3n}.
+     * Java 1.21+ {@code MOUNT_SCREEN_OPEN} 的物品栏列数。
+     * 货物槽位数为鞍 / 护甲两格之后的 {@code columns * 3}。
+     * 参考：ViaVersion 1.20.5→1.21 的 {@code HORSE_SCREEN_OPEN} 重写对旧槽位数字段
+     * 使用 {@code (size - 1) / 3}；MOT 的货物数为 {@code size - 2}，在 {@code size = 2 + 3n}
+     * 时两者列数相同。
      */
     public int javaColumns() {
         return javaColumns(this.size());
@@ -94,9 +94,9 @@ public class HorseContainer extends Container {
     }
 
     /**
-     * Infer MOT {@code HorseInventory} length before {@code INVENTORY_CONTENT} arrives.
-     * Donkeys use {@code CHESTED} → 15 cargo slots; llamas use {@code STRENGTH * 3};
-     * {@code CONTAINER_SIZE} wins when MOT actually writes it.
+     * 在 {@code INVENTORY_CONTENT} 到达之前推断 MOT {@code HorseInventory} 的长度。
+     * 驴使用 {@code CHESTED} → 15 个货物槽位；羊驼使用 {@code STRENGTH * 3}；
+     * 当 MOT 实际写入 {@code CONTAINER_SIZE} 时以其为准。
      */
     public static int sizeFor(final Entity entity) {
         if (entity == null) {

@@ -64,11 +64,11 @@ public final class TabListLatencyModule implements FeatureModule {
         }
 
         final PacketWrapper playerInfoUpdate = PacketWrapper.create(ClientboundPackets26_1.PLAYER_INFO_UPDATE, user);
-        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_DISPLAY_NAME)); // actions
-        playerInfoUpdate.write(Types.VAR_INT, displayNames.size()); // length
+        playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.UPDATE_DISPLAY_NAME)); // 动作
+        playerInfoUpdate.write(Types.VAR_INT, displayNames.size()); // 长度
         for (Map.Entry<UUID, String> entry : displayNames.entrySet()) {
-            playerInfoUpdate.write(Types.UUID, entry.getKey()); // uuid
-            playerInfoUpdate.write(Types.OPTIONAL_TAG, TextUtil.stringToNbt(entry.getValue())); // display name
+            playerInfoUpdate.write(Types.UUID, entry.getKey()); // UUID
+            playerInfoUpdate.write(Types.OPTIONAL_TAG, TextUtil.stringToNbt(entry.getValue())); // 显示名称
         }
         playerInfoUpdate.send(BedrockProtocol.class);
     }

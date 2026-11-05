@@ -58,13 +58,13 @@ public class BlobCache extends StoredObject {
         final LongList ackedSubSet = this.acked.subList(0, Math.min(1024, this.acked.size()));
 
         final PacketWrapper clientCacheBlobStatus = PacketWrapper.create(ServerboundBedrockPackets.CLIENT_CACHE_BLOB_STATUS, this.user());
-        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, missingSubSet.size()); // missing blob count
-        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, ackedSubSet.size()); // acked blob count
+        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, missingSubSet.size()); // 缺失 blob 数量
+        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, ackedSubSet.size()); // 已确认 blob 数量
         for (long hash : missingSubSet) {
-            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // missing blob hash
+            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 缺失 blob 哈希
         }
         for (long hash : ackedSubSet) {
-            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // acked blob hash
+            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 已确认 blob 哈希
         }
         clientCacheBlobStatus.sendToServer(BedrockProtocol.class);
 
@@ -73,7 +73,7 @@ public class BlobCache extends StoredObject {
     }
 
     public void addBlob(final long hash, final byte[] blob) {
-        // Blob validation: https://github.com/Mojang/bedrock-protocol-docs/blob/e8b16c2ada3de6946c2d09f76a477d37aa1c074b/additional_docs/ClientCacheMissResponsePacketValidation.md
+        // Blob 校验：https://github.com/Mojang/bedrock-protocol-docs/blob/e8b16c2ada3de6946c2d09f76a477d37aa1c074b/additional_docs/ClientCacheMissResponsePacketValidation.md
         if (!this.pending.containsKey(hash)) {
             throw new IllegalStateException("Received unexpected blob: " + hash + " (" + ByteBufUtil.hexDump(blob) + ")");
         }

@@ -21,12 +21,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One immutable resource-pack file tree interned by its exact content digest.
+ * 一份不可变的资源包文件树，按精确内容摘要驻留复用。
  *
- * <p>Production entries are opened only through {@link ResourcePackArchiveStore} and are backed by a
- * strongly verified canonical CAS ZIP. The compatibility factory exists solely for embedders and tests
- * that construct {@link SharedPackRuntimeCache} without a store; it must not be treated as production
- * shared-cache evidence.</p>
+ * <p>生产环境的条目只能通过 {@link ResourcePackArchiveStore} 打开，并基于经过强校验的规范 CAS ZIP。
+ * 兼容性工厂仅供在没有 store 的情况下构造 {@link SharedPackRuntimeCache} 的嵌入方和测试使用；
+ * 不得把它当作生产环境共享缓存的证据。</p>
  */
 public final class FrozenPackBlob {
 
@@ -68,8 +67,8 @@ public final class FrozenPackBlob {
     static FrozenPackBlob compatibility(final ContentDigest expectedDigest, final ResourcePack source) {
         Objects.requireNonNull(expectedDigest, "expectedDigest");
         Objects.requireNonNull(source, "source");
-        // A ZipFileContent object is read-only, but its external path can still be replaced in place.
-        // The compatibility cache has no CAS lease, so only an already-owned FrozenContent is reusable.
+        // ZipFileContent 对象是只读的，但其外部路径仍可能被原地替换。
+        // 兼容性缓存没有 CAS 租约，因此只有已持有的 FrozenContent 才能复用。
         final Content immutableContent = source.content() instanceof FrozenContent
                 ? source.content() : new FrozenContent(source.content());
 

@@ -1,6 +1,4 @@
-/*
- * Custom mapping sync support for BedrockLoader clients.
- */
+/* 为 BedrockLoader 客户端提供自定义映射同步支持。 */
 package net.raphimc.viabedrock.experimental.custommapping;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2IntMap;

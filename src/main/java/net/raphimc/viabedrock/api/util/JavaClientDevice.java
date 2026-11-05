@@ -25,9 +25,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * Java-client device reported at handshake time. The login JWT is built
- * before PLAY, so the only lossless place to carry the player's OS is the
- * handshake hostname suffix {@code \0gqdev\0os|model}.
+ * 握手时上报的 Java 客户端设备信息。登录 JWT 在进入 PLAY 之前
+ * 就已构建，因此携带玩家操作系统信息的唯一无损位置是
+ * 握手主机名后缀 {@code \0gqdev\0os|model}。
  */
 public final class JavaClientDevice {
 

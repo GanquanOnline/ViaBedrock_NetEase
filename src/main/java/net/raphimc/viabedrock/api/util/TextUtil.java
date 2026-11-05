@@ -77,17 +77,16 @@ public class TextUtil {
     }
 
     /**
-     * Trims leading and trailing blank lines from a (potentially multiline) nametag string.
-     * A line is considered blank when it contains no visible content after formatting codes are
-     * stripped ({@link #stripFormatting(String)} yields an empty string). Interior lines (including
-     * interior blank lines) are preserved so genuine multiline layouts keep their spacing.
+     * 去除（可能多行的）名称标签字符串首尾的空行。
+     * 若一行在去掉格式代码后没有可见内容（{@link #stripFormatting(String)} 返回空字符串），
+     * 则该行视为空行。内部行（包括内部空行）会保留，让真正的多行布局保持间距。
      *
-     * @return the trimmed string (may still be multiline), {@code ""} if every line is blank, or the
-     * input unchanged when it is {@code null} or contains no newline.
+     * @return 去除后的字符串（可能仍是多行）；若所有行都为空则为 {@code ""}；
+     * 输入为 {@code null} 或不含换行时原样返回。
      */
     public static String trimBlankLines(final String text) {
         if (text == null || text.indexOf('\n') < 0) return text;
-        final String[] lines = text.split("\n", -1); // keep trailing empty segments
+        final String[] lines = text.split("\n", -1); // 保留末尾的空段
         int start = 0;
         int end = lines.length;
         while (start < end && stripFormatting(lines[start]).isEmpty()) start++;
@@ -97,10 +96,10 @@ public class TextUtil {
     }
 
     /**
-     * Picks the Bedrock nametag string Java should actually render.
-     * {@code NAME_RAW_TEXT} wins over {@code NAME} when it has visible content, matching
-     * {@code MultilineNametagTracker} so host CUSTOM_NAME and the multiline display never
-     * diverge onto different source fields.
+     * 挑选 Java 实际应当渲染的基岩名称标签字符串。
+     * {@code NAME_RAW_TEXT} 有可见内容时优先于 {@code NAME}，与
+     * {@code MultilineNametagTracker} 保持一致，让宿主的 CUSTOM_NAME 与多行显示
+     * 不会落到不同的源字段上。
      */
     public static String nametagValue(final String name, final String nameRaw) {
         if (nameRaw != null && !stripFormatting(nameRaw).isEmpty()) return nameRaw;
@@ -109,18 +108,18 @@ public class TextUtil {
     }
 
     /**
-     * Bedrock {@code NAMETAG_ALWAYS_SHOW} is a signed byte. Vanilla/Nukkit write {@code 1}/{@code 0};
-     * some NetEase holograms write {@code -1} for always-on. Only an explicit {@code 0} is look-at-only.
-     * {@code null} means the field was omitted; Bedrock then always-shows named entities.
+     * 基岩 {@code NAMETAG_ALWAYS_SHOW} 是有符号字节。原版/Nukkit 写 {@code 1}/{@code 0}；
+     * 某些网易全息文本写 {@code -1} 表示始终显示。只有显式的 {@code 0} 才表示仅注视时显示。
+     * {@code null} 表示该字段被省略；此时基岩对具名实体始终显示。
      */
     public static boolean nametagAlwaysShown(final Number value) {
         return value == null || value.byteValue() != 0;
     }
 
     /**
-     * Returns the last line of a (potentially multiline) nametag string.
-     * Java team prefixes and vanilla player nametags cannot render {@code \n}, so the
-     * extra lines have to live on virtual armor stands instead of the host prefix.
+     * 返回（可能多行的）名称标签字符串的最后一行。
+     * Java 队伍前缀与原版玩家名称标签无法渲染 {@code \n}，因此
+     * 多余的行必须放在虚拟盔甲架上，而不是宿主前缀里。
      */
     public static String lastLine(final String text) {
         if (text == null) return null;
@@ -129,9 +128,9 @@ public class TextUtil {
     }
 
     /**
-     * Flattens a Bedrock HUD string onto one line for Java surfaces that cannot render {@code \n}
-     * (boss bars, scoreboard titles, titles/subtitles, action bars, tab-list names, container titles).
-     * Leading/trailing blank lines are dropped, then remaining lines are joined with a space.
+     * 把基岩 HUD 字符串压平为一行，供无法渲染 {@code \n} 的 Java 界面使用
+     * （Boss 血条、计分板标题、标题/副标题、动作栏、玩家列表名称、容器标题）。
+     * 先丢弃首尾空行，再用空格连接剩余各行。
      */
     public static String toSingleLine(final String text) {
         if (text == null) return null;
@@ -164,9 +163,7 @@ public class TextUtil {
         return ProtocolConstants.JAVA_TEXT_COMPONENT_SERIALIZER.serializeNbtTree(textComponent);
     }
 
-    /**
-     * Parses the Java 1.21.8 JSON text component format and serializes it for the current Java target.
-     */
+    /** 解析 Java 1.21.8 的 JSON 文本组件格式，并针对当前 Java 目标序列化。 */
     public static Tag javaTellrawJsonToNbt(final String json) {
         return textComponentToNbt(ProtocolConstants.JAVA_TELLRAW_SERIALIZER.toComponent(json));
     }
@@ -209,9 +206,7 @@ public class TextUtil {
         }
     }
 
-    /**
-     * Preprocesses bedrock text to fix the java client resetting the formatting after a color code
-     */
+    /** 预处理基岩文本，修正 Java 客户端在颜色代码后重置格式的问题 */
     private static String appendFormattingCodesAfterColorCode(final String s) {
         final char[] chars = s.toCharArray();
         final Set<BedrockTextFormatting> styles = EnumSet.noneOf(BedrockTextFormatting.class);

@@ -36,8 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java cartography result clicks become MOT {@code CraftRecipeOptional} with
- * {@code CartographyText}. MOT writes the result into HUD created-output slot 50.
+ * Java 的制图台结果点击会变成带 {@code CartographyText} 的 MOT {@code CraftRecipeOptional}。
+ * MOT 会把结果写入 HUD 的 created-output 槽位 50。
  */
 public final class CartographySimulator {
 

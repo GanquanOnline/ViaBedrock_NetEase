@@ -29,8 +29,8 @@ public final class ScriptMessagePackets {
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.SCRIPT_MESSAGE, null, wrapper -> {
             wrapper.cancel();
-            final String messageId = wrapper.read(BedrockTypes.STRING); // message id
-            final String payload = wrapper.read(BedrockTypes.STRING); // value
+            final String messageId = wrapper.read(BedrockTypes.STRING); // 消息 ID
+            final String payload = wrapper.read(BedrockTypes.STRING); // 值
 
             if (JavaCustomPayloadBridge.bridgeClientbound(messageId, payload, wrapper.user())) {
                 return;

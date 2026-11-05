@@ -24,7 +24,7 @@ class BigEndianNetworkTagTypeTest {
     void readsMotBigEndianNetworkNbt() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            writeByte(buffer, 10); // root compound
+            writeByte(buffer, 10); // 根复合标签
             writeString(buffer, "");
             writeStringTag(buffer, "type", "minecraft:test");
             writeListStart(buffer, "properties", 10, 1);

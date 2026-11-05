@@ -40,17 +40,17 @@ public final class RidingAnchorHelper {
 
     public static void spawn(final UserConnection user, final int javaId, final UUID uuid, final Position3f position) {
         final PacketWrapper addEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, user);
-        addEntity.write(Types.VAR_INT, javaId); // entity id
-        addEntity.write(Types.UUID, uuid); // uuid
-        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // type id
+        addEntity.write(Types.VAR_INT, javaId); // 实体 ID
+        addEntity.write(Types.UUID, uuid); // UUID
+        addEntity.write(Types.VAR_INT, EntityTypes1_21_11.TEXT_DISPLAY.getId()); // 类型 ID
         addEntity.write(Types.DOUBLE, (double) position.x()); // x
         addEntity.write(Types.DOUBLE, (double) position.y()); // y
         addEntity.write(Types.DOUBLE, (double) position.z()); // z
-        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // velocity
-        addEntity.write(Types.BYTE, (byte) 0); // pitch
-        addEntity.write(Types.BYTE, (byte) 0); // yaw
-        addEntity.write(Types.BYTE, (byte) 0); // head yaw
-        addEntity.write(Types.VAR_INT, 0); // data
+        addEntity.write(Types.MOVEMENT_VECTOR, Vector3d.ZERO); // 速度
+        addEntity.write(Types.BYTE, (byte) 0); // 俯仰角
+        addEntity.write(Types.BYTE, (byte) 0); // 偏航角
+        addEntity.write(Types.BYTE, (byte) 0); // 头部偏航角
+        addEntity.write(Types.VAR_INT, 0); // 数据
         addEntity.send(BedrockProtocol.class);
 
         // 挂点使用原版三 tick 位置插值，乘客随挂点平滑移动。
@@ -68,31 +68,31 @@ public final class RidingAnchorHelper {
 
     public static void move(final UserConnection user, final int javaId, final Position3f position, final Position3f rotation, final boolean onGround) {
         final PacketWrapper move = PacketWrapper.create(ClientboundPackets26_1.ENTITY_POSITION_SYNC, user);
-        move.write(Types.VAR_INT, javaId); // entity id
+        move.write(Types.VAR_INT, javaId); // 实体 ID
         move.write(Types.DOUBLE, (double) position.x()); // x
         move.write(Types.DOUBLE, (double) position.y()); // y
         move.write(Types.DOUBLE, (double) position.z()); // z
-        move.write(Types.DOUBLE, 0D); // velocity x
-        move.write(Types.DOUBLE, 0D); // velocity y
-        move.write(Types.DOUBLE, 0D); // velocity z
-        move.write(Types.FLOAT, rotation.y()); // yaw
-        move.write(Types.FLOAT, rotation.x()); // pitch
-        move.write(Types.BOOLEAN, onGround); // on ground
+        move.write(Types.DOUBLE, 0D); // 速度 x
+        move.write(Types.DOUBLE, 0D); // 速度 y
+        move.write(Types.DOUBLE, 0D); // 速度 z
+        move.write(Types.FLOAT, rotation.y()); // 偏航角
+        move.write(Types.FLOAT, rotation.x()); // 俯仰角
+        move.write(Types.BOOLEAN, onGround); // 在地面上
         move.send(BedrockProtocol.class);
     }
 
     /**
-     * Snap the locally controlled JE vehicle (boat/horse/etc.) back to an authoritative pose.
-     * Clientbound {@code MOVE_VEHICLE} updates the ridden vehicle itself; plain
-     * {@code ENTITY_POSITION_SYNC} is ignored/overwritten by JE local boat buoyancy.
+     * 把本地控制的 JE 载具（船/马等）拉回权威姿态。
+     * 服务端→客户端的 {@code MOVE_VEHICLE} 更新的正是被骑乘的载具本身；单纯的
+     * {@code ENTITY_POSITION_SYNC} 会被 JE 本地的船浮力逻辑忽略或覆盖。
      */
     public static void moveVehicle(final UserConnection user, final Position3f position, final float yaw, final float pitch) {
         final PacketWrapper move = PacketWrapper.create(ClientboundPackets26_1.MOVE_VEHICLE, user);
         move.write(Types.DOUBLE, (double) position.x()); // x
         move.write(Types.DOUBLE, (double) position.y()); // y
         move.write(Types.DOUBLE, (double) position.z()); // z
-        move.write(Types.FLOAT, yaw); // yaw
-        move.write(Types.FLOAT, pitch); // pitch
+        move.write(Types.FLOAT, yaw); // 偏航角
+        move.write(Types.FLOAT, pitch); // 俯仰角
         move.send(BedrockProtocol.class);
     }
 

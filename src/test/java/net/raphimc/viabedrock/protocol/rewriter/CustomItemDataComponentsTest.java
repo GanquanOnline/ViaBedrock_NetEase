@@ -144,7 +144,7 @@ class CustomItemDataComponentsTest {
                 }
         );
 
-        // Production receives this serializer lookup from the initialized ViaVersion protocol.
+        // 生产环境中，这个序列化器查找来自已初始化的 ViaVersion 协议。
         final Field lookupField = StructuredDataContainer.class.getDeclaredField("lookup");
         lookupField.setAccessible(true);
         lookupField.set(container, lookup);

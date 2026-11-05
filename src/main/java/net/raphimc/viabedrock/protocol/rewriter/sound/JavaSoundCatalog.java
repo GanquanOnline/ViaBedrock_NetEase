@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class JavaSoundCatalog {
 
-    // Bundled catalogs are generated from Mojang sounds.json files with file names and non-acoustic fields removed.
+    // 内置目录由 Mojang 的 sounds.json 生成，并已去除文件名和非声学字段。
     private static final Variant DEFAULT_VARIANT = new Variant(1F, 1F, 16);
 
     private final Map<String, List<Entry>> events;
@@ -75,9 +75,9 @@ public final class JavaSoundCatalog {
 
     public static Variant resolve(final ProtocolVersion protocolVersion, final String identifier, final long seed) {
         final JavaSoundCatalog catalog;
-        if (ProtocolVersion.v1_21_7.equals(protocolVersion)) { // 1.21.7 and 1.21.8
+        if (ProtocolVersion.v1_21_7.equals(protocolVersion)) { // 1.21.7 与 1.21.8
             catalog = Java1218.INSTANCE;
-        } else if (ProtocolVersion.v1_21_9.equals(protocolVersion)) { // 1.21.9 and 1.21.10
+        } else if (ProtocolVersion.v1_21_9.equals(protocolVersion)) { // 1.21.9 与 1.21.10
             catalog = Java12110.INSTANCE;
         } else if (ProtocolVersion.v1_21_11.equals(protocolVersion)) {
             catalog = Java12111.INSTANCE;

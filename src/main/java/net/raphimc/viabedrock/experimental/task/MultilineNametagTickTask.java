@@ -22,9 +22,7 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import net.raphimc.viabedrock.experimental.storage.MultilineNametagTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 
-/**
- * Reconciles viewer-dependent player multiline nametag visibility every client tick.
- */
+/** 每个客户端刻协调一次依赖观察者的玩家多行名称标签可见性。 */
 public class MultilineNametagTickTask implements Runnable {
 
     @Override

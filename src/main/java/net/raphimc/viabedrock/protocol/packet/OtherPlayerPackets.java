@@ -66,20 +66,20 @@ public class OtherPlayerPackets {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
             final PlayerListStorage playerListStorage = wrapper.user().get(PlayerListStorage.class);
 
-            final UUID uuid = wrapper.read(BedrockTypes.UUID); // uuid
-            final String username = wrapper.read(BedrockTypes.STRING); // username
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final String platformOnlineId = wrapper.read(BedrockTypes.STRING); // platform online id
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // motion
-            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // rotation
-            final BedrockItem item = wrapper.read(itemRewriter.itemType()); // held item
-            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // game type
-            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // entity data
+            final UUID uuid = wrapper.read(BedrockTypes.UUID); // UUID
+            final String username = wrapper.read(BedrockTypes.STRING); // 用户名
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final String platformOnlineId = wrapper.read(BedrockTypes.STRING); // 平台在线 ID
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final Position3f motion = wrapper.read(BedrockTypes.POSITION_3F); // 运动
+            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // 旋转
+            final BedrockItem item = wrapper.read(itemRewriter.itemType()); // 手持物品
+            final GameType gameType = GameTypeRewriter.fromWire(wrapper.read(BedrockTypes.VAR_INT)); // 游戏类型
+            final EntityData[] entityData = wrapper.read(BedrockTypes.ENTITY_DATA_ARRAY); // 实体数据
             final EntityProperties entityProperties = EntityPropertyStorage.getOrCreate(wrapper.user())
-                    .resolve("minecraft:player", wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // entity properties
-            final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // abilities
-            final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // entity links
+                    .resolve("minecraft:player", wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // 实体属性
+            final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // 能力
+            final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // 实体链接
 
             final PlayerEntity entity = entityTracker.addEntity(new PlayerEntity(wrapper.user(), entityRuntimeId, entityTracker.getNextJavaEntityId(), uuid, abilities));
             entity.setPosition(position.add(0F, entity.eyeOffset(), 0F));
@@ -92,8 +92,8 @@ public class OtherPlayerPackets {
 
             final GameProfile.Property[] profileProperties = new GameProfile.Property[]{
                     new GameProfile.Property("platform_online_id", platformOnlineId),
-                    new GameProfile.Property("device_id", wrapper.read(BedrockTypes.STRING)), // device id
-                    new GameProfile.Property("device_os", wrapper.read(BedrockTypes.INT_LE).toString()) // device os
+                    new GameProfile.Property("device_id", wrapper.read(BedrockTypes.STRING)), // 设备 ID
+                    new GameProfile.Property("device_os", wrapper.read(BedrockTypes.INT_LE).toString()) // 设备操作系统
             };
             final net.raphimc.viabedrock.protocol.data.enums.java.generated.GameMode javaGameMode =
                     GameTypeRewriter.getEffectiveGameMode(gameType, gameSession.getLevelGameType());
@@ -109,26 +109,26 @@ public class OtherPlayerPackets {
             playerListStorage.updateJavaGameMode(uuid, javaGameMode);
 
             final PacketWrapper playerInfoUpdate = PacketWrapper.create(ClientboundPackets26_1.PLAYER_INFO_UPDATE, wrapper.user());
-            playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_GAME_MODE, PlayerInfoUpdateAction.UPDATE_LATENCY)); // actions
-            playerInfoUpdate.write(Types.VAR_INT, 1); // length
-            playerInfoUpdate.write(Types.UUID, uuid); // uuid
-            playerInfoUpdate.write(Types.STRING, StringUtil.encodeUUID(uuid)); // username
-            playerInfoUpdate.write(Types.PROFILE_PROPERTY_ARRAY, profileProperties); // properties
-            playerInfoUpdate.write(Types.VAR_INT, javaGameMode.ordinal()); // game mode
-            playerInfoUpdate.write(Types.VAR_INT, playerListStorage.serverLatency(uuid)); // latency
+            playerInfoUpdate.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_GAME_MODE, PlayerInfoUpdateAction.UPDATE_LATENCY)); // 动作
+            playerInfoUpdate.write(Types.VAR_INT, 1); // 长度
+            playerInfoUpdate.write(Types.UUID, uuid); // UUID
+            playerInfoUpdate.write(Types.STRING, StringUtil.encodeUUID(uuid)); // 用户名
+            playerInfoUpdate.write(Types.PROFILE_PROPERTY_ARRAY, profileProperties); // 属性
+            playerInfoUpdate.write(Types.VAR_INT, javaGameMode.ordinal()); // 游戏模式
+            playerInfoUpdate.write(Types.VAR_INT, playerListStorage.serverLatency(uuid)); // 延迟
             playerInfoUpdate.send(BedrockProtocol.class);
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-            wrapper.write(Types.UUID, uuid); // uuid
-            wrapper.write(Types.VAR_INT, EntityTypes1_21_11.PLAYER.getId()); // type id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            wrapper.write(Types.UUID, uuid); // UUID
+            wrapper.write(Types.VAR_INT, EntityTypes1_21_11.PLAYER.getId()); // 类型 ID
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y()); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
-            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // velocity
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // pitch
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.y())); // yaw
-            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.z())); // head yaw
-            wrapper.write(Types.VAR_INT, 0); // data
+            wrapper.write(Types.LOW_PRECISION_VECTOR, new Vector3d(motion.x(), motion.y(), motion.z())); // 速度
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // 俯仰角
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.y())); // 偏航角
+            wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.z())); // 头部偏航角
+            wrapper.write(Types.VAR_INT, 0); // 数据
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
@@ -136,9 +136,9 @@ public class OtherPlayerPackets {
             spectatorMenu.afterEntitySpawn(uuid);
 
             final PacketWrapper setEquipment = PacketWrapper.create(ClientboundPackets26_1.SET_EQUIPMENT, wrapper.user());
-            setEquipment.write(Types.VAR_INT, entity.javaId()); // entity id
-            setEquipment.write(Types.BYTE, (byte) EquipmentSlot.MAINHAND.ordinal()); // slot
-            setEquipment.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // item
+            setEquipment.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+            setEquipment.write(Types.BYTE, (byte) EquipmentSlot.MAINHAND.ordinal()); // 槽位
+            setEquipment.write(VersionedTypes.V26_1.item, itemRewriter.javaItem(item)); // 物品
             setEquipment.send(BedrockProtocol.class);
 
             entity.sendInitialEntityData();
@@ -149,17 +149,17 @@ public class OtherPlayerPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_PLAYER, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // rotation
-            final PlayerPositionModeComponent_PositionMode mode = PlayerPositionModeComponent_PositionMode.getByValue(wrapper.read(Types.BYTE), PlayerPositionModeComponent_PositionMode.OnlyHeadRot); // mode
-            final boolean onGround = wrapper.read(Types.BOOLEAN); // on ground
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // riding entity runtime id
+            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 位置
+            final Position3f rotation = wrapper.read(BedrockTypes.POSITION_3F); // 旋转
+            final PlayerPositionModeComponent_PositionMode mode = PlayerPositionModeComponent_PositionMode.getByValue(wrapper.read(Types.BYTE), PlayerPositionModeComponent_PositionMode.OnlyHeadRot); // 模式
+            final boolean onGround = wrapper.read(Types.BOOLEAN); // 是否在地面
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 所骑乘实体的运行时 ID
             if (mode == PlayerPositionModeComponent_PositionMode.Teleport) {
-                wrapper.read(BedrockTypes.INT_LE); // teleportation cause
-                wrapper.read(BedrockTypes.INT_LE); // entity type
+                wrapper.read(BedrockTypes.INT_LE); // 传送原因
+                wrapper.read(BedrockTypes.INT_LE); // 实体类型
             }
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // tick
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 刻
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
             if (entity == null) {
@@ -174,10 +174,10 @@ public class OtherPlayerPackets {
             if (mode == PlayerPositionModeComponent_PositionMode.OnlyHeadRot) {
                 entity.setRotation(new Position3f(rotation.x(), entity.rotation().y(), entity.rotation().z()));
                 wrapper.setPacketType(ClientboundPackets26_1.MOVE_ENTITY_ROT);
-                wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
-                wrapper.write(Types.BYTE, MathUtil.float2Byte(entity.rotation().y())); // yaw
-                wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // pitch
-                wrapper.write(Types.BOOLEAN, entity.isOnGround()); // on ground
+                wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
+                wrapper.write(Types.BYTE, MathUtil.float2Byte(entity.rotation().y())); // 偏航角
+                wrapper.write(Types.BYTE, MathUtil.float2Byte(rotation.x())); // 俯仰角
+                wrapper.write(Types.BOOLEAN, entity.isOnGround()); // 是否在地面
                 return;
             }
 
@@ -186,11 +186,11 @@ public class OtherPlayerPackets {
             final boolean previousOnGround = entity.isOnGround();
             final boolean duplicatePosition = previousPosition.equals(position) && previousRotation.equals(rotation) && previousOnGround == onGround;
 
-            // MOT sendPosition(..., targets==null) uses MODE_NORMAL=0 as a local
-            // rubber-band. Java 1.21.11 has no self ENTITY_POSITION_SYNC, so every
-            // local MOVE_PLAYER must become PLAYER_POSITION. Only Respawn/RESET
-            // uses a fake teleport id so AuthInput does not emit HandledTeleport.
-            // Ref: MOT Player.sendPosition; OtherPlayerPacketsMovePlayerTest.
+            // MOT sendPosition(..., targets==null) 把 MODE_NORMAL=0 当作本地
+            // 橡皮筋回拉。Java 1.21.11 没有发往自身的 ENTITY_POSITION_SYNC，所以每个
+            // 本地 MOVE_PLAYER 都必须转成 PLAYER_POSITION。只有 Respawn/RESET
+            // 使用伪造的传送 ID，以免 AuthInput 发出 HandledTeleport。
+            // 参考：MOT Player.sendPosition；OtherPlayerPacketsMovePlayerTest。
             if (entity instanceof ClientPlayerEntity clientPlayer && shouldRewriteLocalMovePlayerToJavaPosition(mode)) {
                 if (shouldCancelDuplicateLocalTeleport(mode, duplicatePosition)) {
                     wrapper.cancel();
@@ -210,30 +210,30 @@ public class OtherPlayerPackets {
             entity.setOnGround(onGround);
             ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
-            wrapper.write(Types.VAR_INT, entity.javaId()); // entity id
+            wrapper.write(Types.VAR_INT, entity.javaId()); // 实体 ID
             wrapper.write(Types.DOUBLE, (double) position.x()); // x
             wrapper.write(Types.DOUBLE, (double) position.y() - entity.eyeOffset()); // y
             wrapper.write(Types.DOUBLE, (double) position.z()); // z
-            wrapper.write(Types.DOUBLE, 0D); // velocity x
-            wrapper.write(Types.DOUBLE, 0D); // velocity y
-            wrapper.write(Types.DOUBLE, 0D); // velocity z
-            wrapper.write(Types.FLOAT, rotation.y()); // yaw
-            wrapper.write(Types.FLOAT, rotation.x()); // pitch
-            wrapper.write(Types.BOOLEAN, onGround); // on ground
+            wrapper.write(Types.DOUBLE, 0D); // 速度 x
+            wrapper.write(Types.DOUBLE, 0D); // 速度 y
+            wrapper.write(Types.DOUBLE, 0D); // 速度 z
+            wrapper.write(Types.FLOAT, rotation.y()); // 偏航角
+            wrapper.write(Types.FLOAT, rotation.x()); // 俯仰角
+            wrapper.write(Types.BOOLEAN, onGround); // 是否在地面
 
             PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.PLAYER_SKIN, null, wrapper -> {
             wrapper.cancel();
-            final UUID uuid = wrapper.read(BedrockTypes.UUID); // uuid
-            final SkinData skin = wrapper.read(BedrockTypes.SKIN); // skin
-            wrapper.read(BedrockTypes.STRING); // new skin name
-            wrapper.read(BedrockTypes.STRING); // old skin name
-            wrapper.read(Types.BOOLEAN); // trusted skin
+            final UUID uuid = wrapper.read(BedrockTypes.UUID); // UUID
+            final SkinData skin = wrapper.read(BedrockTypes.SKIN); // 皮肤
+            wrapper.read(BedrockTypes.STRING); // 新皮肤名称
+            wrapper.read(BedrockTypes.STRING); // 旧皮肤名称
+            wrapper.read(Types.BOOLEAN); // 可信皮肤
 
-            // Mirror the PLAYER_LIST remap: the local player's Bedrock UUID differs from its javaUuid, so a
-            // runtime skin update addressed by the Bedrock UUID must be remapped to javaUuid. Otherwise the
-            // mod keys the skin by javaUuid and the local player's own skin change would never be applied.
+            // 与 PLAYER_LIST 的重映射保持一致：本地玩家的基岩 UUID 与其 javaUuid 不同，因此
+            // 以基岩 UUID 寻址的运行时皮肤更新必须重映射到 javaUuid。否则
+            // mod 会按 javaUuid 索引皮肤，本地玩家自己的皮肤更换将永远不会生效。
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             final UUID targetUuid = (clientPlayer != null && uuid.equals(clientPlayer.bedrockUuid()))
                     ? clientPlayer.javaUuid() : uuid;
@@ -242,7 +242,7 @@ public class OtherPlayerPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_ABILITIES, ClientboundPackets26_1.PLAYER_ABILITIES, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
-            final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // abilities
+            final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // 能力
             final Entity entity = entityTracker.getEntityByUid(abilities.entityUniqueId());
             if (entity instanceof ClientPlayerEntity clientPlayer) {
                 clientPlayer.setAbilities(abilities, wrapper);

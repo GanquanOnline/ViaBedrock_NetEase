@@ -51,7 +51,7 @@ class ClientLightStorageTest {
         assertEquals(ClientLightStorage.Mode.CLIENT_COMPUTED, storage.mode());
         assertFalse(storage.freeze());
         assertFalse(storage.allowsProxyComputation());
-        finish.run(); // RUN tells the caller to execute its continuation.
+        finish.run(); // RUN 告知调用方执行其后续逻辑。
         assertEquals(1, finishes.get());
     }
 
@@ -156,7 +156,7 @@ class ClientLightStorageTest {
 
         assertTrue(storage.markProbeSent(0L));
         assertEquals(ClientLightStorage.FinishDecision.WAIT, storage.requestFinish(1L, finishes::incrementAndGet).decision());
-        assertTrue(storage.hasPendingFinish()); // An unrelated incremental register does not touch EC state.
+        assertTrue(storage.hasPendingFinish()); // 无关的增量注册不会触碰 EC 状态。
         assertEquals(ClientLightStorage.Mode.UNKNOWN, storage.mode());
 
         final Runnable released = storage.timeoutPendingFinish(ClientLightStorage.NEGOTIATION_WINDOW_NANOS);

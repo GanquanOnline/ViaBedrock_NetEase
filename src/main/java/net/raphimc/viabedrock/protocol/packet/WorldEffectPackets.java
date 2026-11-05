@@ -86,32 +86,32 @@ public class WorldEffectPackets {
         DROP
     }
 
-    // Only log warnings about missing mappings if explicitly enabled for debugging
-    // The Bedrock Dedicated Server sends a lot of unknown sound events which are expected to be ignored in most cases (Resource packs could add custom sounds for certain events)
+    // 只有显式开启调试时才记录缺失映射的警告
+    // 基岩专用服务端会发送大量未知音效事件，多数情况下本应被忽略（资源包可以为特定事件添加自定义音效）
     private static final boolean LEVEL_SOUND_DEBUG_LOG = false;
     private static final SoundDefinitions.ConfiguredSound GENERIC_CUSTOM_ENTITY_HURT =
             new SoundDefinitions.ConfiguredSound("game.player.hurt", 1F, 1F, 0.8F, 1.2F);
 
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PLAY_SOUND, ClientboundPackets26_1.SOUND, wrapper -> {
-            final String name = wrapper.read(BedrockTypes.STRING); // sound name
-            final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // position
-            final float volume = wrapper.read(BedrockTypes.FLOAT_LE); // volume
-            final float pitch = wrapper.read(BedrockTypes.FLOAT_LE); // pitch
-            // NetEase 860 never grew the v827+ server sound handle tail. Reading the optional long
-            // consumes the presence boolean only when it is absent, leaving the boolean byte in the
-            // buffer and throwing when the clientbound writer hits the trailing byte; probabilistic
-            // because it only fires when the server actually plays a positional sound.
-            // Official 974+ and NetEase 974+ append an optional server sound handle.
-            // NetEase 860 still ends after pitch, so skip the handle only on that layout.
+            final String name = wrapper.read(BedrockTypes.STRING); // 音效名称
+            final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // 位置
+            final float volume = wrapper.read(BedrockTypes.FLOAT_LE); // 音量
+            final float pitch = wrapper.read(BedrockTypes.FLOAT_LE); // 音高
+            // 网易 860 从未增加 v827+ 的服务端音效句柄尾部。读取该可选 long
+            // 只在其不存在时消费存在性布尔值，把该布尔字节留在
+            // 缓冲区里，并在服务端→客户端写入器遇到尾部字节时抛错；具有概率性，
+            // 因为它只在服务端真正播放位置音效时触发。
+            // 官方 974+ 与网易 974+ 会追加可选的服务器音效句柄。
+            // 网易 860 仍在 pitch 之后结束，因此只在该布局上跳过该句柄。
             if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                     || ViaBedrock.getConfig().getNetEaseProtocolVersion() >= 974) {
-                wrapper.read(BedrockTypes.OPTIONAL_UNSIGNED_LONG_LE); // server sound handle
+                wrapper.read(BedrockTypes.OPTIONAL_UNSIGNED_LONG_LE); // 服务器音效句柄
             }
 
             final BedrockMappingData.JavaSound javaSound = BedrockProtocol.MAPPINGS.getBedrockToJavaSounds().get(name);
             final Position3f sourcePosition = new Position3f(position.x() / 8F, position.y() / 8F, position.z() / 8F);
-            // Resource-pack definitions override vanilla mappings, matching Bedrock pack priority.
+            // 资源包定义会覆写原版映射，与基岩的包优先级一致。
             final Holder<SoundEvent> customHolder = tryResolveCustomSound(wrapper.user(), name);
             if (customHolder != null) {
                 final SoundSource category = getSoundCategory(wrapper.user(), name, SoundSource.MASTER);
@@ -130,18 +130,18 @@ public class WorldEffectPackets {
                     javaSound.identifier(), sourcePosition, volume, pitch, false, false);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.STOP_SOUND, ClientboundPackets26_1.STOP_SOUND, wrapper -> {
-            final String name = wrapper.read(BedrockTypes.STRING); // sound name
-            final boolean stopAll = wrapper.read(Types.BOOLEAN); // stop all
-            wrapper.read(Types.BOOLEAN); // stop music | Ignored because it seems to do nothing
+            final String name = wrapper.read(BedrockTypes.STRING); // 音效名称
+            final boolean stopAll = wrapper.read(Types.BOOLEAN); // 停止全部
+            wrapper.read(Types.BOOLEAN); // 停止音乐 | 被忽略，因为它似乎没有任何效果
 
             if (stopAll) {
-                wrapper.write(Types.BYTE, (byte) 0); // flags
+                wrapper.write(Types.BYTE, (byte) 0); // 标志
             } else {
                 final BedrockMappingData.JavaSound javaSound = BedrockProtocol.MAPPINGS.getBedrockToJavaSounds().get(name);
                 final Holder<SoundEvent> customHolder = tryResolveCustomSound(wrapper.user(), name);
                 if (customHolder != null) {
-                    wrapper.write(Types.BYTE, (byte) 2); // flags
-                    wrapper.write(Types.STRING, "bedrock:" + name); // sound identifier
+                    wrapper.write(Types.BYTE, (byte) 2); // 标志
+                    wrapper.write(Types.STRING, "bedrock:" + name); // 音效标识符
                     return;
                 }
                 if (javaSound == null) {
@@ -150,22 +150,22 @@ public class WorldEffectPackets {
                     return;
                 }
 
-                wrapper.write(Types.BYTE, (byte) 2); // flags
-                wrapper.write(Types.STRING, javaSound.identifier()); // sound identifier
+                wrapper.write(Types.BYTE, (byte) 2); // 标志
+                wrapper.write(Types.STRING, javaSound.identifier()); // 音效标识符
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SPAWN_PARTICLE_EFFECT, ClientboundPackets26_1.LEVEL_PARTICLES, wrapper -> {
-            final Dimension dimension = Dimension.getByValue(wrapper.read(Types.BYTE)); // dimension
+            final Dimension dimension = Dimension.getByValue(wrapper.read(Types.BYTE)); // 维度
             if (dimension != wrapper.user().get(ChunkTracker.class).getDimension()) {
                 wrapper.cancel();
                 return;
             }
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final String effectIdentifier = wrapper.read(BedrockTypes.STRING); // effect name
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 坐标
+            final String effectIdentifier = wrapper.read(BedrockTypes.STRING); // 效果名
             final String molangVarsJson;
-            if (wrapper.read(Types.BOOLEAN)) { // has molang variables
-                molangVarsJson = wrapper.read(BedrockTypes.STRING); // molang variables json
+            if (wrapper.read(Types.BOOLEAN)) { // 是否带 molang 变量
+                molangVarsJson = wrapper.read(BedrockTypes.STRING); // molang 变量 JSON
             } else {
                 molangVarsJson = null;
             }
@@ -174,7 +174,7 @@ public class WorldEffectPackets {
 
             final BedrockMappingData.JavaParticle javaParticle = BedrockProtocol.MAPPINGS.getBedrockToJavaParticles().get(effectIdentifier);
             final ChannelStorage channelStorage = wrapper.user().get(ChannelStorage.class);
-            // Keep stable Java projections first; V2 handles effects that Java cannot represent.
+            // 优先使用稳定的 Java 投影；Java 无法表示的效果由 V2 处理。
             final ParticleRoute route = selectParticleRoute(
                     javaParticle != null,
                     channelStorage != null && channelStorage.hasChannel(ViaBedrockUtilityInterface.PARTICLE_RUNTIME_V2_CAPABILITY),
@@ -213,27 +213,27 @@ public class WorldEffectPackets {
             PacketFactory.writeJavaLevelParticles(wrapper, position, switch (effectIdentifier) {
                 case "minecraft:eyeblossom_close", "minecraft:eyeblossom_open" -> {
                     final Particle particle = javaParticle.particle().copy();
-                    particle.set(0, Types.DOUBLE, (double) position.x() + ThreadLocalRandom.current().nextFloat() - 0.5F); // target x
-                    particle.set(1, Types.DOUBLE, (double) position.y() + ThreadLocalRandom.current().nextFloat() + 1.5F); // target y
-                    particle.set(2, Types.DOUBLE, (double) position.z() + ThreadLocalRandom.current().nextFloat() - 0.5F); // target z
+                    particle.set(0, Types.DOUBLE, (double) position.x() + ThreadLocalRandom.current().nextFloat() - 0.5F); // 目标 x
+                    particle.set(1, Types.DOUBLE, (double) position.y() + ThreadLocalRandom.current().nextFloat() + 1.5F); // 目标 y
+                    particle.set(2, Types.DOUBLE, (double) position.z() + ThreadLocalRandom.current().nextFloat() - 0.5F); // 目标 z
                     yield javaParticle.withParticle(particle);
                 }
                 default -> javaParticle;
             });
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_SOUND_EVENT, ClientboundPackets26_1.SOUND, wrapper -> {
-            final int rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // event id
+            final int rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 事件 ID
             final SharedTypes_Legacy_LevelSoundEvent soundEvent = SharedTypes_Legacy_LevelSoundEvent.getByValue(rawSoundEvent);
             if (soundEvent == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SharedTypes_Legacy_LevelSoundEvent: " + rawSoundEvent);
                 wrapper.cancel();
                 return;
             }
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            final int data = wrapper.read(BedrockTypes.VAR_INT); // data
-            final String entityIdentifier = wrapper.read(BedrockTypes.STRING); // entity identifier
-            final boolean isBabyMob = wrapper.read(Types.BOOLEAN); // is baby mob
-            final boolean isGlobal = wrapper.read(Types.BOOLEAN); // is global sound
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 坐标
+            final int data = wrapper.read(BedrockTypes.VAR_INT); // 数据
+            final String entityIdentifier = wrapper.read(BedrockTypes.STRING); // 实体标识符
+            final boolean isBabyMob = wrapper.read(Types.BOOLEAN); // 是否为幼年生物
+            final boolean isGlobal = wrapper.read(Types.BOOLEAN); // 是否为全局声音
             LevelSoundEventLayout.skipTrailer(wrapper);
 
             // Java 操作者已本地播放放置声音，只抑制同坐标操作的一次服务端回显。
@@ -251,8 +251,8 @@ public class WorldEffectPackets {
             switch (soundEvent) {
                 case RecordNull -> {
                     wrapper.setPacketType(ClientboundPackets26_1.STOP_SOUND);
-                    wrapper.write(Types.BYTE, (byte) 1); // flags
-                    wrapper.write(Types.VAR_INT, SoundSource.RECORDS.ordinal()); // category id
+                    wrapper.write(Types.BYTE, (byte) 1); // 标志位
+                    wrapper.write(Types.VAR_INT, SoundSource.RECORDS.ordinal()); // 分类 ID
                     return;
                 }
                 case Note -> {
@@ -264,7 +264,7 @@ public class WorldEffectPackets {
                 }
                 default -> {
                     configuredSound = tryFindSound(wrapper.user(), soundEvent, data, entityIdentifier, isBabyMob);
-                    if (configuredSound == null) { // Fallback for some special handled sounds
+                    if (configuredSound == null) { // 部分特殊处理声音的回退
                         switch (soundEvent) {
                             case AmbientBaby, MobWarningBaby, HurtBaby, DeathBaby, StepBaby, SpawnBaby -> {
                                 final SharedTypes_Legacy_LevelSoundEvent soundEventAdult = EnumUtil.getEnumConstantOrNull(SharedTypes_Legacy_LevelSoundEvent.class, soundEvent.name().replace("Baby", ""));
@@ -308,9 +308,9 @@ public class WorldEffectPackets {
                     globalSound, false);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_EVENT, ClientboundPackets26_1.LEVEL_EVENT, wrapper -> {
-            final int rawLevelEvent = wrapper.read(BedrockTypes.VAR_INT); // event id
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            int data = wrapper.read(BedrockTypes.VAR_INT); // data
+            final int rawLevelEvent = wrapper.read(BedrockTypes.VAR_INT); // 事件 ID
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 坐标
+            int data = wrapper.read(BedrockTypes.VAR_INT); // 数据
 
             if ((rawLevelEvent & LevelEvent.ParticleLegacyEvent.getValue()) != 0 || rawLevelEvent == LevelEvent.ParticleGenericSpawn.getValue()) {
                 wrapper.setPacketType(ClientboundPackets26_1.LEVEL_PARTICLES);
@@ -330,14 +330,14 @@ public class WorldEffectPackets {
                         case IconCrack, Food -> {
                             final BedrockItem bedrockItem = new BedrockItem(data >> 16, (short) (data & 0xFFFF), (byte) 1);
                             final Particle particle = new Particle(javaParticle.particle().id());
-                            particle.add(VersionedTypes.V26_1.item, wrapper.user().get(ItemRewriter.class).javaItem(bedrockItem)); // item
+                            particle.add(VersionedTypes.V26_1.item, wrapper.user().get(ItemRewriter.class).javaItem(bedrockItem)); // 物品
                             yield javaParticle.withParticle(particle);
                         }
                         case Terrain, BrushDust -> {
                             final CustomMappingAccess.JavaBlockStateResolution resolution = resolveJavaBlockState(wrapper.user(), data, "level event particle");
                             if (!shouldFailClosed(wrapper.user(), resolution)) {
                                 final Particle particle = new Particle(javaParticle.particle().id());
-                                particle.add(Types.VAR_INT, resolution.javaBlockStateId()); // block state
+                                particle.add(Types.VAR_INT, resolution.javaBlockStateId()); // 方块状态
                                 yield javaParticle.withParticle(particle);
                             } else {
                                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Missing block state: " + data);
@@ -347,21 +347,21 @@ public class WorldEffectPackets {
                         }
                         case FallingDust -> {
                             final Particle particle = new Particle(javaParticle.particle().id());
-                            particle.add(Types.INT, (0xFF << 24) | data); // from color
-                            particle.add(Types.INT, (0xFF << 24) | data); // to color
-                            particle.add(Types.FLOAT, 1F); // scale
+                            particle.add(Types.INT, (0xFF << 24) | data); // 起始颜色
+                            particle.add(Types.INT, (0xFF << 24) | data); // 目标颜色
+                            particle.add(Types.FLOAT, 1F); // 缩放
                             yield javaParticle.withParticle(particle);
                         }
                         case MobSpell, MobSpellAmbient, MobSpellInstantaneous -> {
                             final Particle particle = new Particle(javaParticle.particle().id());
-                            particle.add(Types.INT, (0xFF << 24) | data); // color
+                            particle.add(Types.INT, (0xFF << 24) | data); // 颜色
                             yield javaParticle.withParticle(particle);
                         }
                         case EyeblossomOpen, EyeblossomClose -> {
                             final Particle particle = javaParticle.particle().copy();
-                            particle.set(0, Types.DOUBLE, (double) position.x() + ThreadLocalRandom.current().nextFloat() - 0.5F); // target x
-                            particle.set(1, Types.DOUBLE, (double) position.y() + ThreadLocalRandom.current().nextFloat() + 1.5F); // target y
-                            particle.set(2, Types.DOUBLE, (double) position.z() + ThreadLocalRandom.current().nextFloat() - 0.5F); // target z
+                            particle.set(0, Types.DOUBLE, (double) position.x() + ThreadLocalRandom.current().nextFloat() - 0.5F); // 目标 x
+                            particle.set(1, Types.DOUBLE, (double) position.y() + ThreadLocalRandom.current().nextFloat() + 1.5F); // 目标 y
+                            particle.set(2, Types.DOUBLE, (double) position.z() + ThreadLocalRandom.current().nextFloat() - 0.5F); // 目标 z
                             yield javaParticle.withParticle(particle);
                         }
                         default -> javaParticle;
@@ -427,7 +427,7 @@ public class WorldEffectPackets {
                     wrapper.cancel();
                 }
                 case StartBlockCracking, StopBlockCracking, UpdateBlockCracking -> {
-                    wrapper.cancel(); // TODO: Implement block break progress translation
+                    wrapper.cancel(); // TODO: 实现方块破坏进度转换
                 }
                 default -> {
                     BedrockMappingData.LevelEventMapping levelEventMapping = BedrockProtocol.MAPPINGS.getBedrockToJavaLevelEvents().get(levelEvent);
@@ -439,8 +439,8 @@ public class WorldEffectPackets {
                         }
                     }
                     if (levelEventMapping instanceof BedrockMappingData.JavaLevelEvent javaLevelEvent) {
-                        wrapper.write(Types.INT, javaLevelEvent.levelEvent().getValue()); // event id
-                        wrapper.write(Types.BLOCK_POSITION1_14, new BlockPosition((int) position.x(), (int) position.y(), (int) position.z())); // position
+                        wrapper.write(Types.INT, javaLevelEvent.levelEvent().getValue()); // 事件 ID
+                        wrapper.write(Types.BLOCK_POSITION1_14, new BlockPosition((int) position.x(), (int) position.y(), (int) position.z())); // 坐标
                         wrapper.write(Types.INT, switch (levelEvent) {
                             case ParticlesShoot, ParticlesShootWhiteSmoke -> switch (data % 9) {
                                 case 3, 0 -> Direction.WEST.ordinal();
@@ -460,8 +460,8 @@ public class WorldEffectPackets {
                                 }
                             }
                             default -> javaLevelEvent.data() != null ? javaLevelEvent.data() : data;
-                        }); // data
-                        wrapper.write(Types.BOOLEAN, false); // global
+                        }); // 数据
+                        wrapper.write(Types.BOOLEAN, false); // 全局
                     } else if (levelEventMapping instanceof BedrockMappingData.JavaSound javaSound) {
                         wrapper.setPacketType(ClientboundPackets26_1.SOUND);
                         final float pitch = switch (levelEvent) {
@@ -491,7 +491,7 @@ public class WorldEffectPackets {
                                 final CustomMappingAccess.JavaBlockStateResolution resolution = resolveJavaBlockState(wrapper.user(), data, "crack block particle");
                                 if (!shouldFailClosed(wrapper.user(), resolution)) {
                                     final Particle particle = new Particle(javaParticle.particle().id());
-                                    particle.add(Types.VAR_INT, resolution.javaBlockStateId()); // block state
+                                    particle.add(Types.VAR_INT, resolution.javaBlockStateId()); // 方块状态
                                     yield javaParticle.withParticle(particle);
                                 } else {
                                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Missing block state: " + data);
@@ -511,8 +511,8 @@ public class WorldEffectPackets {
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_EVENT_GENERIC, ClientboundPackets26_1.LEVEL_PARTICLES, wrapper -> {
-            final int rawLevelEvent = wrapper.read(BedrockTypes.VAR_INT); // event id
-            final CompoundTag data = (CompoundTag) wrapper.read(BedrockTypes.COMPOUND_TAG_VALUE); // data
+            final int rawLevelEvent = wrapper.read(BedrockTypes.VAR_INT); // 事件 ID
+            final CompoundTag data = (CompoundTag) wrapper.read(BedrockTypes.COMPOUND_TAG_VALUE); // 数据
 
             final LevelEvent levelEvent = LevelEvent.getByValue(rawLevelEvent);
             if (levelEvent == null) {
@@ -565,8 +565,8 @@ public class WorldEffectPackets {
                         switch (target.getString("type", "")) {
                             case "vec3" -> {
                                 final Position3f targetPosition = new Position3f(target.getFloat("x"), target.getFloat("y"), target.getFloat("z"));
-                                particle.add(Types.VAR_INT, PositionSourceType.BLOCK.ordinal()); // destination type
-                                particle.add(Types.BLOCK_POSITION1_14, new BlockPosition((int) targetPosition.x(), (int) targetPosition.y(), (int) targetPosition.z())); // destination block pos
+                                particle.add(Types.VAR_INT, PositionSourceType.BLOCK.ordinal()); // 目标类型
+                                particle.add(Types.BLOCK_POSITION1_14, new BlockPosition((int) targetPosition.x(), (int) targetPosition.y(), (int) targetPosition.z())); // 目标方块坐标
                             }
                             case "actor" -> {
                                 final Entity entity = wrapper.user().get(EntityTracker.class).getEntityByUid(target.getLong("uniqueID"));
@@ -574,16 +574,16 @@ public class WorldEffectPackets {
                                     wrapper.cancel();
                                     return;
                                 }
-                                particle.add(Types.VAR_INT, PositionSourceType.ENTITY.ordinal()); // destination type
-                                particle.add(Types.VAR_INT, entity.javaId()); // destination entity
-                                particle.add(Types.FLOAT, 0F); // y offset
+                                particle.add(Types.VAR_INT, PositionSourceType.ENTITY.ordinal()); // 目标类型
+                                particle.add(Types.VAR_INT, entity.javaId()); // 目标实体
+                                particle.add(Types.FLOAT, 0F); // y 偏移
                             }
                             default -> {
                                 wrapper.cancel();
                                 return;
                             }
                         }
-                        particle.add(Types.VAR_INT, (int) (timeToLive.asFloat() * 20F)); // arrival in ticks
+                        particle.add(Types.VAR_INT, (int) (timeToLive.asFloat() * 20F)); // 到达时间（刻）
                         PacketFactory.writeJavaLevelParticles(wrapper, originPosition, new BedrockMappingData.JavaParticle(particle, 0F, 0F, 0F, 0F, 0));
                     } else {
                         wrapper.cancel();
@@ -594,7 +594,7 @@ public class WorldEffectPackets {
                     final Position3f position = new Position3f(data.getInt("originX") + 0.5F, data.getInt("originY") + 0.5F, data.getInt("originZ") + 0.5F);
                     for (int i = 0; i < 15; i++) {
                         final Particle particle = new Particle(BedrockProtocol.MAPPINGS.getJavaParticles().get("minecraft:shriek"));
-                        particle.add(Types.VAR_INT, i * 5); // delay
+                        particle.add(Types.VAR_INT, i * 5); // 延迟
                         PacketFactory.sendJavaLevelParticles(wrapper.user(), position, new BedrockMappingData.JavaParticle(particle, 0F, 0F, 0F, 0F, 0));
                     }
                 }
@@ -614,10 +614,10 @@ public class WorldEffectPackets {
                 }
                 case SculkCharge -> {
                     wrapper.setPacketType(ClientboundPackets26_1.LEVEL_EVENT);
-                    wrapper.write(Types.INT, net.raphimc.viabedrock.protocol.data.enums.java.LevelEvent.PARTICLES_SCULK_CHARGE.getValue()); // event id
-                    wrapper.write(Types.BLOCK_POSITION1_14, new BlockPosition(data.getInt("x"), data.getInt("y"), data.getInt("z"))); // position
-                    wrapper.write(Types.INT, (data.getShort("charge") << 6) | (data.getShort("facing") & 0x3F)); // data
-                    wrapper.write(Types.BOOLEAN, false); // global
+                    wrapper.write(Types.INT, net.raphimc.viabedrock.protocol.data.enums.java.LevelEvent.PARTICLES_SCULK_CHARGE.getValue()); // 事件 ID
+                    wrapper.write(Types.BLOCK_POSITION1_14, new BlockPosition(data.getInt("x"), data.getInt("y"), data.getInt("z"))); // 坐标
+                    wrapper.write(Types.INT, (data.getShort("charge") << 6) | (data.getShort("facing") & 0x3F)); // 数据
+                    wrapper.write(Types.BOOLEAN, false); // 全局
                 }
                 case SculkChargePop -> {
                     final Position3f position = new Position3f(data.getInt("x") + 0.5F, data.getInt("y") + 0.5F, data.getInt("z") + 0.5F);
@@ -641,14 +641,14 @@ public class WorldEffectPackets {
                         final int playerCount = data.getInt("overworldPlayerCount");
                         final int sleepingPlayerCount = data.getInt("sleepingPlayerCount");
                         if (sleepingPlayerCount < playerCount) {
-                            wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.translate("multiplayer.playersSleeping", sleepingPlayerCount, playerCount))); // message
+                            wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.translate("multiplayer.playersSleeping", sleepingPlayerCount, playerCount))); // 消息
                         } else {
-                            wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.get("multiplayer.playersSkippingNight"))); // message
+                            wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.get("multiplayer.playersSkippingNight"))); // 消息
                         }
                     } else {
-                        wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.get("multiplayer.playersSleepingNotPossible"))); // message
+                        wrapper.write(Types.TAG, TextUtil.stringToNbt(textDefinitions.get("multiplayer.playersSleepingNotPossible"))); // 消息
                     }
-                    wrapper.write(Types.BOOLEAN, true); // overlay
+                    wrapper.write(Types.BOOLEAN, true); // 叠加层
                 }
                 case ParticleCreakingHeartTrail -> {
                     wrapper.cancel();
@@ -659,20 +659,20 @@ public class WorldEffectPackets {
 
                     for (int i = 0; i < heartAmount; i++) {
                         final Particle particle = new Particle(BedrockProtocol.MAPPINGS.getJavaParticles().get("minecraft:trail"));
-                        particle.add(Types.DOUBLE, (double) heartPosition.x() + ThreadLocalRandom.current().nextFloat()); // target x
-                        particle.add(Types.DOUBLE, (double) heartPosition.y() + ThreadLocalRandom.current().nextFloat()); // target y
-                        particle.add(Types.DOUBLE, (double) heartPosition.z() + ThreadLocalRandom.current().nextFloat()); // target z
-                        particle.add(Types.INT, 6250335); // color
-                        particle.add(Types.VAR_INT, ThreadLocalRandom.current().nextInt(40) + 10); // duration
+                        particle.add(Types.DOUBLE, (double) heartPosition.x() + ThreadLocalRandom.current().nextFloat()); // 目标 x
+                        particle.add(Types.DOUBLE, (double) heartPosition.y() + ThreadLocalRandom.current().nextFloat()); // 目标 y
+                        particle.add(Types.DOUBLE, (double) heartPosition.z() + ThreadLocalRandom.current().nextFloat()); // 目标 z
+                        particle.add(Types.INT, 6250335); // 颜色
+                        particle.add(Types.VAR_INT, ThreadLocalRandom.current().nextInt(40) + 10); // 持续时间
                         PacketFactory.sendJavaLevelParticles(wrapper.user(), creakingPosition, new BedrockMappingData.JavaParticle(particle, 0.5F, 1F, 0.5F, 0F, 1));
                     }
                     for (int i = 0; i < creakingAmount; i++) {
                         final Particle particle = new Particle(BedrockProtocol.MAPPINGS.getJavaParticles().get("minecraft:trail"));
-                        particle.add(Types.DOUBLE, (double) creakingPosition.x() + ThreadLocalRandom.current().nextFloat() * 2F); // target x
-                        particle.add(Types.DOUBLE, (double) creakingPosition.y() + ThreadLocalRandom.current().nextFloat() * 2F); // target y
-                        particle.add(Types.DOUBLE, (double) creakingPosition.z() + ThreadLocalRandom.current().nextFloat() * 2F); // target z
-                        particle.add(Types.INT, 16545810); // color
-                        particle.add(Types.VAR_INT, ThreadLocalRandom.current().nextInt(40) + 10); // duration
+                        particle.add(Types.DOUBLE, (double) creakingPosition.x() + ThreadLocalRandom.current().nextFloat() * 2F); // 目标 x
+                        particle.add(Types.DOUBLE, (double) creakingPosition.y() + ThreadLocalRandom.current().nextFloat() * 2F); // 目标 y
+                        particle.add(Types.DOUBLE, (double) creakingPosition.z() + ThreadLocalRandom.current().nextFloat() * 2F); // 目标 z
+                        particle.add(Types.INT, 16545810); // 颜色
+                        particle.add(Types.VAR_INT, ThreadLocalRandom.current().nextInt(40) + 10); // 持续时间
                         PacketFactory.sendJavaLevelParticles(wrapper.user(), heartPosition, new BedrockMappingData.JavaParticle(particle, 0.5F, 0.5F, 0.5F, 0F, 1));
                     }
                 }
@@ -685,9 +685,9 @@ public class WorldEffectPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.BLOCK_EVENT, ClientboundPackets26_1.BLOCK_EVENT, wrapper -> {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final BlockStateRewriter blockStateRewriter = wrapper.user().get(BlockStateRewriter.class);
-            final BlockPosition position = wrapper.passthroughAndMap(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // position
-            final int type = wrapper.read(BedrockTypes.VAR_INT); // event type
-            final int data = wrapper.read(BedrockTypes.VAR_INT); // event data
+            final BlockPosition position = wrapper.passthroughAndMap(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // 坐标
+            final int type = wrapper.read(BedrockTypes.VAR_INT); // 事件类型
+            final int data = wrapper.read(BedrockTypes.VAR_INT); // 事件数据
 
             final int blockState = chunkTracker.getBlockState(position);
             final String tag = blockStateRewriter.tag(blockState);
@@ -698,9 +698,9 @@ public class WorldEffectPackets {
             }
             switch (tag) {
                 case CustomBlockTags.CHEST, CustomBlockTags.TRAPPED_CHEST, CustomBlockTags.ENDER_CHEST, CustomBlockTags.SHULKER_BOX -> {
-                    if (type == 1) { // open / close
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // event type
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // event data
+                    if (type == 1) { // 打开 / 关闭
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // 事件类型
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // 事件数据
                     } else {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unhandled chest block event: " + type + " " + data);
                         wrapper.cancel();
@@ -710,8 +710,8 @@ public class WorldEffectPackets {
                 case CustomBlockTags.NOTE_BLOCK -> {
                     final NoteBlockInstrument noteBlockInstrument = NoteBlockInstrument.getByValue(type);
                     if (noteBlockInstrument != null) {
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // event type
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // event data
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // 事件类型
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // 事件数据
                     } else {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unhandled note block block event: " + type + " " + data);
                         wrapper.cancel();
@@ -719,9 +719,9 @@ public class WorldEffectPackets {
                     }
                 }
                 case CustomBlockTags.MOB_SPAWNER -> {
-                    if (type == 1) { // set spawn delay
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // event type
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // event data
+                    if (type == 1) { // 设置生成延迟
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // 事件类型
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // 事件数据
                     } else {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unhandled mob spawner block event: " + type + " " + data);
                         wrapper.cancel();
@@ -729,9 +729,9 @@ public class WorldEffectPackets {
                     }
                 }
                 case CustomBlockTags.END_GATEWAY -> {
-                    if (type == 1) { // set cooldown
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // event type
-                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // event data
+                    if (type == 1) { // 设置冷却
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) type); // 事件类型
+                        wrapper.write(Types.UNSIGNED_BYTE, (short) MathUtil.clamp(data, 0, 255)); // 事件数据
                     } else {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unhandled end gateway block event: " + type + " " + data);
                         wrapper.cancel();
@@ -756,7 +756,7 @@ public class WorldEffectPackets {
                 javaBlockState = customAccess.fallbackJavaBlockState(javaBlockState, "block event block id");
                 javaBlock = BedrockProtocol.MAPPINGS.getJavaBlockStates().inverse().get(javaBlockState);
             }
-            wrapper.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaBlocks().get(javaBlock.namespacedIdentifier())); // block
+            wrapper.write(Types.VAR_INT, BedrockProtocol.MAPPINGS.getJavaBlocks().get(javaBlock.namespacedIdentifier())); // 方块
         });
     }
 
@@ -798,7 +798,7 @@ public class WorldEffectPackets {
             return null;
         }
         SoundDefinitions.ConfiguredSound configuredSound = null;
-        if (!entityIdentifier.isEmpty()) { // entity specific sound
+        if (!entityIdentifier.isEmpty()) { // 实体专属声音
             configuredSound = soundEvents.get(Key.namespaced(entityIdentifier));
             // 原版脚步等高频事件不构造资源包视图或捕获连接的回调。
             if (configuredSound == null && soundEvent == SharedTypes_Legacy_LevelSoundEvent.Hurt) {
@@ -816,7 +816,7 @@ public class WorldEffectPackets {
                 configuredSound = new SoundDefinitions.ConfiguredSound(configuredSound.sound(), configuredSound.minVolume(), configuredSound.maxVolume(), configuredSound.minPitch() + 0.5F, configuredSound.maxPitch() + 0.5F);
             }
         }
-        if (configuredSound == null && data != -1) { // block specific sound
+        if (configuredSound == null && data != -1) { // 方块专属声音
             final BlockState blockState = user.get(BlockStateRewriter.class).blockState(data);
             if (blockState != null) {
                 final String blockSound = BedrockProtocol.MAPPINGS.getBedrockBlockSounds().get(blockState.namespacedIdentifier());
@@ -836,7 +836,7 @@ public class WorldEffectPackets {
             }
         }
         if (configuredSound == null) {
-            configuredSound = soundEvents.get(null); // generic sound
+            configuredSound = soundEvents.get(null); // 通用声音
         }
         return configuredSound;
     }
@@ -888,14 +888,14 @@ public class WorldEffectPackets {
             return false;
         }
 
-        wrapper.write(Types.SOUND_EVENT, javaSound); // sound event
-        wrapper.write(Types.VAR_INT, category.ordinal()); // category
+        wrapper.write(Types.SOUND_EVENT, javaSound); // 声音事件
+        wrapper.write(Types.VAR_INT, category.ordinal()); // 分类
         wrapper.write(Types.INT, (int) (projection.position().x() * 8F)); // x
         wrapper.write(Types.INT, (int) (projection.position().y() * 8F)); // y
         wrapper.write(Types.INT, (int) (projection.position().z() * 8F)); // z
-        wrapper.write(Types.FLOAT, projection.volume()); // volume
-        wrapper.write(Types.FLOAT, projection.pitch()); // pitch
-        wrapper.write(Types.LONG, projection.seed()); // seed
+        wrapper.write(Types.FLOAT, projection.volume()); // 音量
+        wrapper.write(Types.FLOAT, projection.pitch()); // 音调
+        wrapper.write(Types.LONG, projection.seed()); // 种子
         return true;
     }
 

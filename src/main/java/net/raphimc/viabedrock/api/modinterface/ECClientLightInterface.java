@@ -27,9 +27,7 @@ import net.raphimc.viabedrock.protocol.storage.ClientLightStorage;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Configuration-phase capability negotiation for ECClientLight.
- */
+/** ECClientLight 在配置阶段的能力协商。 */
 public final class ECClientLightInterface {
 
     public static final String CONFIRM_CHANNEL = "ecclientlight:confirm_v1";

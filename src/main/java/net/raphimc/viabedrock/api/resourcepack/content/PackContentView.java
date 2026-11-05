@@ -20,10 +20,10 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Read-only access to one effective resource-pack file tree.
+ * 对一棵有效资源包文件树的只读访问。
  *
- * <p>The view deliberately has no mutation methods. Mutable {@link Content} remains the compatibility
- * and conversion API, while shared cache entries expose only this surface.</p>
+ * <p>该视图刻意不提供修改方法。可变的 {@link Content} 仍是兼容性与转换 API，
+ * 而共享缓存条目只暴露这一接口。</p>
  */
 public interface PackContentView {
 

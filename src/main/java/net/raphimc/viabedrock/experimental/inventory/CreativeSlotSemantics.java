@@ -26,8 +26,8 @@ import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
 /**
- * Turns Java SET_CREATIVE_MODE_SLOT into Nukkit 860 SAI CraftCreative / Destroy.
- * Official 975 keeps the old cancel-and-resync path; this helper is NetEase-only.
+ * 把 Java 的 SET_CREATIVE_MODE_SLOT 转换成 Nukkit 860 SAI 的 CraftCreative / Destroy。
+ * 官方 975 沿用旧的取消后重新同步路径；此辅助方法仅用于网易。
  */
 public final class CreativeSlotSemantics {
 
@@ -91,10 +91,8 @@ public final class CreativeSlotSemantics {
             if (current.isEmpty()) {
                 return Plan.empty();
             }
-            // Java SET_CREATIVE_MODE_SLOT is an absolute slot assignment. Empty item
-            // means destroy that slot (cursor, hotbar, backpack, armor, offhand).
-            // Pickup/move is CONTAINER_CLICK; treating empties as Take duplicated stacks
-            // and made creative-tab deletes a no-op.
+            // Java 的 SET_CREATIVE_MODE_SLOT 是绝对槽位赋值。空物品意味着销毁该槽位（光标、快捷栏、背包、盔甲、副手）。
+            // 拿取/移动走 CONTAINER_CLICK；把空物品当作 Take 会复制堆叠，并使创造模式标签页的删除变成空操作。
             return Plan.destroy(current.amount(), withNetId(destination, current));
         }
         if (cache == null) {

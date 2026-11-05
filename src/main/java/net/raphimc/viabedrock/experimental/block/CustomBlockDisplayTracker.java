@@ -55,20 +55,17 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Overlays converted custom-block item models onto unmapped Bedrock blocks.
- * Java cannot register new block states from a resource pack, so the world
- * keeps a solid, survival-breakable collision placeholder while an item display
- * shows the converted cube. The display hitbox stays empty so Java clicks and
- * mining hit the placeholder block instead of a fake entity.
+ * 把转换后的自定义方块物品模型叠加到未映射的基岩方块上。
+ * Java 无法通过资源包注册新的方块状态，因此世界里保留一个实体、生存模式下可破坏的碰撞占位方块，同时用物品展示实体显示转换后的立方体。
+ * 展示实体的碰撞箱保持为空，这样 Java 的点击和挖掘会命中占位方块，而不是一个假实体。
  */
 public class CustomBlockDisplayTracker extends StoredObject {
 
     private static final byte BILLBOARD_FIXED = 0;
-    // ItemDisplayContext.NONE: render the raw model without the grounded-item transforms.
+    // ItemDisplayContext.NONE：直接渲染原始模型，不应用落地物品的变换。
     private static final byte ITEM_DISPLAY_NONE = 0;
-    // Glass keeps a full cube collision box, stays see-through for the overlay
-    // model, and unlike barrier can be mined in survival so USE_ITEM_ON /
-    // PLAYER_ACTION actually fire.
+    // 玻璃保有完整的立方体碰撞箱，对叠加模型保持可透视，且与屏障不同，可以在生存模式下被挖掘，
+    // 从而让 USE_ITEM_ON / PLAYER_ACTION 真正触发。
     public static final BlockState PLACEHOLDER_JAVA_BLOCK_STATE = new BlockState("glass", java.util.Collections.emptyMap());
 
     private final Object2IntMap<BlockPosition> displays = new Object2IntOpenHashMap<>();
@@ -110,8 +107,7 @@ public class CustomBlockDisplayTracker extends StoredObject {
         if (bedrockState == null) {
             return false;
         }
-        // A BedrockLoader projection already gives the Java client a real custom
-        // block state. In that case an item-display overlay would render twice.
+        // BedrockLoader 的投影已经给 Java 客户端提供了真正的自定义方块状态。这种情况下物品展示叠加会渲染两次。
         final CustomMappingSyncStorage customMapping = user.get(CustomMappingSyncStorage.class);
         if (customMapping != null && customMapping.access().isAllowedBedrockRuntimeId(bedrockRuntimeId)) {
             return false;
@@ -218,10 +214,7 @@ public class CustomBlockDisplayTracker extends StoredObject {
         return this.displays.getInt(position);
     }
 
-    /**
-     * Java yaw 0 is south. Used when an overlay entity still intercepts a click
-     * and we have to reconstruct the block face the player was aiming at.
-     */
+    /** Java 的 yaw 0 指向南方。用于叠加实体仍然拦截点击、必须重建玩家所瞄准的方块面的场景。 */
     public static Direction facingFromLook(final Position3f rotation) {
         if (rotation == null) {
             return Direction.NORTH;
@@ -299,7 +292,7 @@ public class CustomBlockDisplayTracker extends StoredObject {
                 VersionedTypes.V26_1.entityDataTypes.floatType, 0F));
         entityData.add(new EntityData(probe.getJavaEntityDataIndex(EntityDataFields.SHADOW_STRENGTH),
                 VersionedTypes.V26_1.entityDataTypes.floatType, 0F));
-        // Keep the display pick box empty so Java raycasts reach the placeholder block.
+        // 保持展示实体的选取框为空，好让 Java 的射线检测抵达占位方块。
         entityData.add(new EntityData(probe.getJavaEntityDataIndex(EntityDataFields.WIDTH),
                 VersionedTypes.V26_1.entityDataTypes.floatType, 0F));
         entityData.add(new EntityData(probe.getJavaEntityDataIndex(EntityDataFields.HEIGHT),

@@ -27,23 +27,22 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Wire-layout helpers for Bedrock {@code PLAYER_AUTH_INPUT} (packet 0x90 / 144).
+ * 基岩 {@code PLAYER_AUTH_INPUT}（0x90 / 144 号包）的线路布局辅助方法。
  * <p>
- * Official Bedrock and Nukkit-MOT still encode input flags as a 64-bit unsigned varlong
- * before protocol 2168. NetEase inserts extra unused bits immediately before
- * {@code ClientAckServerData} (ordinal 44): protocol &gt;= 686 adds 1 bit, protocol
- * &gt;= 819 (including NetEase 860) adds 2 bits. Nukkit keeps wire bits 0-43 on their
- * vanilla ordinals, skips the extra NetEase bits, and maps {@code wire >= 44 + extra}
- * back to {@code ordinal = wire - extra}. Encoding therefore leaves flags {@code < 44}
- * alone and writes flags {@code >= 44} at {@code value + extra}.
+ * 官方基岩与 Nukkit-MOT 在协议 2168 之前仍把输入标志编码为 64 位无符号 varlong。
+ * 网易在 {@code ClientAckServerData}（序号 44）之前立即插入额外的未使用位：
+ * 协议 &gt;= 686 增加 1 位，协议 &gt;= 819（含网易 860）增加 2 位。Nukkit 把线路位 0-43
+ * 保留在原版序号上，跳过网易的额外位，并把 {@code wire >= 44 + extra}
+ * 映射回 {@code ordinal = wire - extra}。因此编码时标志 {@code < 44}
+ * 保持不变，标志 {@code >= 44} 写成 {@code value + extra}。
  * <p>
- * Nukkit only inspects bits 0-63 and rejects unsigned varlongs longer than 10 bytes, so
- * NetEase flags that would land on bit 64+ (for example {@code SneakCurrentRaw}) are omitted.
+ * Nukkit 只检查位 0-63，并拒绝超过 10 字节的无符号 varlong，因此
+ * 会落到 64 位及以上的网易标志（例如 {@code SneakCurrentRaw}）被省略。
  * <p>
- * The previous mapping dropped bits 14/15 and shifted 16-43 down by 2. That turned
- * join-time {@code HandledTeleport(37)} into wire bit 35 ({@code PERFORM_BLOCK_ACTIONS}).
- * Nukkit then treated the remaining analog-move floats as a block-action payload and
- * failed the 65-byte prefixed batch with {@code Sent malformed packet}.
+ * 此前的映射丢弃了位 14/15，并把 16-43 下移 2 位。这使
+ * 加入时的 {@code HandledTeleport(37)} 变成线路位 35（{@code PERFORM_BLOCK_ACTIONS}）。
+ * Nukkit 随后把剩余的模拟移动浮点数当作方块动作载荷，
+ * 并以 {@code Sent malformed packet} 让这条 65 字节前缀批次失败。
  */
 public final class PlayerAuthInputLayout {
 

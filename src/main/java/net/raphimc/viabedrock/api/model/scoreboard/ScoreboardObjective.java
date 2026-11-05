@@ -96,25 +96,25 @@ public class ScoreboardObjective {
 
     private void updateEntry0(final UserConnection user, final ScoreboardEntry entry) {
         final PacketWrapper setScore = PacketWrapper.create(ClientboundPackets26_1.SET_SCORE, user);
-        setScore.write(Types.STRING, entry.javaName()); // player name
-        setScore.write(Types.STRING, this.name); // objective name
-        setScore.write(Types.VAR_INT, this.sortOrder == ObjectiveSortOrder.Ascending ? -entry.score() : entry.score()); // score
-        setScore.write(Types.OPTIONAL_TAG, ganquanScoreboardEntryName(entry.javaName())); // display name
-        setScore.write(Types.BOOLEAN, false); // has number format
+        setScore.write(Types.STRING, entry.javaName()); // 玩家名称
+        setScore.write(Types.STRING, this.name); // 计分项名称
+        setScore.write(Types.VAR_INT, this.sortOrder == ObjectiveSortOrder.Ascending ? -entry.score() : entry.score()); // 分数
+        setScore.write(Types.OPTIONAL_TAG, ganquanScoreboardEntryName(entry.javaName())); // 显示名称
+        setScore.write(Types.BOOLEAN, false); // 是否有数字格式
         setScore.send(BedrockProtocol.class);
     }
 
     private void removeEntry0(final UserConnection user, final ScoreboardEntry entry) {
         final PacketWrapper resetScore = PacketWrapper.create(ClientboundPackets26_1.RESET_SCORE, user);
-        resetScore.write(Types.STRING, entry.javaName()); // player name
-        resetScore.write(Types.OPTIONAL_STRING, this.name); // objective name
+        resetScore.write(Types.STRING, entry.javaName()); // 玩家名称
+        resetScore.write(Types.OPTIONAL_STRING, this.name); // 计分项名称
         resetScore.send(BedrockProtocol.class);
     }
 
     /**
-     * Java scoreboard text drops unknown Bedrock {@code §} pairs such as Ganquan's
-     * {@code §rh}/{@code §le}. Keep the raw name in {@code insertion} so ModUIClient
-     * can keep chips on the same JSON-UI slot across SET_SCORE replacements.
+     * Java 的计分板文本会丢弃未知的基岩 {@code §} 组合，例如甘泉使用的
+     * {@code §rh}/{@code §le}。把原始名称保留在 {@code insertion} 中，使 ModUIClient
+     * 能在多次 SET_SCORE 替换之间把 chip 保持在同一个 JSON-UI 槽位上。
      */
     static Tag ganquanScoreboardEntryName(final String javaName) {
         if (javaName == null || javaName.isEmpty()) {

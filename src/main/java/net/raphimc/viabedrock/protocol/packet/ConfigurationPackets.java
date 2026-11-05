@@ -60,7 +60,7 @@ public class ConfigurationPackets {
         protocol.registerServerbound(ServerboundPackets26_1.CONFIGURATION_ACKNOWLEDGED, null, wrapper -> {
             wrapper.cancel();
             wrapper.user().getProtocolInfo().setClientState(State.CONFIGURATION);
-            // The outbound START_CONFIGURATION already opened this cycle; a late ACK must not reopen it.
+            // 出站的 START_CONFIGURATION 在本轮已经开启；迟到的 ACK 不得再次开启它。
             wrapper.user().get(CustomMappingSyncStorage.class).probeChannelIfNeeded();
         });
     }

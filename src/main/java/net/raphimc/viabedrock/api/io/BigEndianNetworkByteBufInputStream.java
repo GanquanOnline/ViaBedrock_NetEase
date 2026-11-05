@@ -15,7 +15,7 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 import java.io.IOException;
 
-/** DataInput adapter for MOT's big-endian network-NBT variant. */
+/** 用于 MOT 大端网络 NBT 变体的 DataInput 适配器。 */
 public final class BigEndianNetworkByteBufInputStream extends ByteBufInputStream {
 
     private final ByteBuf buffer;

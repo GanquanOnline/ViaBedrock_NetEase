@@ -20,9 +20,9 @@ package net.raphimc.viabedrock.protocol.packet;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerType;
 
 /**
- * Bedrock CONTAINER_OPEN has no title string. ViaBedrock previously used
- * {@code "container." + bedrockBlockTag}, which shows raw keys such as
- * {@code container.ender_chest} on Java 1.21. These are the vanilla lang keys.
+ * 基岩 CONTAINER_OPEN 没有标题字符串。ViaBedrock 以前使用
+ * {@code "container." + bedrockBlockTag}，在 Java 1.21 上会显示
+ * {@code container.ender_chest} 这类原始键。以下是原版语言键。
  */
 public final class JavaContainerTitles {
 
@@ -56,8 +56,8 @@ public final class JavaContainerTitles {
             case "chest", "trapped_chest" -> "container.chest";
             case "dispenser" -> "container.dispenser";
             case "dropper" -> "container.dropper";
-            // Unmapped NetEase custom tags have no Java lang key. Falling back
-            // to container.<tag> shows a raw translation key on JE 1.21.
+            // 未映射的网易自定义标签没有 Java 语言键。回退到
+            // container.<tag> 会在 JE 1.21 上显示原始翻译键。
             default -> keyForType(type);
         };
     }

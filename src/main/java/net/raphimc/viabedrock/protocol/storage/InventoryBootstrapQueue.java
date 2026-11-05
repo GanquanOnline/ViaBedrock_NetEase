@@ -46,9 +46,9 @@ public final class InventoryBootstrapQueue extends StoredObject {
             ClientboundBedrockPackets.INVENTORY_CONTENT,
             ClientboundBedrockPackets.INVENTORY_SLOT,
             ClientboundBedrockPackets.PLAYER_HOTBAR,
-            // MOT processLogin() sends CREATIVE_CONTENT / MOB_EQUIPMENT after
-            // ItemComponent (ITEM_REGISTRY). Replay them only after the rewriter
-            // is populated so the first held-item rewrite is not empty.
+            // MOT 的 processLogin() 在 ItemComponent (ITEM_REGISTRY) 之后发送
+            // CREATIVE_CONTENT / MOB_EQUIPMENT。只有在重写器已填充之后才重放它们，
+            // 这样第一次手持物品重写不会是空的。
             ClientboundBedrockPackets.CREATIVE_CONTENT,
             ClientboundBedrockPackets.MOB_EQUIPMENT,
             ClientboundBedrockPackets.MOB_ARMOR_EQUIPMENT
@@ -197,7 +197,7 @@ public final class InventoryBootstrapQueue extends StoredObject {
         final ByteBuf packetBuffer = channel.alloc().buffer();
         try {
             wrapper.writeToBuffer(packetBuffer);
-            Types.VAR_INT.readPrimitive(packetBuffer); // Replay restores the Bedrock packet id from its packet type.
+            Types.VAR_INT.readPrimitive(packetBuffer); // 重放会根据包类型还原基岩数据包 id。
             return packetBuffer.readBytes(packetBuffer.readableBytes());
         } catch (Throwable throwable) {
             this.fail("Could not copy an inventory bootstrap packet payload", throwable);

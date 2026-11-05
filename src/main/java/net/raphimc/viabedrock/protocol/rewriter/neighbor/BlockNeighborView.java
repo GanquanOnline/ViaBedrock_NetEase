@@ -21,21 +21,19 @@ import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import net.raphimc.viabedrock.api.chunk.BedrockBlockEntity;
 
 /**
- * Abstracts "read a neighbor block" so a {@link NeighborAwareBlockRule} can be evaluated identically during initial
- * chunk translation (reading the freshly remapped chunk sections, so fixes already applied earlier in the same pass
- * are visible) and during runtime block updates (reading the
- * {@link net.raphimc.viabedrock.protocol.storage.ChunkTracker}).
+ * 抽象出「读取相邻方块」，使 {@link NeighborAwareBlockRule} 在初始
+ * 区块转换时（读取刚重映射过的区块段，因此同一轮中更早应用的修正
+ * 可见）与运行时方块更新时（读取
+ * {@link net.raphimc.viabedrock.protocol.storage.ChunkTracker}）能以相同方式求值。
  */
 public interface BlockNeighborView {
 
-    /**
-     * @return the Java block state id at the position, or {@code 0} (air) when there is no data there.
-     */
+    /** @return 该位置的 Java 方块状态 ID，无数据时为 {@code 0}（空气）。 */
     int getJavaBlockState(final BlockPosition pos);
 
     /**
-     * @return the Bedrock block entity at the position (e.g. a bed carrying its dye colour in NBT), or {@code null}.
-     * Needed because {@link #getJavaBlockState} is palette-only and never injects block entity data.
+     * @return 该位置的基岩方块实体（例如在 NBT 中携带染料颜色的床），没有时为 {@code null}。
+     * 之所以需要它，是因为 {@link #getJavaBlockState} 只查调色板，从不注入方块实体数据。
      */
     BedrockBlockEntity getBlockEntity(final BlockPosition pos);
 

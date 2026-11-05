@@ -22,25 +22,25 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for MOT death / immediate-respawn packets.
+ * MOT 死亡／立即重生数据包的线上布局辅助方法。
  * <p>
- * Nukkit-MOT {@code Player.kill()} (protocol 860) does not emit
- * {@code UPDATE_ATTRIBUTES(health=0)} or {@code ActorEvent.DEATH} for the local
- * player. After {@code PlayerDeathEvent} it writes:
+ * Nukkit-MOT 的 {@code Player.kill()}（协议 860）不会为本地
+ * 玩家发出 {@code UPDATE_ATTRIBUTES(health=0)} 或 {@code ActorEvent.DEATH}。
+ * 在 {@code PlayerDeathEvent} 之后它写入：
  * <ol>
- *     <li>{@code DeathInfoPacket} (189) — string translation key + string[] parameters
- *     — only when {@code SHOW_DEATH_MESSAGES} is on and the death message is non-empty;</li>
- *     <li>{@code RespawnPacket} (45) with {@code STATE_SEARCHING_FOR_SPAWN=0};</li>
- *     <li>{@code SetHealthPacket} (42) with {@code UnsignedVarInt health = getMaxHealth()}
- *     only when {@code doImmediateRespawn} is true.</li>
+ * <li>{@code DeathInfoPacket}（189）——字符串翻译键 + string[] 参数
+ * ——仅当 {@code SHOW_DEATH_MESSAGES} 开启且死亡消息非空时；</li>
+ * <li>{@code RespawnPacket}（45），状态为 {@code STATE_SEARCHING_FOR_SPAWN=0}；</li>
+ * <li>{@code SetHealthPacket}（42），携带 {@code UnsignedVarInt health = getMaxHealth()}
+ * ——仅当 {@code doImmediateRespawn} 为 true 时。</li>
  * </ol>
- * {@code RespawnProcessor} later replies to the client's
- * {@code STATE_CLIENT_READY_TO_SPAWN=2} with {@code STATE_READY_TO_SPAWN=1}.
- * Immediate-respawn never auto-calls {@code handleRespawnRequest()}; the Java
- * client still has to send {@code PERFORM_RESPAWN} / {@code ClientReadyToSpawn}.
+ * {@code RespawnProcessor} 之后会以 {@code STATE_READY_TO_SPAWN=1} 回复客户端的
+ * {@code STATE_CLIENT_READY_TO_SPAWN=2}。
+ * 立即重生从不自动调用 {@code handleRespawnRequest()}；Java
+ * 客户端仍须自行发送 {@code PERFORM_RESPAWN} / {@code ClientReadyToSpawn}。
  * <p>
- * Official 975+ may append fields after the 860 payload; callers must
- * {@link PacketLeftoverLayout#discardUnreadInput} after a successful read.
+ * 官方 975+ 可能在 860 载荷之后追加字段；调用方必须在成功读取后
+ * 调用 {@link PacketLeftoverLayout#discardUnreadInput}。
  */
 public final class DeathSyncLayout {
 

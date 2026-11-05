@@ -53,9 +53,9 @@ import java.util.function.Function;
 public class ClickSimulator {
 
     /**
-     * Simulates a Java CONTAINER_CLICK and returns the list of Bedrock InventoryActionData.
-     * Returns null if the operation is unsupported (caller should rollback).
-     * Returns empty list if there's nothing to do (no packet sent, no rollback).
+     * 模拟一次 Java CONTAINER_CLICK，返回基岩 InventoryActionData 列表。
+     * 操作不受支持时返回 null（调用方应回滚）。
+     * 无事可做时返回空列表（不发数据包，也不回滚）。
      */
     public static List<InventoryActionData> simulate(
             final int javaContainerId,
@@ -96,16 +96,15 @@ public class ClickSimulator {
             final JavaItemStackLimits.Resolver stackLimits,
             final Function<BedrockItem, Item> javaItemResolver) {
 
-        // Intercept crafting output slot clicks
+        // 拦截合成输出槽位的点击
         if (javaSlot == 0) {
             final boolean is3x3 = javaContainerId != 0 && tracker.getCurrentContainer() instanceof CraftingTableContainer;
             final boolean is2x2 = javaContainerId == 0;
             if (is3x3 || is2x2) {
                 return switch (action) {
                     case PICKUP -> CraftingSimulator.simulateCraftPickup(is3x3, tracker, stackLimits);
-                    // The synthetic Java result slot is not recomputed during the client's local quick-move
-                    // loop, so changedSlots describes one craft only. Build the accumulated transaction from
-                    // the authoritative Bedrock grid instead of treating that one-craft prediction as final.
+                    // 合成的 Java 结果槽在客户端本地快速移动循环中不会被重新计算，因此 changedSlots 只描述一次合成。
+                    // 应基于权威的基岩合成网格构建累计事务，而不是把这一次合成的预测当作最终结果。
                     case QUICK_MOVE -> CraftingSimulator.simulateCraftQuickMove(is3x3, tracker, stackLimits);
                     default -> null;
                 };
@@ -209,7 +208,7 @@ public class ClickSimulator {
         final List<InventoryActionData> actions = new ArrayList<>();
         int remaining = cursor.amount();
 
-        // Bedrock/Nukkit addItem first merges existing stacks, then scans player slots from 0.
+        // 基岩/Nukkit 的 addItem 先合并已有堆叠，再从 0 开始扫描玩家槽位。
         for (int slot = 0; slot < 36 && remaining > 0; slot++) {
             final BedrockSlotRef ref = new BedrockSlotRef(
                     ContainerID.CONTAINER_ID_INVENTORY.getValue(), slot, tracker.getInventoryContainer());
@@ -248,12 +247,12 @@ public class ClickSimulator {
         return remaining - moved;
     }
 
-    // --- PICKUP (mode=0) ---
+    // --- PICKUP（mode=0）---
 
     private static List<InventoryActionData> simulatePickup(int javaContainerId, short javaSlot, byte button,
                                                             InventoryTracker tracker, JavaItemStackLimits.Resolver stackLimits) {
         if (javaSlot == -999) {
-            // Click outside window — drop cursor item
+            // 在窗口外点击 — 丢弃光标物品
             return simulateDropCursor(button, tracker);
         }
 
@@ -270,23 +269,23 @@ public class ClickSimulator {
         }
 
         if (button == 0) {
-            // Left click
+            // 左键点击
             if (cursorItem.isEmpty() && slotItem.isEmpty()) {
                 return Collections.emptyList();
             } else if (cursorItem.isEmpty()) {
-                // Pick up entire stack
+                // 拿起整个堆叠
                 return List.of(
                         slotAction(ref, slotItem, BedrockItem.empty()),
                         cursorAction(cursorItem, slotItem)
                 );
             } else if (slotItem.isEmpty()) {
-                // Place entire stack
+                // 放下整个堆叠
                 return List.of(
                         slotAction(ref, slotItem, cursorItem),
                         cursorAction(cursorItem, BedrockItem.empty())
                 );
             } else if (canStack(slotItem, cursorItem)) {
-                // Merge cursor into slot
+                // 把光标物品合并到槽位
                 if (slotItem.amount() >= cursorLimit) {
                     return Collections.emptyList();
                 }
@@ -301,18 +300,18 @@ public class ClickSimulator {
                         cursorAction(cursorItem, newCursor)
                 );
             } else {
-                // Swap cursor and slot
+                // 交换光标与槽位
                 return List.of(
                         slotAction(ref, slotItem, cursorItem),
                         cursorAction(cursorItem, slotItem)
                 );
             }
         } else if (button == 1) {
-            // Right click
+            // 右键点击
             if (cursorItem.isEmpty() && slotItem.isEmpty()) {
                 return Collections.emptyList();
             } else if (cursorItem.isEmpty()) {
-                // Pick up half
+                // 拿起一半
                 int takeAmount = (slotItem.amount() + 1) / 2;
                 int leaveAmount = slotItem.amount() - takeAmount;
                 BedrockItem newSlot = leaveAmount > 0 ? slotItem.copy() : BedrockItem.empty();
@@ -324,7 +323,7 @@ public class ClickSimulator {
                         cursorAction(cursorItem, newCursor)
                 );
             } else if (slotItem.isEmpty()) {
-                // Place one
+                // 放下一个
                 BedrockItem newSlot = cursorItem.copy();
                 newSlot.setAmount(1);
                 BedrockItem newCursor = cursorItem.amount() > 1 ? cursorItem.copy() : BedrockItem.empty();
@@ -337,7 +336,7 @@ public class ClickSimulator {
                 if (slotItem.amount() >= cursorLimit) {
                     return Collections.emptyList();
                 }
-                // Place one into stackable slot
+                // 放下一个到可堆叠槽位
                 BedrockItem newSlot = slotItem.copy();
                 newSlot.setAmount(slotItem.amount() + 1);
                 BedrockItem newCursor = cursorItem.amount() > 1 ? cursorItem.copy() : BedrockItem.empty();
@@ -347,7 +346,7 @@ public class ClickSimulator {
                         cursorAction(cursorItem, newCursor)
                 );
             } else {
-                // Swap cursor and slot (different types)
+                // 交换光标与槽位（类型不同）
                 return List.of(
                         slotAction(ref, slotItem, cursorItem),
                         cursorAction(cursorItem, slotItem)
@@ -362,13 +361,13 @@ public class ClickSimulator {
         if (cursorItem.isEmpty()) return Collections.emptyList();
 
         if (button == 0) {
-            // Left click outside — drop entire stack
+            // 左键在窗口外点击 — 丢弃整个堆叠
             return List.of(
                     worldDropAction(cursorItem),
                     cursorAction(cursorItem, BedrockItem.empty())
             );
         } else if (button == 1) {
-            // Right click outside — drop one
+            // 右键在窗口外点击 — 丢弃一个
             BedrockItem dropped = cursorItem.copy();
             dropped.setAmount(1);
             BedrockItem remaining = cursorItem.amount() > 1 ? cursorItem.copy() : BedrockItem.empty();
@@ -381,10 +380,9 @@ public class ClickSimulator {
         return null;
     }
 
-    // --- QUICK_MOVE (mode=1, Shift+Click) ---
+    // --- QUICK_MOVE（mode=1，Shift+点击）---
 
-    // Preserve Java's component-driven equipment rules while accepting only count-conserving
-    // moves of the Bedrock item already present in the authoritative mirror.
+    // 保留 Java 由组件驱动的装备规则，同时只接受权威镜像中已存在的基岩物品的数量守恒移动。
     private static List<InventoryActionData> simulatePredictedPlayerQuickMove(
             final short javaSlot,
             final byte button,
@@ -411,7 +409,7 @@ public class ClickSimulator {
 
         int relevantChanges = changedSlots.size();
         if (javaSlot <= 4 && changedSlots.containsKey((short) 0)) {
-            relevantChanges--; // Crafting output is a local preview, not an inventory action.
+            relevantChanges--; // 合成输出只是本地预览，不是物品栏操作。
         }
         if (relevantChanges == 0) {
             return Collections.emptyList();
@@ -560,9 +558,8 @@ public class ClickSimulator {
         }
         if (resultMarker == null || cursorDestination == null) return null;
 
-        // Java may leave an output remainder when the player inventory cannot accept the
-        // entire generated stack. Account for that remainder instead of treating every
-        // non-empty result prediction as an unsupported transfer.
+        // 当玩家物品栏无法接收整个生成的堆叠时，Java 可能留下输出余量。
+        // 要把该余量纳入计算，而不是把每个非空结果预测都当作不受支持的转移。
         final HashedItem predictedResult = changedSlots.get(javaSlot);
         if (predictedResult == null) return null;
 
@@ -599,7 +596,7 @@ public class ClickSimulator {
 
         final List<InventoryActionData> destinationActions = new ArrayList<>(targetSlots.size());
         int totalMoved = 0;
-        // Java's container quick-move path visits the player range in reverse order.
+        // Java 的容器快速移动路径以逆序访问玩家区域。
         for (final int targetJavaSlot : descending(containerSize, containerSize + 35)) {
             if (!targetSlots.contains(targetJavaSlot)) continue;
             final HashedItem predictedTarget = changedSlots.get((short) targetJavaSlot);
@@ -709,8 +706,7 @@ public class ClickSimulator {
             final int targetJavaSlot = entry.getKey();
             if (targetJavaSlot == javaSlot) continue;
 
-            // Recipe/result previews are client-local side effects of changing an input. They are
-            // never valid insertion destinations and must not become Bedrock inventory actions.
+            // 配方/结果预览是修改输入后客户端本地的副作用。它们绝不是有效的插入目标，也不应变成基岩物品栏操作。
             if (isResultOnlyContainerSlot(container, targetJavaSlot)) continue;
             if (!isAllowedPredictedContainerQuickMoveTarget(javaSlot, targetJavaSlot, containerSize, container)) {
                 return null;
@@ -811,8 +807,7 @@ public class ClickSimulator {
                 && samePredictedItem(authoritativeItem, predictedItem);
     }
 
-    // Component hashes can change across registry and ViaVersion transformations. They are not trusted
-    // transaction data: every Bedrock item is copied from the authoritative mirror below.
+    // 组件哈希在注册表与 ViaVersion 转换之间可能变化。它们不是可信的事务数据：每个基岩物品都在下方从权威镜像复制。
     static boolean samePredictedItem(final Item authoritativeItem, final HashedItem predictedItem) {
         return !authoritativeItem.isEmpty()
                 && !predictedItem.isEmpty()
@@ -862,11 +857,11 @@ public class ClickSimulator {
         final Equippable equippable = javaItem.dataContainer().get(StructuredDataKey.EQUIPPABLE1_21_6);
         if (equippable != null) {
             return switch (equippable.equipmentSlot()) {
-                case 1 -> 8; // feet
-                case 2 -> 7; // legs
-                case 3 -> 6; // chest
-                case 4 -> 5; // head
-                case 5 -> 45; // offhand
+                case 1 -> 8; // 脚部
+                case 2 -> 7; // 腿部
+                case 3 -> 6; // 胸甲
+                case 4 -> 5; // 头盔
+                case 5 -> 45; // 副手
                 default -> -1;
             };
         }
@@ -911,7 +906,7 @@ public class ClickSimulator {
         final BedrockItem sourceItem = sourceRef.container().getItem(sourceRef.slot());
         if (sourceItem.isEmpty()) return Collections.emptyList();
 
-        // Ordered list of target Java menu slots, in the exact order Java's ScreenHandler#insertItem visits them
+        // 目标 Java 菜单槽位的有序列表，顺序与 Java ScreenHandler#insertItem 的访问顺序完全一致
         final List<Integer> targetSlots = getQuickMoveTargetSlots(javaContainerId, javaSlot, tracker);
         final int maxStackSize = stackLimits.maxStackSize(sourceItem);
         if (maxStackSize <= 0) return null;
@@ -919,7 +914,7 @@ public class ClickSimulator {
         int remaining = sourceItem.amount();
         final List<InventoryActionData> actions = new ArrayList<>();
 
-        // Round 1: Fill existing stacks of same type
+        // 第 1 轮：填充同类型的已有堆叠
         for (int targetJavaSlot : targetSlots) {
             if (remaining <= 0) break;
             final BedrockSlotRef targetRef = SlotMapper.resolve(javaContainerId, targetJavaSlot, tracker);
@@ -935,7 +930,7 @@ public class ClickSimulator {
             remaining -= addAmount;
         }
 
-        // Round 2: Fill empty slots
+        // 第 2 轮：填充空槽位
         for (int targetJavaSlot : targetSlots) {
             if (remaining <= 0) break;
             final BedrockSlotRef targetRef = SlotMapper.resolve(javaContainerId, targetJavaSlot, tracker);
@@ -953,7 +948,7 @@ public class ClickSimulator {
 
         if (actions.isEmpty()) return Collections.emptyList();
 
-        // Source slot action: item → remaining or empty
+        // 源槽位操作：物品 → 剩余或清空
         BedrockItem newSource = remaining > 0 ? sourceItem.copy() : BedrockItem.empty();
         if (remaining > 0) newSource.setAmount(remaining);
         actions.add(0, slotAction(sourceRef, sourceItem, newSource));
@@ -962,57 +957,54 @@ public class ClickSimulator {
     }
 
     /**
-     * Returns the target Java menu slots for a shift-click, in the exact visiting order of the
-     * corresponding vanilla {@code ScreenHandler#quickMove}/{@code insertItem} call. Java replicates
-     * its own click locally, so matching this order avoids the client prediction being corrected.
-     * Slot layout (matches {@link SlotMapper}): container {@code [0,N)}, main inventory {@code [N,N+27)},
-     * hotbar {@code [N+27,N+36)}.
+     * 返回 Shift 点击对应的目标 Java 菜单槽位，顺序与对应原版 {@code ScreenHandler#quickMove}/{@code insertItem} 调用的访问顺序完全一致。
+     * Java 会在本地复现自己的点击，因此匹配该顺序可避免客户端预测被纠正。
+     * 槽位布局（与 {@link SlotMapper} 一致）：容器 {@code [0,N)}，主物品栏 {@code [N,N+27)}，快捷栏 {@code [N+27,N+36)}。
      */
     private static List<Integer> getQuickMoveTargetSlots(int javaContainerId, int javaSlot, InventoryTracker tracker) {
         if (javaContainerId != 0) {
             final Container currentContainer = tracker.getCurrentContainer();
 
             if (currentContainer instanceof CraftingTableContainer) {
-                // Crafting table: slot 0=output, 1-9=grid, 10-36=main inv, 37-45=hotbar
+                // 工作台：槽位 0=输出，1-9=合成网格，10-36=主物品栏，37-45=快捷栏
                 if (javaSlot >= 1 && javaSlot <= 9) {
-                    // Grid → main inventory then hotbar (insertItem(10, 46, false))
+                    // 合成网格 → 主物品栏再快捷栏（insertItem(10, 46, false)）
                     return ascending(10, 45);
                 } else if (javaSlot >= 37) {
-                    // Hotbar → main inventory
+                    // 快捷栏 → 主物品栏
                     return ascending(10, 36);
                 } else if (javaSlot >= 10) {
-                    // Main inventory → hotbar
+                    // 主物品栏 → 快捷栏
                     return ascending(37, 45);
                 }
                 return Collections.emptyList();
             }
 
-            // Non-crafting menus require Java changedSlots predictions so slot acceptance and
-            // machine-specific inventory fallbacks are preserved without guessing result slots.
+            // 非合成菜单依赖 Java 的 changedSlots 预测，以保留槽位接受行为与各机器特有的物品栏回退，同时无需猜测结果槽位。
             return Collections.emptyList();
         } else {
-            // Player Inventory Window
+            // 玩家物品栏窗口
             if (javaSlot >= 9 && javaSlot <= 35) {
-                // Main inventory → hotbar (insertItem(36, 45, false))
+                // 主物品栏 → 快捷栏（insertItem(36, 45, false)）
                 return ascending(36, 44);
             } else if (javaSlot >= 36 && javaSlot <= 44) {
-                // Hotbar → main inventory (insertItem(9, 36, false))
+                // 快捷栏 → 主物品栏（insertItem(9, 36, false)）
                 return ascending(9, 35);
             } else if (javaSlot >= 5 && javaSlot <= 8) {
-                // Armor → main inventory then hotbar (insertItem(9, 45, false))
+                // 盔甲 → 主物品栏再快捷栏（insertItem(9, 45, false)）
                 return ascending(9, 44);
             } else if (javaSlot == 45) {
-                // Offhand → main inventory then hotbar (insertItem(9, 45, false))
+                // 副手 → 主物品栏再快捷栏（insertItem(9, 45, false)）
                 return ascending(9, 44);
             } else if (javaSlot >= 1 && javaSlot <= 4) {
-                // Crafting input → main inventory then hotbar (insertItem(9, 45, false))
+                // 合成输入 → 主物品栏再快捷栏（insertItem(9, 45, false)）
                 return ascending(9, 44);
             }
             return Collections.emptyList();
         }
     }
 
-    /** Inclusive slot range [from, to] in ascending order (vanilla insertItem with reverse=false). */
+    /** 闭区间槽位范围 [from, to]，升序（原版 insertItem 的 reverse=false）。 */
     private static List<Integer> ascending(int from, int to) {
         final List<Integer> slots = new ArrayList<>(Math.max(0, to - from + 1));
         for (int slot = from; slot <= to; slot++) {
@@ -1021,7 +1013,7 @@ public class ClickSimulator {
         return slots;
     }
 
-    /** Inclusive slot range [from, to] in descending order (vanilla insertItem with reverse=true). */
+    /** 闭区间槽位范围 [from, to]，降序（原版 insertItem 的 reverse=true）。 */
     private static List<Integer> descending(int from, int to) {
         final List<Integer> slots = new ArrayList<>(Math.max(0, to - from + 1));
         for (int slot = to; slot >= from; slot--) {
@@ -1030,7 +1022,7 @@ public class ClickSimulator {
         return slots;
     }
 
-    // --- SWAP (mode=2) ---
+    // --- SWAP（mode=2）---
 
     static List<InventoryActionData> simulateSwapHands(final InventoryTracker tracker) {
         final int selectedJavaSlot = 36 + tracker.getInventoryContainer().getSelectedHotbarSlot();
@@ -1043,10 +1035,10 @@ public class ClickSimulator {
 
         final BedrockSlotRef otherRef;
         if (button >= 0 && button <= 8) {
-            // Number key 1-9 → hotbar slot
+            // 数字键 1-9 → 快捷栏槽位
             otherRef = new BedrockSlotRef(ContainerID.CONTAINER_ID_INVENTORY.getValue(), button, tracker.getInventoryContainer());
         } else if (button == 40) {
-            // F key → offhand
+            // F 键 → 副手
             otherRef = new BedrockSlotRef(ContainerID.CONTAINER_ID_OFFHAND.getValue(), 0, tracker.getOffhandContainer());
         } else {
             return null;
@@ -1065,7 +1057,7 @@ public class ClickSimulator {
         );
     }
 
-    // --- CLONE (mode=3, Creative middle click) ---
+    // --- CLONE（mode=3，创造模式中键点击）---
 
     private static List<InventoryActionData> simulateClone(int javaContainerId, short javaSlot, InventoryTracker tracker,
                                                            JavaItemStackLimits.Resolver stackLimits) {
@@ -1091,11 +1083,11 @@ public class ClickSimulator {
         );
     }
 
-    // --- THROW (mode=4) ---
+    // --- THROW（mode=4）---
 
     private static List<InventoryActionData> simulateThrow(int javaContainerId, short javaSlot, byte button, InventoryTracker tracker) {
         if (javaSlot == -999) {
-            // Drop from cursor (same as PICKUP outside window)
+            // 从光标丢弃（与在窗口外 PICKUP 相同）
             return simulateDropCursor(button, tracker);
         }
 
@@ -1106,7 +1098,7 @@ public class ClickSimulator {
         if (slotItem.isEmpty()) return Collections.emptyList();
 
         if (button == 0) {
-            // Q — drop one
+            // Q — 丢弃一个
             BedrockItem dropped = slotItem.copy();
             dropped.setAmount(1);
             BedrockItem remaining = slotItem.amount() > 1 ? slotItem.copy() : BedrockItem.empty();
@@ -1116,7 +1108,7 @@ public class ClickSimulator {
                     slotAction(ref, slotItem, remaining)
             );
         } else if (button == 1) {
-            // Ctrl+Q — drop entire stack
+            // Ctrl+Q — 丢弃整个堆叠
             return List.of(
                     worldDropAction(slotItem),
                     slotAction(ref, slotItem, BedrockItem.empty())
@@ -1125,7 +1117,7 @@ public class ClickSimulator {
         return null;
     }
 
-    // --- QUICK_CRAFT (mode=5, Drag) ---
+    // --- QUICK_CRAFT（mode=5，拖拽）---
 
     private static List<InventoryActionData> simulateQuickCraft(int javaContainerId, short javaSlot, byte button,
                                                                InventoryTracker tracker, ClientAuthInventoryModule.DragState dragState,
@@ -1140,11 +1132,11 @@ public class ClickSimulator {
         }
 
         switch (stage) {
-            case 0: // Begin drag
+            case 0: // 开始拖拽
                 dragState.begin(mode);
                 return Collections.emptyList();
 
-            case 1: // Add slot
+            case 1: // 添加槽位
                 if (dragState.getDragMode() != mode || dragState.getDragSlots().size() >= 128) {
                     dragState.reset();
                     return null;
@@ -1152,7 +1144,7 @@ public class ClickSimulator {
                 dragState.addSlot(javaSlot);
                 return Collections.emptyList();
 
-            case 2: // End drag
+            case 2: // 结束拖拽
                 if (dragState.getDragMode() != mode) {
                     dragState.reset();
                     return null;
@@ -1167,9 +1159,11 @@ public class ClickSimulator {
     }
 
     private static boolean isCreativeMiddleDragAllowed(final InventoryTracker tracker) {
+        // MOT 对它所发布的每个网易配置（1.21.124 / 1.21.130）都以相同方式处理创造模式堆叠，
+        // 因此 898 保留 860 的行为，而不是被排除在外。
         if (tracker == null || tracker.user() == null || ViaBedrock.getConfig() == null
                 || !ViaBedrock.getConfig().shouldEmulateNetEaseClient()
-                || ViaBedrock.getConfig().getNetEaseProtocolVersion() != 860) {
+                || ViaBedrock.getConfig().getNetEaseProtocolVersion() < 860) {
             return false;
         }
         final GameSessionStorage session = tracker.user().get(GameSessionStorage.class);
@@ -1255,7 +1249,7 @@ public class ClickSimulator {
         int totalDistributed = 0;
 
         switch (dragMode) {
-            case 0: { // Left click — even distribution
+            case 0: { // 左键点击 — 平均分配
                 int amountPerSlot = cursorItem.amount() / dragSlots.size();
                 if (amountPerSlot == 0) return null;
 
@@ -1276,7 +1270,7 @@ public class ClickSimulator {
                 }
                 break;
             }
-            case 1: { // Right click — one per slot
+            case 1: { // 右键点击 — 每个槽位一个
                 for (short slot : dragSlots) {
                     if (totalDistributed >= cursorItem.amount()) break;
                     final BedrockSlotRef ref = SlotMapper.resolve(javaContainerId, slot, tracker);
@@ -1298,7 +1292,7 @@ public class ClickSimulator {
 
         if (actions.isEmpty()) return null;
 
-        // Add cursor action
+        // 添加光标操作
         int remainingAmount = cursorItem.amount() - totalDistributed;
         final BedrockItem newCursor = remainingAmount > 0 ? cursorItem.copy() : BedrockItem.empty();
         if (remainingAmount > 0) newCursor.setAmount(remainingAmount);
@@ -1307,7 +1301,7 @@ public class ClickSimulator {
         return actions;
     }
 
-    // --- PICKUP_ALL (mode=6, Double click) ---
+    // --- PICKUP_ALL（mode=6，双击）---
 
     private static List<InventoryActionData> simulatePickupAll(int javaContainerId, short javaSlot, InventoryTracker tracker,
                                                                JavaItemStackLimits.Resolver stackLimits) {
@@ -1322,11 +1316,11 @@ public class ClickSimulator {
         final List<InventoryActionData> actions = new ArrayList<>();
         int collected = 0;
 
-        // Determine scan range
+        // 确定扫描范围
         final int scanStart;
         final int scanEnd;
         if (javaContainerId == 0) {
-            scanStart = 1; // Skip crafting output (slot 0)
+            scanStart = 1; // 跳过合成输出（槽位 0）
             scanEnd = 45;
         } else {
             scanStart = 0;
@@ -1335,7 +1329,7 @@ public class ClickSimulator {
             scanEnd = containerSize + 35;
         }
 
-        // Two rounds: first collect partial stacks, then full stacks
+        // 两轮：先收集未满的堆叠，再收集满堆叠
         for (int round = 1; round <= 2; round++) {
             for (int scanSlot = scanStart; scanSlot <= scanEnd; scanSlot++) {
                 if (collected >= remaining) break;
@@ -1366,7 +1360,7 @@ public class ClickSimulator {
         return actions;
     }
 
-    // --- Helper methods ---
+    // --- 辅助方法 ---
 
     private static int resolvedLimit(final BedrockItem item, final JavaItemStackLimits.Resolver stackLimits) {
         return item.isEmpty() ? JavaItemStackLimits.UNSUPPORTED : stackLimits.maxStackSize(item);

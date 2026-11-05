@@ -107,23 +107,75 @@ class ViaBedrockConfigTest {
     }
 
     @Test
-    void neteaseEmulationPinsMot860ProtocolTuple(@TempDir final Path tempDir) throws Exception {
+    void neteaseDefaultsToModpc310ProtocolTuple(@TempDir final Path tempDir) throws Exception {
         final Path configFile = tempDir.resolve("viabedrock.yml");
         Files.writeString(configFile, """
                 netease:
                   enabled: true
-                  protocol-version: 999
-                  game-version: 1.21.0
-                  raknet-protocol-version: 11
                 """);
 
         final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
         config.reload();
 
         assertTrue(config.shouldEmulateNetEaseClient());
-        assertEquals(860, config.getNetEaseProtocolVersion());
+        assertEquals(898, config.getNetEaseProtocolVersion());
         assertEquals(8, config.getNetEaseRakNetProtocolVersion());
-        assertEquals("1.21.124_NetEase", config.getNetEaseGameVersion());
+        assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
+    }
+
+    @Test
+    void neteaseAutoProtocolResolvesToNewestProfile(@TempDir final Path tempDir) throws Exception {
+        final Path configFile = tempDir.resolve("viabedrock.yml");
+        Files.writeString(configFile, """
+                netease:
+                  enabled: true
+                  protocol-version: 0
+                """);
+
+        final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
+        config.reload();
+
+        assertEquals(898, config.getNetEaseProtocolVersion());
+        assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
+    }
+
+    @Test
+    void neteaseAcceptsBothMotProfiles(@TempDir final Path tempDir) throws Exception {
+        final Path configFile = tempDir.resolve("viabedrock.yml");
+        Files.writeString(configFile, """
+                netease:
+                  enabled: true
+                  protocol-version: 898
+                  game-version: 1.21.124_NetEase
+                  raknet-protocol-version: 11
+                """);
+
+        final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
+        config.reload();
+
+        assertEquals(898, config.getNetEaseProtocolVersion());
+        assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
+        assertEquals(11, config.getNetEaseRakNetProtocolVersion());
+    }
+
+    @Test
+    void unsupportedNetEaseProtocolFallsBackToNewestProfile(@TempDir final Path tempDir) throws Exception {
+        final Path configFile = tempDir.resolve("viabedrock.yml");
+        Files.writeString(configFile, """
+                netease:
+                  enabled: true
+                  protocol-version: 999
+                  game-version: 1.21.0
+                  raknet-protocol-version: 10
+                """);
+
+        final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
+        config.reload();
+
+        assertTrue(config.shouldEmulateNetEaseClient());
+        assertEquals(898, config.getNetEaseProtocolVersion());
+        assertEquals(8, config.getNetEaseRakNetProtocolVersion());
+        assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
     }
 
 }

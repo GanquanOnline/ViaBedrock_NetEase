@@ -32,13 +32,13 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Translators for NetEase title-specific packets 203 / 228 / 236.
+ * 网易标题专属数据包 203 / 228 / 236 的翻译器。
  * <p>
- * These IDs live in the official {@code TitleSpecificPackets} range (200-299)
- * and are registered by MOT {@code packetPoolCurrentNetEase}. Without handlers
- * they surface as {@code Received unknown packet 228} and are dropped, so other
- * players never get a Java skin. PY_RPC (200) is owned by
- * {@code PyRpcDispatcherModule} and is not registered here.
+ * 这些 ID 位于官方 {@code TitleSpecificPackets} 范围（200-299），
+ * 由 MOT {@code packetPoolCurrentNetEase} 注册。没有处理器时
+ * 它们会以 {@code Received unknown packet 228} 出现并被丢弃，
+ * 于是其他玩家永远拿不到 Java 皮肤。PY_RPC（200）由
+ * {@code PyRpcDispatcherModule} 负责，不在此注册。
  */
 public final class NeteasePackets {
 
