@@ -19,10 +19,14 @@ package net.raphimc.viabedrock.platform;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.ProtocolManager;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.ViaBedrockConfig;
 import net.raphimc.viabedrock.api.BedrockProtocolVersion;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockDataTables;
+import net.raphimc.viabedrock.protocol.data.BedrockProtocolProfile;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 
 import java.io.File;
@@ -40,8 +44,19 @@ public interface ViaBedrockPlatform {
         ViaBedrock.init(this, config);
         Via.getManager().getSubPlatforms().add(ViaBedrock.IMPL_VERSION);
 
+        // 数据表闸门：缺文件直接在启动时报错，而不是连上后倒在映射加载里
+        BedrockDataTables.validate(BedrockWire.current());
+
+        // 每个已实现档案都要注册：下拉框选到新版本却找不到转换协议，会在连接时才炸
         final ProtocolManager protocolManager = Via.getManager().getProtocolManager();
-        protocolManager.registerProtocol(new BedrockProtocol(), ProtocolConstants.JAVA_VERSION, BedrockProtocolVersion.bedrockLatest);
+        for (final BedrockProtocolProfile profile : BedrockProtocolProfile.values()) {
+            final ProtocolVersion target = BedrockProtocolVersion.byProtocol(profile.protocolVersion());
+            if (target == null) {
+                throw new IllegalStateException("Bedrock profile " + profile.name() + " (" + profile.protocolVersion()
+                        + ") is missing from BedrockProtocolVersion");
+            }
+            protocolManager.registerProtocol(new BedrockProtocol(), ProtocolConstants.JAVA_VERSION, target);
+        }
 
         this.getServerPacksFolder().mkdirs();
         this.getBlobCacheFolder().mkdirs();

@@ -26,7 +26,7 @@ import net.raphimc.viabedrock.experimental.model.inventory.BedrockRecipe;
 import net.raphimc.viabedrock.experimental.model.inventory.InventoryActionData;
 import net.raphimc.viabedrock.experimental.model.inventory.InventorySource;
 import net.raphimc.viabedrock.experimental.storage.RecipeRegistry;
-import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
@@ -1226,7 +1226,7 @@ public final class ItemStackRequestEncoder {
         if (emulateNetEase() && netEaseProtocol() > 0) {
             return netEaseProtocol();
         }
-        return ProtocolConstants.BEDROCK_PROTOCOL_VERSION;
+        return BedrockWire.current();
     }
 
     private record Action(ItemStackRequestActionType type, int count, int filterIndex, int timesCrafted,

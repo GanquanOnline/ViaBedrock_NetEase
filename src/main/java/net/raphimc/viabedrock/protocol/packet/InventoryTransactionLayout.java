@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
  * 基岩物品栏事务物品使用载荷的尾部辅助工具。
@@ -29,12 +30,81 @@ import net.raphimc.viabedrock.ViaBedrock;
  * PERFORM_ITEM_INTERACTION 载荷（或独立的 USE_ITEM 事务）
  * 会使其后的模拟量/相机/原始移动字段错位，Nukkit 会以
  * {@code Unable to decode PlayerAuthInputPacket} / {@code Sent malformed packet} 判定整批失败。
+ * <p>
+ * 1001 的形状只作用于<b>独立的 INVENTORY_TRANSACTION 包</b>。MOT 内嵌在
+ * PLAYER_AUTH_INPUT 里的交互载荷仍按旧形状读写（那个开关是 2168），所以
+ * 内嵌路径必须显式要旧形状，而不是跟着协议号走。
  */
 public final class InventoryTransactionLayout {
 
     public static final int CLIENT_COOLDOWN_STATE_PROTOCOL = 944;
+    /** legacy 槽位存在性 bool / 单字节枚举 / 有符号 actionType 的起点 */
+    public static final int TRANSACTION_SHAPE_1001_PROTOCOL = 1001;
+    /** 恒 true bool 与 bool 存在性对的终点（不含） */
+    public static final int TRANSACTION_SHAPE_2192_PROTOCOL = 2192;
+    /** PLAYER_AUTH_INPUT 内嵌交互载荷改形状的起点 */
+    public static final int EMBEDDED_INTERACTION_PROTOCOL = 2168;
 
     private InventoryTransactionLayout() {
+    }
+
+    public static boolean usesLegacySlotFlag(final int protocol) {
+        return protocol >= TRANSACTION_SHAPE_1001_PROTOCOL;
+    }
+
+    public static boolean usesConstantBooleans(final int protocol) {
+        return protocol >= TRANSACTION_SHAPE_1001_PROTOCOL && protocol < TRANSACTION_SHAPE_2192_PROTOCOL;
+    }
+
+    public static boolean usesSourcePresencePairs(final int protocol) {
+        return protocol >= TRANSACTION_SHAPE_1001_PROTOCOL && protocol < TRANSACTION_SHAPE_2192_PROTOCOL;
+    }
+
+    public static boolean usesByteEnums(final int protocol) {
+        return protocol >= TRANSACTION_SHAPE_1001_PROTOCOL;
+    }
+
+    /** @return true 表示内嵌在 PLAYER_AUTH_INPUT 里的交互载荷已经换成 1001 形状 */
+    public static boolean usesEmbeddedInteractionShape(final int protocol) {
+        return protocol >= EMBEDDED_INTERACTION_PROTOCOL;
+    }
+
+    public static int readActionType(final ByteBuf buffer, final int protocol) {
+        return usesByteEnums(protocol) ? BedrockTypes.VAR_INT.read(buffer) : BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+    }
+
+    public static void writeActionType(final ByteBuf buffer, final int actionType, final int protocol) {
+        if (usesByteEnums(protocol)) {
+            BedrockTypes.VAR_INT.write(buffer, actionType);
+        } else {
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, actionType);
+        }
+    }
+
+    /** triggerType / 客户端交互预测：1001 起是无符号单字节 */
+    public static int readUnsignedEnum(final ByteBuf buffer, final int protocol) {
+        return usesByteEnums(protocol) ? buffer.readUnsignedByte() : BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+    }
+
+    public static void writeUnsignedEnum(final ByteBuf buffer, final int value, final int protocol) {
+        if (usesByteEnums(protocol)) {
+            buffer.writeByte(value);
+        } else {
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value);
+        }
+    }
+
+    /** 方块面：1001 起是有符号单字节 */
+    public static int readFace(final ByteBuf buffer, final int protocol) {
+        return usesByteEnums(protocol) ? buffer.readByte() : BedrockTypes.VAR_INT.read(buffer);
+    }
+
+    public static void writeFace(final ByteBuf buffer, final int face, final int protocol) {
+        if (usesByteEnums(protocol)) {
+            buffer.writeByte(face);
+        } else {
+            BedrockTypes.VAR_INT.write(buffer, face);
+        }
     }
 
     public static boolean usesClientCooldownState() {

@@ -38,6 +38,7 @@ import net.raphimc.viabedrock.api.util.JavaClientDevice;
 import net.raphimc.viabedrock.api.util.Jwt;
 import net.raphimc.viabedrock.api.util.PacketFactory;
 import net.raphimc.viabedrock.api.util.ServerBlacklist;
+import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
@@ -283,11 +284,20 @@ public class LoginPackets {
     }
 
     static int resolveBedrockProtocolVersion(final HandshakeStorage handshakeStorage) {
-        final int configured = ViaBedrock.getConfig().getNetEaseProtocolVersion();
-        if (ViaBedrock.getConfig().shouldEmulateNetEaseClient() && configured > 0) {
-            return configured;
+        final ViaBedrockConfig config = ViaBedrock.getConfig();
+        return selectBedrockProtocolVersion(
+                config != null && config.shouldEmulateNetEaseClient(),
+                config != null ? config.getNetEaseProtocolVersion() : 0,
+                config != null ? config.getBedrockProtocolVersion() : 0,
+                handshakeStorage.protocolVersion());
+    }
+
+    /** 先网易仿真的协议号，再 bedrock.protocol-version，都没配时沿用 Java 握手的协议号。 */
+    static int selectBedrockProtocolVersion(final boolean emulateNetEase, final int netEaseProtocol, final int configuredBedrockProtocol, final int handshakeProtocol) {
+        if (emulateNetEase && netEaseProtocol > 0) {
+            return netEaseProtocol;
         }
-        return handshakeStorage.protocolVersion();
+        return configuredBedrockProtocol > 0 ? configuredBedrockProtocol : handshakeProtocol;
     }
 
     static java.util.Map<String, Object> createNetEaseExtraData(final String javaUsername, final UUID javaUuid, final String xuid) {

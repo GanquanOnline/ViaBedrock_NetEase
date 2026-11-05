@@ -29,6 +29,7 @@ import net.raphimc.viabedrock.experimental.types.inventory.InstanceItemType;
 import net.raphimc.viabedrock.experimental.types.inventory.RecipeIngredientType;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CraftingDataEntryType;
 import net.raphimc.viabedrock.protocol.packet.CraftingDataLayout;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
@@ -216,7 +217,7 @@ public class CraftingDataModule implements FeatureModule {
     private static void skipUnlockingRequirement(final PacketWrapper wrapper) {
         final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
         final int netEaseProtocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
-        final int protocol = emulateNetEase && netEaseProtocol > 0 ? netEaseProtocol : 975;
+        final int protocol = emulateNetEase && netEaseProtocol > 0 ? netEaseProtocol : BedrockWire.current();
         CraftingDataLayout.skipUnlockingRequirement(wrapper, emulateNetEase, protocol);
     }
 

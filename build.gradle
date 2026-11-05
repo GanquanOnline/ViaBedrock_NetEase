@@ -14,6 +14,14 @@ sourceSets {
     tool.runtimeClasspath += tool.compileClasspath
 }
 
+tasks.register("importBedrockDataTables", JavaExec) {
+    group = "data generation"
+    description = "Converts Nukkit-MOT per protocol data tables into assets/viabedrock/data/versions"
+    classpath = sourceSets.tool.runtimeClasspath
+    mainClass = "net.raphimc.viabedrock.tool.generator.BedrockDataTableImporter"
+    workingDir project.projectDir
+}
+
 tasks.register("generateJavaSoundCatalog", JavaExec) {
     group = "data generation"
     description = "Generates compact Java sounds.json acoustic catalogs"

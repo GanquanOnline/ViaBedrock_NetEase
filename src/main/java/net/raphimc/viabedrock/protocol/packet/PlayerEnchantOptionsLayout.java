@@ -21,7 +21,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
-import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 import java.util.ArrayList;
@@ -215,7 +215,7 @@ public final class PlayerEnchantOptionsLayout {
         if (emulateNetEase() && ViaBedrock.getConfig() != null) {
             return ViaBedrock.getConfig().getNetEaseProtocolVersion();
         }
-        return ProtocolConstants.BEDROCK_PROTOCOL_VERSION;
+        return BedrockWire.current();
     }
 
     public record EnchantData(int type, int level, String modEnchantIdentifier) {

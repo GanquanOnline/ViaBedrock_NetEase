@@ -37,8 +37,9 @@ public class InventoryTransactionRewriter extends StoredObject {
     public InventoryTransactionRewriter(final UserConnection user) {
         super(user);
 
-        this.inventoryActionDataType = new ArrayType<>(new InventoryActionDataType(user), BedrockTypes.UNSIGNED_VAR_INT);
-        final InventoryTransactionPacketType transactionPacketType = new InventoryTransactionPacketType(user, inventoryActionDataType);
+        final InventoryActionDataType actionDataType = new InventoryActionDataType(user);
+        this.inventoryActionDataType = new ArrayType<>(actionDataType, BedrockTypes.UNSIGNED_VAR_INT);
+        final InventoryTransactionPacketType transactionPacketType = new InventoryTransactionPacketType(user, actionDataType);
         this.inventoryTransactionType = transactionPacketType;
         this.itemInteractionDataType = new Type<>(BedrockInventoryTransaction.class) {
             @Override

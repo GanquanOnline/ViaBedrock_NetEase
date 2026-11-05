@@ -55,6 +55,8 @@ import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.DataValues;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
@@ -418,6 +420,9 @@ public class JoinPackets {
                         wrapper.read(Types.BOOLEAN); // 客户端侧生成
                         hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // 使用哈希方块运行时 ID
                         wrapper.read(Types.BOOLEAN); // 服务端权威音效
+                        if (BedrockWire.applies(BedrockDeviation.START_GAME_LOGGING_CHAT)) {
+                            wrapper.read(Types.BOOLEAN); // 记录聊天
+                        }
                         if (wrapper.read(Types.BOOLEAN)) { // 是否含服务器加入信息
                             if (wrapper.read(Types.BOOLEAN)) { // 是否含 gathering 加入信息
                                 wrapper.read(BedrockTypes.UUID); // 体验 id
@@ -937,6 +942,10 @@ public class JoinPackets {
         wrapper.read(Types.BOOLEAN); // 启用实验性玩法
         final ChatRestrictionLevel chatRestrictionLevel = ChatRestrictionLevel.getByValue(wrapper.read(Types.BYTE), ChatRestrictionLevel.Disabled); // 聊天限制等级
         wrapper.read(Types.BOOLEAN); // 禁用玩家交互
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_EDITOR_FIELDS)) {
+            wrapper.read(BedrockTypes.VAR_INT); // 服务端编辑器连接策略
+            wrapper.read(Types.BOOLEAN); // 编辑器世界里允许匿名方块掉落
+        }
         return new StartGameSharedPrefix(
                 entityUniqueId,
                 entityRuntimeId,

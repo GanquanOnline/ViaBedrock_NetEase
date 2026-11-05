@@ -13,6 +13,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.model.FullContainerName;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -319,7 +320,7 @@ public final class ItemStackResponseLayout {
         if (emulateNetEase() && netEaseProtocol() > 0) {
             return netEaseProtocol();
         }
-        return 975;
+        return BedrockWire.current();
     }
 
     public record DecodedSlot(int slot, int hotbarSlot, int count, int stackNetworkId,

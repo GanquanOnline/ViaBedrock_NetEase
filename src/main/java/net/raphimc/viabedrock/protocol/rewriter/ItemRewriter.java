@@ -58,7 +58,9 @@ import net.raphimc.viabedrock.experimental.custommapping.CustomMappingAccess;
 import net.raphimc.viabedrock.experimental.custommapping.CustomMappingSyncStorage;
 import net.raphimc.viabedrock.experimental.rewriter.ExperimentalItemRewriter;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.Enchant_Type;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemVersion;
@@ -1277,6 +1279,18 @@ public class ItemRewriter extends StoredObject {
 
     public Type<BedrockItem[]> newItemArrayType() {
         return this.newItemArrayType;
+    }
+
+    /**
+     * 按协议号选物品堆编码。1001 起内容/装备/交易载荷全部改用描述符，
+     * 975 仍走旧槽位编码器，因此选择跟着协议号走而不是跟着调用点。
+     */
+    public Type<BedrockItem> itemType(final int protocolVersion) {
+        return BedrockWire.applies(protocolVersion, BedrockDeviation.ITEM_STACK_DESCRIPTOR) ? this.newItemType : this.itemType;
+    }
+
+    public Type<BedrockItem[]> itemArrayType(final int protocolVersion) {
+        return BedrockWire.applies(protocolVersion, BedrockDeviation.ITEM_STACK_DESCRIPTOR) ? this.newItemArrayType : this.itemArrayType;
     }
 
     private record PotionItemMappings(

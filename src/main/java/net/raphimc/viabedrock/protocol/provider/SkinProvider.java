@@ -29,8 +29,8 @@ import net.raphimc.viabedrock.api.modinterface.BedrockSkinUtilityInterface;
 import net.raphimc.viabedrock.api.modinterface.ViaBedrockUtilityInterface;
 import net.raphimc.viabedrock.api.resourcepack.content.Content;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.DataValues;
-import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.MemoryTier;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.GraphicsMode;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InputMode;
@@ -252,7 +252,7 @@ public class SkinProvider implements Provider {
         { // 客户端声明
             claims.put("GameVersion", ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                     ? ViaBedrock.getConfig().getNetEaseGameVersion()
-                    : ProtocolConstants.BEDROCK_VERSION_NAME);
+                    : BedrockWire.announcedGameVersion());
             if (ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
                 claims.put("IsReconnect", false);
             }

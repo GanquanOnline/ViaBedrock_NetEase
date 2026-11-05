@@ -29,6 +29,7 @@ import net.raphimc.viabedrock.protocol.packet.CameraPacketLayout;
 import net.raphimc.viabedrock.protocol.storage.ChannelStorage;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 
 import java.nio.charset.StandardCharsets;
 
@@ -476,9 +477,9 @@ public class CameraInterface {
     private static int cameraProtocol() {
         if (emulateNetEase()) {
             final int configured = ViaBedrock.getConfig().getNetEaseProtocolVersion();
-            return configured > 0 ? configured : 975;
+            return configured > 0 ? configured : BedrockWire.current();
         }
-        return 975;
+        return BedrockWire.current();
     }
 
 }

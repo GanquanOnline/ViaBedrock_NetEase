@@ -42,6 +42,8 @@ import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.experimental.tablist.PlayerIdentity;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.*;
 import net.raphimc.viabedrock.protocol.data.enums.java.ObjectiveAction;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.BossEventOperationType;
@@ -414,8 +416,27 @@ public class HudPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.BOSS_EVENT, ClientboundPackets26_1.BOSS_EVENT, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+            final boolean unifiedLayout = BedrockWire.applies(BedrockDeviation.BOSS_EVENT_UNIFIED_LAYOUT);
             final long bossEntityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // Boss 实体唯一 id
-            final int rawUpdateType = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 更新类型
+            final int rawUpdateType;
+            final String unifiedTitle;
+            final float unifiedProgress;
+            final int unifiedColor;
+            if (unifiedLayout) {
+                // 1001 起所有更新类型共用定长布局：颜色/叠加层变单字节，暗化屏幕消失
+                wrapper.read(BedrockTypes.VAR_LONG); // 玩家唯一 id，Java 侧没有对应语义
+                rawUpdateType = wrapper.read(Types.BYTE) & 0xFF;
+                unifiedTitle = wrapper.read(BedrockTypes.STRING);
+                wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                unifiedProgress = wrapper.read(BedrockTypes.FLOAT_LE);
+                unifiedColor = wrapper.read(Types.BYTE) & 0xFF;
+                wrapper.read(Types.BYTE); // 叠加层 | 在基岩版中不起作用
+            } else {
+                rawUpdateType = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 更新类型
+                unifiedTitle = null;
+                unifiedProgress = 0F;
+                unifiedColor = 0;
+            }
             final BossEventUpdateType updateType = BossEventUpdateType.getByValue(rawUpdateType);
             if (updateType == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown BossEventUpdateType: " + rawUpdateType);
@@ -428,12 +449,18 @@ public class HudPackets {
             switch (updateType) {
                 case Add -> {
                     final UUID uuid = bossBars.resolveOrCreateJavaUuid(bossEntityUniqueId, entity != null ? entity.javaUuid() : null);
-                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
-                    wrapper.read(BedrockTypes.STRING); // 已过滤名称
-                    final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
-                    wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(unifiedLayout ? unifiedTitle : wrapper.read(BedrockTypes.STRING))));
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    }
+                    final float progress = unifiedLayout ? unifiedProgress : wrapper.read(BedrockTypes.FLOAT_LE);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
+                    }
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final BossBarStorage.BossBar bar = bossBars.add(uuid, name, progress, color);
                     if (entity != null) entity.setHasBossBar(true);
                     if (!bossBars.markAddSent(uuid)) {
@@ -457,7 +484,7 @@ public class HudPackets {
                     wrapper.write(Types.VAR_INT, BossEventOperationType.REMOVE.ordinal()); // 操作
                 }
                 case Update_Percent -> {
-                    final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
+                    final float progress = unifiedLayout ? unifiedProgress : wrapper.read(BedrockTypes.FLOAT_LE);
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -475,8 +502,10 @@ public class HudPackets {
                     wrapper.write(Types.FLOAT, progress); // 进度
                 }
                 case Update_Name -> {
-                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
-                    wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(unifiedLayout ? unifiedTitle : wrapper.read(BedrockTypes.STRING))));
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -494,9 +523,13 @@ public class HudPackets {
                     wrapper.write(Types.TAG, name); // 名称
                 }
                 case Update_Properties -> {
-                    wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
+                    }
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -515,8 +548,10 @@ public class HudPackets {
                     wrapper.write(Types.VAR_INT, 0); // 叠加层
                 }
                 case Update_Style -> {
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();

@@ -22,8 +22,9 @@ import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.experimental.model.inventory.InventoryActionData;
 import net.raphimc.viabedrock.experimental.model.inventory.InventorySource;
-import net.raphimc.viabedrock.experimental.types.ExperimentalBedrockTypes;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
+import net.raphimc.viabedrock.protocol.packet.InventoryTransactionLayout;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -39,27 +40,43 @@ public class InventoryActionDataType extends Type<InventoryActionData> {
 
     @Override
     public InventoryActionData read(ByteBuf buffer) {
-        ItemRewriter itemRewriter = user.get(ItemRewriter.class);
-        if (itemRewriter == null) {
-            throw new IllegalStateException("ItemRewriter not found for user " + user);
-        }
-        final InventorySource source = ExperimentalBedrockTypes.INVENTORY_SOURCE.read(buffer);
+        final int protocol = BedrockWire.current();
+        return read(buffer, itemType(protocol), InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+    }
+
+    /**
+     * 动作读取按形状而非协议号分支：独立 INVENTORY_TRANSACTION 包用 1001 形状，
+     * PLAYER_AUTH_INPUT 内嵌载荷到 2168 才换，所以两个开关由调用方决定。
+     */
+    public InventoryActionData read(ByteBuf buffer, final Type<BedrockItem> itemType,
+                                    final boolean presencePairs) {
+        final InventorySource source = InventorySourcePacketType.read(buffer, presencePairs);
         final int slot = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
-        final BedrockItem fromItem = itemRewriter.itemType().read(buffer);
-        final BedrockItem toItem = itemRewriter.itemType().read(buffer);
+        final BedrockItem fromItem = itemType.read(buffer);
+        final BedrockItem toItem = itemType.read(buffer);
 
         return new InventoryActionData(source, slot, fromItem, toItem);
     }
 
     @Override
     public void write(ByteBuf buffer, InventoryActionData value) {
-        ItemRewriter itemRewriter = user.get(ItemRewriter.class);
+        final int protocol = BedrockWire.current();
+        write(buffer, value, itemType(protocol), InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+    }
+
+    public void write(ByteBuf buffer, final InventoryActionData value, final Type<BedrockItem> itemType,
+                      final boolean presencePairs) {
+        InventorySourcePacketType.write(buffer, value.source(), presencePairs);
+        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.slot());
+        itemType.write(buffer, value.fromItem());
+        itemType.write(buffer, value.toItem());
+    }
+
+    private Type<BedrockItem> itemType(final int protocol) {
+        final ItemRewriter itemRewriter = user.get(ItemRewriter.class);
         if (itemRewriter == null) {
             throw new IllegalStateException("ItemRewriter not found for user " + user);
         }
-        ExperimentalBedrockTypes.INVENTORY_SOURCE.write(buffer, value.source());
-        BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.slot());
-        itemRewriter.itemType().write(buffer, value.fromItem());
-        itemRewriter.itemType().write(buffer, value.toItem());
+        return itemRewriter.itemType(protocol);
     }
 }

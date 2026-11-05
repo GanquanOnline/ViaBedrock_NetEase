@@ -44,7 +44,10 @@ import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockPlacementAckTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.LevelSoundEventNames;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
 import net.raphimc.viabedrock.protocol.data.enums.Direction;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.LevelEvent;
@@ -222,7 +225,19 @@ public class WorldEffectPackets {
             });
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_SOUND_EVENT, ClientboundPackets26_1.SOUND, wrapper -> {
-            final int rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 事件 ID
+            final int rawSoundEvent;
+            if (BedrockWire.applies(BedrockDeviation.LEVEL_SOUND_EVENT_NAME)) {
+                final String soundName = wrapper.read(BedrockTypes.STRING); // 事件名
+                final Integer soundId = LevelSoundEventNames.id(soundName);
+                if (soundId == null) {
+                    ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown level sound event name: " + soundName);
+                    wrapper.cancel();
+                    return;
+                }
+                rawSoundEvent = soundId;
+            } else {
+                rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 事件 ID
+            }
             final SharedTypes_Legacy_LevelSoundEvent soundEvent = SharedTypes_Legacy_LevelSoundEvent.getByValue(rawSoundEvent);
             if (soundEvent == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SharedTypes_Legacy_LevelSoundEvent: " + rawSoundEvent);
