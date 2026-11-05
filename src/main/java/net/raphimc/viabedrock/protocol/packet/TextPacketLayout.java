@@ -19,6 +19,8 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextPacketType;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -35,8 +37,6 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  */
 public final class TextPacketLayout {
 
-    public static final int NETEASE_FILTERED_STRING_PROTOCOL = 685;
-    public static final int NETEASE_UNKNOWN_TAIL_PROTOCOL = 410;
     public static final int CATEGORY_LAYOUT_PROTOCOL = 897;
     /**
      * Nukkit-MOT 897..923（“v898 格式”）把占位符名称保留在 category
@@ -60,11 +60,11 @@ public final class TextPacketLayout {
     }
 
     public static boolean usesRequiredFilteredString(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= NETEASE_FILTERED_STRING_PROTOCOL && protocol < CATEGORY_LAYOUT_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.TEXT_REQUIRED_FILTERED_STRING);
     }
 
     public static boolean usesNetEaseParameterList(final boolean emulateNetEase, final int protocol, final TextPacketType type) {
-        if (!emulateNetEase || protocol < NETEASE_UNKNOWN_TAIL_PROTOCOL || protocol >= CATEGORY_NAME_STRINGS_END_PROTOCOL) {
+        if (!NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.TEXT_NETEASE_PARAMETER_LIST)) {
             return false;
         }
         if (type == TextPacketType.chat) {
@@ -76,9 +76,7 @@ public final class TextPacketLayout {
 
     /** 897 之前的网易弹窗在过滤后的消息之后多带一个字符串。 */
     public static boolean usesNetEasePopupTail(final boolean emulateNetEase, final int protocol, final TextPacketType type) {
-        return emulateNetEase
-                && protocol >= NETEASE_UNKNOWN_TAIL_PROTOCOL
-                && protocol < CATEGORY_LAYOUT_PROTOCOL
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.TEXT_NETEASE_POPUP_TAIL)
                 && type == TextPacketType.popup;
     }
 

@@ -26,6 +26,8 @@ import com.viaversion.viaversion.libs.fastutil.ints.*;
 import com.viaversion.viaversion.libs.fastutil.objects.Object2ObjectMap;
 import com.viaversion.viaversion.libs.fastutil.objects.Object2ObjectOpenHashMap;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.api.chunk.blockstate.BlockStateSanitizer;
 import net.raphimc.viabedrock.api.chunk.blockstate.BlockStateUpgrader;
 import net.raphimc.viabedrock.api.model.BedrockBlockState;
@@ -103,7 +105,8 @@ public class BlockStateRewriter implements StorableObject {
                 emulateNetEase, netEaseProtocol, hashedRuntimeBlockIds)
                 ? BedrockProtocol.MAPPINGS.getNetease860BlockRuntimeOverlay()
                 : Netease860BlockRuntimeOverlay.empty();
-        if (emulateNetEase && netEaseProtocol >= Netease860BlockRuntimeOverlay.SEQUENTIAL_OVERLAY_END_PROTOCOL && !hashedRuntimeBlockIds) {
+        if (emulateNetEase && netEaseProtocol > 0 && !hashedRuntimeBlockIds
+                && !NetEaseWire.applies(emulateNetEase, netEaseProtocol, NetEaseDeviation.SEQUENTIAL_BLOCK_PALETTE_OVERLAY)) {
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
                     "NetEase " + netEaseProtocol + " sent sequential block network ids; "
                             + "MOT anchors that palette on V1_21_111, so block ids fall back to the vanilla order");

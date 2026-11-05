@@ -20,6 +20,8 @@ package net.raphimc.viabedrock.protocol.packet;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
@@ -31,8 +33,6 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  */
 public final class ResourcePackStackLayout {
 
-    public static final int NETEASE_BEHAVIOUR_STACK_END_PROTOCOL = 897;
-
     private ResourcePackStackLayout() {
     }
 
@@ -41,7 +41,7 @@ public final class ResourcePackStackLayout {
     }
 
     public static boolean sendsNetEaseBehaviourPackStack(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol < NETEASE_BEHAVIOUR_STACK_END_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.BEHAVIOUR_PACK_STACK_TRAILER);
     }
 
     /**

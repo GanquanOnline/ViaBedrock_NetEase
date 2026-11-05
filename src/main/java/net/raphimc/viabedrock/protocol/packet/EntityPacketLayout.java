@@ -21,6 +21,8 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
@@ -38,8 +40,6 @@ public final class EntityPacketLayout {
     public static final int AMBIENT_PROTOCOL = 897;
     public static final int SWING_SOURCE_PROTOCOL = 897;
     public static final int ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL = 974;
-    /** 网易 898 在 ANIMATE 载荷之后追加攻击者的 {@code attackId} varlong。 */
-    public static final int NETEASE_ATTACK_ID_PROTOCOL = 898;
     /**
      * MOT 的 {@code AnimatePacket.Action.ROW_RIGHT}/{@code ROW_LEFT}。官方 ViaBedrock 枚举
      * 止于 {@code MagicCriticalHit(5)}；860 仍然使用这些划船 ID，外加一个
@@ -145,7 +145,7 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesNetEaseAttackId(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= NETEASE_ATTACK_ID_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.ENTITY_ATTACK_ID);
     }
 
     public static void skipNetEaseAttackId(final PacketWrapper wrapper) {

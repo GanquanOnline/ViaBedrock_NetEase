@@ -15,6 +15,9 @@ java-custom-payload-bridge:
   max-bytes-per-minute: 262144
 # 控制 blob 缓存（可减少网络流量和加载时间），可选值："disabled"、"memory"、"disk"
 blob-cache: "disk"
+# 为 true 时，解码后仍有剩余字节的基岩包会按包 id 记录一次日志（后续只累加计数）。
+# 用于升级网易协议档位时定位读不干净的布局；日常运行保持关闭。
+layout-report: false
 # 启用后会启动资源包 HTTP 服务器并开启资源包转换
 translate-resource-packs: true
 # 资源包 HTTP 服务器地址

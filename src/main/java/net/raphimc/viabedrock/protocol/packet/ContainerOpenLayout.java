@@ -21,6 +21,8 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
@@ -34,9 +36,6 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  */
 public final class ContainerOpenLayout {
 
-    public static final int NETEASE_TRAILER_PROTOCOL = 860;
-    public static final int NETEASE_EXTENDED_TRAILER_PROTOCOL = 898;
-
     private ContainerOpenLayout() {
     }
 
@@ -45,11 +44,11 @@ public final class ContainerOpenLayout {
     }
 
     public static boolean usesNetEaseTrailer(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= NETEASE_TRAILER_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.CONTAINER_OPEN_TRAILER);
     }
 
     public static boolean usesNetEaseExtendedTrailer(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= NETEASE_EXTENDED_TRAILER_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.CONTAINER_OPEN_EXTENDED_TRAILER);
     }
 
     public static void skipTrailer(final PacketWrapper wrapper) {

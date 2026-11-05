@@ -209,6 +209,14 @@ public interface ViaBedrockConfig extends Config {
     }
 
     /**
+     * @return 如果为 true，则在丢弃基岩包未读字节时按包统计并记录日志。
+     * 用于升级网易协议时定位读不干净的布局。
+     */
+    default boolean shouldReportBedrockLayoutLeftovers() {
+        return false;
+    }
+
+    /**
      * @return 如果为 true，则在未安装 ViaBedrockUtility mod 时启用基于 Display Entity 的服务端实体动画。
      * 禁用时，自定义实体只会显示为不可见的交互碰撞箱（上游行为）。
      * 安装了 ViaBedrockUtility mod 时该设置无效（始终使用客户端渲染）。

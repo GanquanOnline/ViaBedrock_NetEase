@@ -21,6 +21,8 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandOriginType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandOutputType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandPermissionLevel;
@@ -43,11 +45,6 @@ import java.util.UUID;
 public final class CommandPacketLayout {
 
     public static final int STRING_LAYOUT_PROTOCOL = 897;
-    /**
-     * Nukkit-MOT 898 把网易的 {@code unlimit} 标志从包尾移到了
-     * {@code internal} 之后。860 仍在命令版本之后发送它。
-     */
-    public static final int NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL = 898;
 
     private CommandPacketLayout() {
     }
@@ -117,7 +114,7 @@ public final class CommandPacketLayout {
     }
 
     public static void writeNetEaseUnlimit(final PacketWrapper wrapper) {
-        if (emulateNetEase() && netEaseProtocol() >= NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL) {
+        if (NetEaseWire.applies(emulateNetEase(), netEaseProtocol(), NetEaseDeviation.COMMAND_UNLIMIT_AFTER_VERSION)) {
             wrapper.write(Types.BOOLEAN, false); // unlimit
         }
     }
