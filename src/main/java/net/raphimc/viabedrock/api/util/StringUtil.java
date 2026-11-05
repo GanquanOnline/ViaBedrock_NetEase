@@ -30,20 +30,22 @@ public class StringUtil {
     }
 
     /**
-     * Encodes a UUID into a 16 character long Minecraft invisible string
+     * 把 UUID 编码为 16 字符长的 Minecraft 隐形字符串
      *
-     * @param uuid The uuid to encode
-     * @return The encoded string
+     * @param uuid 要编码的 uuid
+     *
+     * @return 编码后的字符串
      */
     public static String encodeUUID(final UUID uuid) {
         return encodeLong(uuid.getMostSignificantBits()) + encodeLong(uuid.getLeastSignificantBits());
     }
 
     /**
-     * Encodes a long into an 8 character long Minecraft invisible string
+     * 把 long 编码为 8 字符长的 Minecraft 隐形字符串
      *
-     * @param bits The long to encode
-     * @return The encoded string
+     * @param bits 要编码的 long
+     *
+     * @return 编码后的字符串
      */
     public static String encodeLong(long bits) {
         final StringBuilder builder = new StringBuilder();

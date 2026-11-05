@@ -24,9 +24,9 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Nukkit signed BlockVector3: zigzag X/Y/Z. Used by AUTH_INPUT block actions,
- * SUB_CHUNK, NETWORK_CHUNK_PUBLISHER_UPDATE, BLOCK_PICK_REQUEST and entity POS.
- * Official 944+ BlockVector3 happens to match this encoding; NetEase 860 does not.
+ * Nukkit 带符号 BlockVector3：X/Y/Z 用 zigzag。用于 AUTH_INPUT 方块动作、
+ * SUB_CHUNK、NETWORK_CHUNK_PUBLISHER_UPDATE、BLOCK_PICK_REQUEST 和实体 POS。
+ * 官方 944+ 的 BlockVector3 恰好与此编码一致；网易 860 并不一致。
  */
 public class SignedBlockPositionType extends Type<BlockPosition> {
 

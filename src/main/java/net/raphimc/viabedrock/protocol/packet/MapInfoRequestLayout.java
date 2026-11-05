@@ -22,13 +22,13 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire layout for Bedrock MAP_INFO_REQUEST (packet 68).
+ * 基岩 MAP_INFO_REQUEST（68 号包）的线路布局。
  * <p>
- * MOT {@code MapInfoRequestPacket.decode()} reads {@code varlong mapId} and, for
- * protocol &gt;= 544, an unsigned-varint pixel count followed by that many
- * {@code int + lshort} pixels. Official Java clients never send pixels; the
- * count must be a 0 unsigned varint. A little-endian int 0 leaves three extra
- * zero bytes that some servers treat as a huge pixel count and drop the request.
+ * MOT {@code MapInfoRequestPacket.decode()} 读取 {@code varlong mapId}，并在
+ * 协议 &gt;= 544 时读取一个无符号 varint 像素数量，随后读取该数量的
+ * {@code int + lshort} 像素。官方 Java 客户端从不发送像素；
+ * 该数量必须是 0 的无符号 varint。写成小端 int 0 会留下三个多余的
+ * 零字节，部分服务端会把它当作巨大的像素数量并丢弃该请求。
  */
 public final class MapInfoRequestLayout {
 

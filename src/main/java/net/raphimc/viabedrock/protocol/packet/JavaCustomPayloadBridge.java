@@ -27,9 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 
-/**
- * Bridges Java custom payloads and Bedrock ScriptMessages in both directions.
- */
+/** 双向桥接 Java 自定义载荷与基岩 ScriptMessage。 */
 public final class JavaCustomPayloadBridge {
 
     public static final String SCRIPT_MESSAGE_ID = "easecation:java_custom_payload_v1";
@@ -77,9 +75,7 @@ public final class JavaCustomPayloadBridge {
         }
     }
 
-    /**
-     * @return true when the ScriptMessage belongs to this bridge and has been consumed.
-     */
+    /** @return 当该 ScriptMessage 属于此桥接且已被消费时返回 true */
     public static boolean bridgeClientbound(final String messageId, final String encodedValue, final UserConnection user) {
         if (!SCRIPT_MESSAGE_ID.equals(messageId)) {
             return false;

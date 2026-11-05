@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,25 +6,17 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum ComplexInventoryTransaction_Type {
 
-    /**
-     * Sent for container UI operations depending on if ItemStackNetManager is enabled
-     */
+    /** 在启用 ItemStackNetManager 时用于容器 UI 操作而发送 */
     NormalTransaction(0),
-    /**
-     * Sent from server to client to reject a transaction
-     */
+    /** 由服务端发往客户端，用于拒绝一次物品栏事务 */
     InventoryMismatch(1),
-    /**
-     * Sent for a player performing right click style item use. See the contained ItemUseInventoryTransaction::ActionType for the expected use case.
-     */
+    /** 玩家执行右键式物品使用时发送。预期用途见其中 ItemUseInventoryTransaction::ActionType。 */
     ItemUseTransaction(2),
-    /**
-     * Sent for a player right clicking on an entity or attacking them. See ItemUseInventoryTransaction::ActionType for which it is.
-     */
+    /** 玩家右键点击实体或攻击实体时发送。具体是哪一种见 ItemUseInventoryTransaction::ActionType。 */
     ItemUseOnEntityTransaction(3),
     /**
-     * Sent when releasing right click on a chargeable item like a bow or finishing charging like a crossbow. This is different than canceling item use early which would be in Player Auth Input.<br>
-     * See ItemReleaseInventoryTransaction::ActionType for which it is.
+     * 对弓之类可蓄力物品松开右键，或是弩之类完成蓄力时发送。这与提前取消物品使用不同，后者会在 Player Auth Input 中出现。<br>
+     * 具体是哪一种见 ItemReleaseInventoryTransaction::ActionType。
      */
     ItemReleaseTransaction(4),
     ;

@@ -32,19 +32,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Central dispatcher for {@link NeighborAwareBlockRule}s. One pipeline serves both the initial chunk translation
- * ({@link #fixChunk}) and runtime block updates ({@link #resolveUpdate}); a single position is corrected by running
- * every rule that owns it, in a fixed order, so a state touched by more than one rule chains through all of them.
+ * {@link NeighborAwareBlockRule} 的中央分发器。同一套管线同时服务初始区块转换
+ * （{@link #fixChunk}）和运行时方块更新（{@link #resolveUpdate}）；单个位置会按固定顺序运行所有
+ * 拥有它的规则，因此被多条规则涉及的方块状态会依次串起来。
  * <p>
- * Neighbor propagation is purely geometric: after a change, every block in the surrounding cells is re-corrected and
- * an update is emitted only where the value actually changed. This keeps the rules free of any "who do I affect"
- * knowledge and makes a plain block change correctly re-shape adjacent stairs/fences/door halves/chest pairs.
+ * 邻居传播纯由几何决定：改动之后，周围格子中的每个方块都会被重新修正，
+ * 并且只在值真正改变的地方发出更新。这样规则无需知道「我影响谁」，
+ * 也能让一次普通方块改动正确地重塑相邻的楼梯/栅栏/门的两半/箱子配对。
  */
 public final class NeighborAwareBlockRewriter {
 
     /**
-     * The cells a change can propagate to: the four horizontal neighbors (stair shape, fence/pane connections, bed
-     * partner, chest pair) plus up/down (door halves).
+     * 一次改动可能传播到的格子：四个水平邻居（楼梯形状、栅栏/铁板连接、床
+     * 配对者、箱子配对）加上上/下（门的两半）。
      */
     private static final BlockFace[] NEIGHBOR_FACES = {
             BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST, BlockFace.TOP, BlockFace.BOTTOM
@@ -65,9 +65,8 @@ public final class NeighborAwareBlockRewriter {
     }
 
     /**
-     * Resolves a runtime block change: the changed position plus every surrounding cell whose own state changed as a
-     * result. Returns a map (changed position first) of positions to their corrected Java block state id; only cells
-     * that actually changed are included.
+     * 解析一次运行时方块改动：被改动的位置，加上因此自身状态发生变化的每个周围格子。
+     * 返回位置到其修正后 Java 方块状态 ID 的映射（被改动的位置排在最前）；只包含真正变化的格子。
      */
     public Map<BlockPosition, Integer> resolveUpdate(final BlockNeighborView view, final BlockPosition pos, final int javaBlockStateId) {
         final Map<BlockPosition, Integer> out = new LinkedHashMap<>();
@@ -76,12 +75,12 @@ public final class NeighborAwareBlockRewriter {
         for (BlockFace face : NEIGHBOR_FACES) {
             final BlockPosition neighbor = pos.getRelative(face);
             final int now = view.getJavaBlockState(neighbor);
-            // A rule-owned neighbor's fixed value is never written back into the tracker, so `now` is not a reliable
-            // baseline to diff against: it can coincidentally match a freshly recomputed value that nonetheless
-            // differs from what the client was actually last sent (e.g. a door half's non-authoritative property is a
-            // constant default guess in the tracker, while the client is showing a value corrected by an earlier
-            // update). Always resend rule-owned neighbors; untouched neighbors are cheap to skip since fixState is a
-            // no-op for them.
+            // 规则拥有的邻居的修正值从不会写回跟踪器，因此 `now` 不是可靠的
+            // 比对基准：它可能恰好等于新算出的值，而该值
+            // 又与客户端实际最后收到的不同（例如门的一半的非权威属性在跟踪器里是
+            // 一个固定的默认猜测值，而客户端显示的是早先某个更新修正后的值）。
+            // 规则拥有的邻居一律重发；未受影响的邻居可以廉价跳过，因为对它们 fixState
+            // 是空操作。
             if (!isHandled(now)) {
                 continue;
             }
@@ -91,8 +90,8 @@ public final class NeighborAwareBlockRewriter {
     }
 
     /**
-     * Corrects every owned block in a freshly remapped chunk in place. Runs during initial chunk translation, so
-     * doors/beds are synchronized on load instead of only on a later block update.
+     * 就地修正刚重映射区块中每个被规则拥有的方块。该过程在初始区块转换时运行，
+     * 因此门/床在加载时就同步好，而不是等到之后的方块更新。
      */
     public void fixChunk(final ChunkTracker tracker, final Chunk chunk, final int chunkX, final int chunkZ, final int minY) {
         final ChunkSection[] sections = chunk.getSections();
@@ -105,7 +104,7 @@ public final class NeighborAwareBlockRewriter {
             final DataPalette palette = section.palette(PaletteType.BLOCKS);
             if (palette == null) continue;
 
-            // Quick check: does this palette contain any block owned by a rule?
+            // 快速检查：该调色板中是否存在任何由规则拥有的方块？
             boolean relevant = false;
             for (int i = 0; i < palette.size(); i++) {
                 if (isHandled(palette.idByIndex(i))) {
@@ -133,11 +132,11 @@ public final class NeighborAwareBlockRewriter {
     }
 
     /**
-     * Whether one of the given chunk side's border planes contains a block owned by a rule that can depend on the
-     * chunk on the other side ({@link NeighborAwareBlockRule#affectsNeighborChunks()}). A fix computed for such a
-     * block is stale when that neighbor chunk had not arrived yet, so the caller re-sends the already sent neighbor.
+     * 给定的区块某一侧的边界平面中，是否存在由可能依赖另一侧区块的规则
+     * （{@link NeighborAwareBlockRule#affectsNeighborChunks()}）所拥有的方块。为这类方块算出的
+     * 修正在该相邻区块尚未到达时是过期的，因此调用方会重发已经发送过的相邻区块。
      *
-     * @param side 0 = -X, 1 = +X, 2 = -Z, 3 = +Z
+     * @param side 0 = -X，1 = +X，2 = -Z，3 = +Z
      */
     public boolean hasCrossChunkSensitiveBlockOnBorder(final Chunk chunk, final int side) {
         final ChunkSection[] sections = chunk.getSections();
@@ -177,9 +176,7 @@ public final class NeighborAwareBlockRewriter {
         return false;
     }
 
-    /**
-     * Corrects a single position by running every rule that owns it, chained in order.
-     */
+    /** 按顺序运行拥有该位置的每条规则来修正单个位置。 */
     private int fixState(final BlockNeighborView view, final BlockPosition pos, final int javaBlockStateId) {
         int state = javaBlockStateId;
         for (NeighborAwareBlockRule rule : this.rules) {

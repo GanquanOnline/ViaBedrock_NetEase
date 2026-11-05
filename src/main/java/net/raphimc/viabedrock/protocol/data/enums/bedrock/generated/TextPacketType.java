@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,53 +6,29 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum TextPacketType {
 
-    /**
-     * Raw unformatted text message
-     */
+    /** 未经格式化的原始文本消息 */
     raw(0),
-    /**
-     * Player chat message with author name
-     */
+    /** 带作者名的玩家聊天消息 */
     chat(1),
-    /**
-     * Localized message with translation key and parameters
-     */
+    /** 带翻译键和参数的本地化消息 */
     translate(2),
-    /**
-     * Popup notification with translation key and parameters
-     */
+    /** 带翻译键和参数的弹窗通知 */
     popup(3),
-    /**
-     * Jukebox 'Now Playing' popup notification
-     */
+    /** 唱片机“正在播放”弹窗通知 */
     jukeboxPopup(4),
-    /**
-     * Action bar tip message
-     */
+    /** 动作栏提示消息 */
     tip(5),
-    /**
-     * System-generated message
-     */
+    /** 系统生成的消息 */
     systemMessage(6),
-    /**
-     * Private message between players
-     */
+    /** 玩家之间的私信 */
     whisper(7),
-    /**
-     * Broadcast announcement message with author
-     */
+    /** 带作者的广播公告消息 */
     announcement(8),
-    /**
-     * Private message using text object format
-     */
+    /** 使用文本对象格式的私信 */
     textObjectWhisper(9),
-    /**
-     * Rich text message using JSON text object format
-     */
+    /** 使用 JSON 文本对象格式的富文本消息 */
     textObject(10),
-    /**
-     * Broadcast announcement using text object format
-     */
+    /** 使用文本对象格式的广播公告 */
     textObjectAnnouncement(11),
     ;
 

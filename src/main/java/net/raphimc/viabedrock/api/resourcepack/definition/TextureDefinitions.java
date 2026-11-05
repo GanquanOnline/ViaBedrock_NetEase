@@ -146,8 +146,8 @@ public class TextureDefinitions {
         if (textureName == null) {
             return null;
         }
-        // Bedrock permits blocks.json to reference a texture path directly,
-        // without an entry in terrain_texture.json.
+        // 基岩允许 blocks.json 直接引用纹理路径，
+        // 而无需在 terrain_texture.json 中有对应条目。
         if (textureName.startsWith("textures/")) {
             return textureName;
         }

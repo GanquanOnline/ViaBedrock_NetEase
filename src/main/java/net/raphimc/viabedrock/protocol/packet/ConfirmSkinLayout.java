@@ -30,14 +30,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Wire layout for NetEase ConfirmSkin (packet 228 / 0xE4).
+ * 网易 ConfirmSkin（数据包 228 / 0xE4）的线上布局。
  * <p>
- * MOT {@code ConfirmSkinPacket.encode()} writes an unsigned-varint array of
- * {@code {bool valid, UUID LE, byte[] skinBytes}} and then, in two extra passes,
- * {@code uidStr} and {@code geoStr} for every entry. {@code skinBytes} is raw
- * RGBA ({@code width * height * 4}), not the official IMAGE type that prefixes
- * width/height. Runtime dumps of play.mcscode.com match this layout, not
- * {@code SkinType}.
+ * MOT 的 {@code ConfirmSkinPacket.encode()} 写入一个 unsigned-varint 数组，元素为
+ * {@code {bool valid, UUID LE, byte[] skinBytes}}，随后再分两轮写入每个条目的
+ * {@code uidStr} 和 {@code geoStr}。{@code skinBytes} 是裸
+ * RGBA（{@code width * height * 4}），而不是官方那种在前面带
+ * width/height 的 IMAGE 类型。play.mcscode.com 的运行时转储与该布局一致，
+ * 而不是与 {@code SkinType} 一致。
  */
 public final class ConfirmSkinLayout {
 
@@ -171,8 +171,8 @@ public final class ConfirmSkinLayout {
                 ? entry.uidStr()
                 : (entry.uuid() != null ? entry.uuid().toString() : "netease-unknown");
         final String geo = entry.geoStr() != null ? entry.geoStr() : "";
-        // ConfirmSkin has no resourcePatch/armSize. Dual-template MOT geo is not a
-        // player choice — leave patch empty unless the document names exactly one model.
+        // ConfirmSkin 没有 resourcePatch/armSize。双模板 MOT 几何模型不是
+        // 玩家可选的项目——除非文档明确只给出一个模型，否则保持 patch 为空。
         final Boolean slim = SkinArmClassifier.slimFromGeometry(geo);
         final String resourcePatch = slim == null ? "" : (slim ? SLIM_RESOURCE_PATCH : DEFAULT_RESOURCE_PATCH);
         final String armSize = slim == null ? "" : (slim ? "slim" : "wide");
@@ -201,8 +201,8 @@ public final class ConfirmSkinLayout {
     }
 
     /**
-     * True only when {@code geo} unambiguously names a slim humanoid. Dual-template
-     * MOT documents return false so callers do not invent an Alex model.
+     * 仅当 {@code geo} 明确指向瘦身人形时才为 true。双模板的
+     * MOT 文档返回 false，以免调用方凭空造出一个 Alex 模型。
      */
     public static boolean isSlimGeometry(final String geo) {
         return Boolean.TRUE.equals(SkinArmClassifier.slimFromGeometry(geo));

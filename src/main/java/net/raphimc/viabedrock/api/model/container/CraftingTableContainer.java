@@ -28,10 +28,10 @@ import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 
 /**
- * Crafting table container. The 3x3 grid is stored in the HUD container (slots 32-40),
- * output is HUD slot 50. This container exposes 10 slots to Java (output + 9 grid).
- * Java slot layout for minecraft:crafting (46 total):
- *   0 = output, 1-9 = grid, 10-36 = main inventory, 37-45 = hotbar
+ * 工作台容器。3x3 网格存放在 HUD 容器中（槽位 32-40），
+ * 输出为 HUD 槽位 50。此容器向 Java 暴露 10 个槽位（输出 + 9 个网格槽位）。
+ * minecraft:crafting 的 Java 槽位布局（共 46 个）：
+ * 0 = 输出，1-9 = 网格，10-36 = 主物品栏，37-45 = 快捷栏
  */
 public class CraftingTableContainer extends Container {
 
@@ -51,27 +51,27 @@ public class CraftingTableContainer extends Container {
         final Container hudContainer = tracker.getHudContainer();
         final Container inventoryContainer = tracker.getInventoryContainer();
 
-        // Java crafting window: 46 slots
-        // slot 0 = output (HUD 50)
-        // slots 1-9 = 3x3 grid (HUD 32-40)
-        // slots 10-36 = main inventory (inventory 9-35)
-        // slots 37-45 = hotbar (inventory 0-8)
+        // Java 工作台窗口：46 个槽位
+        // 槽位 0 = 输出（HUD 50）
+        // 槽位 1-9 = 3x3 网格（HUD 32-40）
+        // 槽位 10-36 = 主物品栏（物品栏 9-35）
+        // 槽位 37-45 = 快捷栏（物品栏 0-8）
         final Item[] javaItems = new Item[46];
 
-        // Output
+        // 输出
         javaItems[0] = itemRewriter.javaItem(hudContainer.getItem(50));
 
-        // 3x3 grid
+        // 3x3 网格
         for (int i = 0; i < 9; i++) {
             javaItems[1 + i] = itemRewriter.javaItem(hudContainer.getItem(32 + i));
         }
 
-        // Main inventory (9-35)
+        // 主物品栏（9-35）
         for (int i = 9; i <= 35; i++) {
             javaItems[1 + i] = itemRewriter.javaItem(inventoryContainer.getItem(i));
         }
 
-        // Hotbar (0-8)
+        // 快捷栏（0-8）
         for (int i = 0; i < 9; i++) {
             javaItems[37 + i] = itemRewriter.javaItem(inventoryContainer.getItem(i));
         }

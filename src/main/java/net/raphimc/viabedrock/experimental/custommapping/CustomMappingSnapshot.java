@@ -1,6 +1,4 @@
-/*
- * Immutable BedrockLoader custom mapping snapshot model and binary decoder.
- */
+/* 不可变的 BedrockLoader 自定义映射快照模型与二进制解码器。 */
 package net.raphimc.viabedrock.experimental.custommapping;
 
 import com.viaversion.nbt.tag.Tag;
@@ -182,11 +180,10 @@ public record CustomMappingSnapshot(
             final int maxJavaBlockStateId) {
         final Reader r = new Reader(body, maxSnapshotBytes);
         final int schemaVersion = r.readNonNegativeVarInt("schema version");
-        // Schema 3 adds a per-block-state seconds_to_destroy float after the block entity rule (for instant-break
-        // detection). Schema 2 is still accepted for forward/backward compatibility during rollout; its block states
-        // are read without that field and default to NaN (treated as "unknown", i.e. not instant).
-        // Schema 4 appends Java custom item raw id entries after the block entity type table. Schema 5 appends the
-        // effective Java max stack size to each custom item entry.
+        // Schema 3 在方块实体规则之后为每个方块状态增加一个 seconds_to_destroy 浮点数（用于瞬间破坏检测）。
+        // 在灰度发布期间仍接受 Schema 2 以保持前向/后向兼容；其方块状态读取时不带该字段，默认取 NaN（视为「未知」，即不是瞬间破坏）。
+        // Schema 4 在方块实体类型表之后追加 Java 自定义物品的原始 id 条目。
+        // Schema 5 为每个自定义物品条目追加生效的 Java 最大堆叠数。
         if (schemaVersion < 2 || schemaVersion > 5) throw new IllegalArgumentException("Unsupported BedrockLoader custom mapping schema " + schemaVersion + " (expected 2, 3, 4 or 5)");
         final int javaProtocolVersion = r.readNonNegativeVarInt("java protocol");
         final int flags = r.readNonNegativeVarInt("flags");

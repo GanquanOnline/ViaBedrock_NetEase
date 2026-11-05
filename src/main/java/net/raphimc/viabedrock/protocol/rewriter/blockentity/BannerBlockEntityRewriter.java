@@ -53,7 +53,7 @@ public class BannerBlockEntityRewriter implements BlockEntityRewriter.Rewriter {
 
         if (bedrockTag.get("Type") instanceof IntTag typeTag) {
             final int type = typeTag.asInt();
-            if (type == 1) { // ominous banner
+            if (type == 1) { // 不祥旗帜
                 bedrockTag.putInt("Base", DyeColor.WHITE.bedrockId());
                 final ListTag<CompoundTag> patterns = new ListTag<>(CompoundTag.class);
                 patterns.add(this.createBedrockPattern("mr", DyeColor.CYAN));

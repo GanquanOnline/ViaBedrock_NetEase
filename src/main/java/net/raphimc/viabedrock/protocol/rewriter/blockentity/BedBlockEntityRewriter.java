@@ -39,9 +39,8 @@ public class BedBlockEntityRewriter implements BlockEntityRewriter.Rewriter {
     }
 
     /**
-     * Resolves a bed's dye colour from its Bedrock block entity NBT, falling back to {@link DyeColor#RED} when the
-     * {@code color} tag is missing or invalid. Single source of truth for bed colouring, shared with the
-     * neighbor-aware door/bed rewriter.
+     * 从床的基岩方块实体 NBT 解析其染料颜色，{@code color} 标签缺失或非法时回退到 {@link DyeColor#RED}。
+     * 这是床着色的唯一数据来源，与依赖邻居的门/床重写器共用。
      */
     public static DyeColor getColor(final CompoundTag bedrockTag) {
         return DyeColor.getByJavaId(bedrockTag.getByte("color", (byte) -1), DyeColor.RED);

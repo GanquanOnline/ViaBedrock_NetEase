@@ -39,62 +39,62 @@ public class ArgumentTypeRegistry {
             final boolean hasMin = argumentType.getMinimum() != -Float.MAX_VALUE;
             final boolean hasMax = argumentType.getMaximum() != Float.MAX_VALUE;
             final byte flags = (byte) ((hasMin ? 1 : 0) | (hasMax ? 2 : 0));
-            wrapper.write(Types.BYTE, flags); // flags
-            if (hasMin) wrapper.write(Types.FLOAT, argumentType.getMinimum()); // min value
-            if (hasMax) wrapper.write(Types.FLOAT, argumentType.getMaximum()); // max value
+            wrapper.write(Types.BYTE, flags); // 标志位
+            if (hasMin) wrapper.write(Types.FLOAT, argumentType.getMinimum()); // 最小值
+            if (hasMax) wrapper.write(Types.FLOAT, argumentType.getMaximum()); // 最大值
         });
         register(DoubleArgumentType.class, "brigadier:double", (wrapper, argumentType) -> {
             final boolean hasMin = argumentType.getMinimum() != -Double.MAX_VALUE;
             final boolean hasMax = argumentType.getMaximum() != Double.MAX_VALUE;
             final byte flags = (byte) ((hasMin ? 1 : 0) | (hasMax ? 2 : 0));
-            wrapper.write(Types.BYTE, flags); // flags
-            if (hasMin) wrapper.write(Types.DOUBLE, argumentType.getMinimum()); // min value
-            if (hasMax) wrapper.write(Types.DOUBLE, argumentType.getMaximum()); // max value
+            wrapper.write(Types.BYTE, flags); // 标志位
+            if (hasMin) wrapper.write(Types.DOUBLE, argumentType.getMinimum()); // 最小值
+            if (hasMax) wrapper.write(Types.DOUBLE, argumentType.getMaximum()); // 最大值
         });
         register(IntegerArgumentType.class, "brigadier:integer", (wrapper, argumentType) -> {
             final boolean hasMin = argumentType.getMinimum() != Integer.MIN_VALUE;
             final boolean hasMax = argumentType.getMaximum() != Integer.MAX_VALUE;
             final byte flags = (byte) ((hasMin ? 1 : 0) | (hasMax ? 2 : 0));
-            wrapper.write(Types.BYTE, flags); // flags
-            if (hasMin) wrapper.write(Types.INT, argumentType.getMinimum()); // min value
-            if (hasMax) wrapper.write(Types.INT, argumentType.getMaximum()); // max value
+            wrapper.write(Types.BYTE, flags); // 标志位
+            if (hasMin) wrapper.write(Types.INT, argumentType.getMinimum()); // 最小值
+            if (hasMax) wrapper.write(Types.INT, argumentType.getMaximum()); // 最大值
         });
         register(LongArgumentType.class, "brigadier:long", (wrapper, argumentType) -> {
             final boolean hasMin = argumentType.getMinimum() != Long.MIN_VALUE;
             final boolean hasMax = argumentType.getMaximum() != Long.MAX_VALUE;
             final byte flags = (byte) ((hasMin ? 1 : 0) | (hasMax ? 2 : 0));
-            wrapper.write(Types.BYTE, flags); // flags
-            if (hasMin) wrapper.write(Types.LONG, argumentType.getMinimum()); // min value
-            if (hasMax) wrapper.write(Types.LONG, argumentType.getMaximum()); // max value
+            wrapper.write(Types.BYTE, flags); // 标志位
+            if (hasMin) wrapper.write(Types.LONG, argumentType.getMinimum()); // 最小值
+            if (hasMax) wrapper.write(Types.LONG, argumentType.getMaximum()); // 最大值
         });
         register(StringArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, argumentType.getType().ordinal()); // type
+            wrapper.write(Types.VAR_INT, argumentType.getType().ordinal()); // 类型
         });
         register(EnumArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // type
+            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // 类型
         });
         register(ValueArgumentType.class, "minecraft:angle", null);
         register(WildcardIntegerArgumentType.class, "brigadier:integer", (wrapper, argumentType) -> {
-            wrapper.write(Types.BYTE, (byte) 0); // flags
+            wrapper.write(Types.BYTE, (byte) 0); // 标志位
         });
         register(OperatorArgumentType.class, "minecraft:operation", null);
         register(CompareOperatorArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // type
+            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // 类型
         });
         register(TargetArgumentType.class, "minecraft:entity", (wrapper, argumentType) -> {
-            wrapper.write(Types.BYTE, (byte) 0); // flags
+            wrapper.write(Types.BYTE, (byte) 0); // 标志位
         });
         register(IntegerRangeArgumentType.class, "minecraft:int_range", null);
         register(EquipmentSlotArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // type
+            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.SINGLE_WORD.ordinal()); // 类型
         });
         register(BlockPositionArgumentType.class, "minecraft:block_pos", null);
         register(PositionArgumentType.class, "minecraft:vec3", null);
         register(JsonArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.GREEDY_PHRASE.ordinal()); // type
+            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.GREEDY_PHRASE.ordinal()); // 类型
         });
         register(BlockStatesArgumentType.class, "brigadier:string", (wrapper, argumentType) -> {
-            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.GREEDY_PHRASE.ordinal()); // type
+            wrapper.write(Types.VAR_INT, StringArgumentType.StringType.GREEDY_PHRASE.ordinal()); // 类型
         });
     }
 

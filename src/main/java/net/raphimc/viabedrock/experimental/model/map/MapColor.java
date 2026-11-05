@@ -19,7 +19,7 @@ package net.raphimc.viabedrock.experimental.model.map;
 
 import java.awt.*;
 
-// TODO: Auto generate this...
+// TODO: 自动生成这个……
 public enum MapColor {
     COLOR_0(-1, -1, -1),
     COLOR_1(-1, -1, -1),
@@ -275,7 +275,7 @@ public enum MapColor {
     MapColor(int red, int green, int blue) {
         int alpha = 255;
         if (red == -1 && green == -1 && blue == -1)
-            alpha = 0; // transparent
+            alpha = 0; // 透明
 
         this.value = ((alpha & 0xFF) << 24) |
                 ((blue & 0xFF) << 16) |

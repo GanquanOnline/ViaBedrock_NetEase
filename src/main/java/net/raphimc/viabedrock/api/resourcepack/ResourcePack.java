@@ -47,8 +47,8 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-// TODO: dependencies handling
-// TODO: subpack handling
+// TODO: 依赖处理
+// TODO: 子包处理
 public class ResourcePack {
 
     private static final byte[] CONTENTS_JSON_ENCRYPTION_VERSION = new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
@@ -65,7 +65,7 @@ public class ResourcePack {
     public ResourcePack(Content content) {
         try {
             if (!content.contains("manifest.json") && !content.contains("pack_manifest.json")) {
-                // CDN packs are allowed to contain a single .zip file at the root
+                // CDN 包允许在根目录包含单个 .zip 文件
                 final List<String> files = content.getFilesDeep("", "");
                 if (files.size() == 1 && files.get(0).endsWith(".zip")) {
                     content = new ZipContent(content.get(files.get(0)));
@@ -150,15 +150,15 @@ public class ResourcePack {
                 throw new IllegalStateException("contents.json is shorter than its encryption header");
             }
             try (DataInputStream contents = new DataInputStream(requireOpen(this.content, "contents.json"))) {
-                final byte[] version = contents.readNBytes(4); // version
+                final byte[] version = contents.readNBytes(4); // 版本
                 if (!Arrays.equals(version, CONTENTS_JSON_ENCRYPTION_VERSION)) {
                     throw new IllegalStateException("contents.json version mismatch: " + Arrays.toString(version) + " != " + Arrays.toString(CONTENTS_JSON_ENCRYPTION_VERSION));
                 }
-                final byte[] magic = contents.readNBytes(4); // magic
+                final byte[] magic = contents.readNBytes(4); // 魔数
                 if (!Arrays.equals(magic, CONTENTS_JSON_ENCRYPTION_MAGIC)) {
                     throw new IllegalStateException("contents.json magic mismatch: " + Arrays.toString(magic) + " != " + Arrays.toString(CONTENTS_JSON_ENCRYPTION_MAGIC));
                 }
-                contents.skipNBytes(8); // reserved
+                contents.skipNBytes(8); // 保留
                 final int contentIdLength = contents.readUnsignedByte();
                 if (contentIdLength > CONTENTS_JSON_HEADER_BYTES - 17) {
                     throw new IllegalStateException("contents.json content id exceeds its encryption header");
@@ -245,11 +245,11 @@ public class ResourcePack {
                 return false;
             }
             try (DataInputStream contents = new DataInputStream(requireOpen(this.content, "contents.json"))) {
-                final byte[] version = contents.readNBytes(4); // version
+                final byte[] version = contents.readNBytes(4); // 版本
                 if (!Arrays.equals(version, CONTENTS_JSON_ENCRYPTION_VERSION)) {
                     return false;
                 }
-                final byte[] magic = contents.readNBytes(4); // magic
+                final byte[] magic = contents.readNBytes(4); // 魔数
                 return Arrays.equals(magic, CONTENTS_JSON_ENCRYPTION_MAGIC);
             }
         } catch (Throwable e) {

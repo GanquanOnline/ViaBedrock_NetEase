@@ -22,9 +22,7 @@ import com.viaversion.viaversion.api.connection.StorableObject;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Connection-scoped negotiation state for delegating light computation to ECClientLight.
- */
+/** 把光照计算委托给 ECClientLight 的连接级协商状态。 */
 public final class ClientLightStorage implements StorableObject {
 
     public static final long NEGOTIATION_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(1L);
@@ -60,9 +58,7 @@ public final class ClientLightStorage implements StorableObject {
         return true;
     }
 
-    /**
-     * Atomically commits client-computed light before the confirmation is sent.
-     */
+    /** 在发送确认之前原子地提交客户端计算的光照。 */
     public synchronized boolean tryNegotiateClientComputed() {
         if (this.closed || this.frozen || this.mode != Mode.UNKNOWN) {
             return false;
@@ -90,8 +86,8 @@ public final class ClientLightStorage implements StorableObject {
         }
 
         if (this.negotiationStartedNanos == NO_NEGOTIATION_START) {
-            // START_GAME can race ahead of Java CLIENT_INFORMATION. Keep the configuration
-            // open for one bounded window so the later probe still has time to complete.
+            // START_GAME 可能抢在 Java CLIENT_INFORMATION 之前。让配置阶段
+            // 多开一个有界窗口，好让随后的探测仍有时间完成。
             this.negotiationStartedNanos = nowNanos;
         }
         final long remainingNanos = this.remainingNegotiationNanos(nowNanos);
@@ -158,9 +154,9 @@ public final class ClientLightStorage implements StorableObject {
     }
 
     /**
-     * Freezes the connection-wide decision. An unconfirmed client safely falls back to proxy light.
+     * 冻结整条连接的决策。未确认的客户端会安全地回退到代理光照。
      *
-     * @return true if this call froze the decision
+     * @return 若本次调用冻结了决策则返回 true
      */
     public synchronized boolean freeze() {
         if (this.closed || this.frozen) {

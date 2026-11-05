@@ -28,11 +28,11 @@ import java.util.Locale;
 import java.util.logging.Level;
 
 /**
- * Copies Bedrock UI textures (textures/ui/, textures/gui/) and their nine-slice JSON
- * definitions into the Java resource pack so that ModUIClient can render HUD elements.
- * Always active — the extra files have no side effects for clients without ModUIClient.
- * (Cannot gate on ModUIClient channel because resource pack conversion runs in
- * Configuration phase, before ModUIClient registers its channel in Play phase.)
+ * 把基岩 UI 纹理（textures/ui/、textures/gui/）及其九宫格 JSON
+ * 定义复制进 Java 资源包，以便 ModUIClient 渲染 HUD 元素。
+ * 始终启用 —— 对没有 ModUIClient 的客户端而言这些额外文件没有副作用。
+ * （不能根据 ModUIClient 通道来判断，因为资源包转换在 Configuration 阶段
+ * 运行，早于 ModUIClient 在 Play 阶段注册其通道。）
  */
 public class UITextureResourceRewriter implements ResourcePackRewriter.Rewriter {
 
@@ -52,13 +52,13 @@ public class UITextureResourceRewriter implements ResourcePackRewriter.Rewriter 
             final Content bedrockContent = pack.content();
 
             for (final String prefix : TEXTURE_PREFIXES) {
-                // PNG and JSON files: copy directly
+                // PNG 和 JSON 文件：直接复制
                 for (final String extension : COPY_EXTENSIONS) {
                     final List<String> files = bedrockContent.getFilesDeep(prefix, extension);
                     for (final String bedrockPath : files) {
-                        // Java resource identifiers must be lowercase
+                        // Java 资源标识符必须为小写
                         final String javaPath = "assets/minecraft/" + bedrockPath.toLowerCase(Locale.ROOT);
-                        // Higher-priority packs take precedence (top-to-bottom order)
+                        // 优先级更高的包优先（从上到下顺序）
                         if (!javaContent.contains(javaPath)) {
                             javaContent.copyFrom(bedrockContent, bedrockPath, javaPath);
                             count++;
@@ -66,11 +66,11 @@ public class UITextureResourceRewriter implements ResourcePackRewriter.Rewriter 
                     }
                 }
 
-                // JPG/JPEG files: convert to PNG
+                // JPG/JPEG 文件：转换为 PNG
                 for (final String extension : IMAGE_EXTENSIONS) {
                     final List<String> files = bedrockContent.getFilesDeep(prefix, extension);
                     for (final String bedrockPath : files) {
-                        // Strip .jpg/.jpeg and replace with .png
+                        // 去掉 .jpg/.jpeg 后缀，替换为 .png
                         final String basePath = bedrockPath.substring(0, bedrockPath.length() - extension.length());
                         final String javaPath = "assets/minecraft/" + basePath.toLowerCase(Locale.ROOT) + ".png";
                         if (!javaContent.contains(javaPath)) {

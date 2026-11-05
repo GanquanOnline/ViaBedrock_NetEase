@@ -57,13 +57,9 @@ public class Entity {
     protected final EntityTypes1_21_11 javaType;
     protected final Integer customJavaTypeId; // null 表示使用 javaType.getId()
 
-    /**
-     * x, y, z
-     */
+    /** x、y、z */
     protected Position3f position;
-    /**
-     * pitch, yaw, headYaw
-     */
+    /** pitch、yaw、headYaw */
     protected Position3f rotation = Position3f.ZERO;
     protected boolean onGround;
     protected final Map<ActorDataIDs, EntityData> entityData = new EnumMap<>(ActorDataIDs.class);
@@ -103,8 +99,8 @@ public class Entity {
         this.hasBossBar = false;
         if (clientHasBossBar) {
             final PacketWrapper bossEvent = PacketWrapper.create(ClientboundPackets26_1.BOSS_EVENT, this.user);
-            bossEvent.write(Types.UUID, this.javaUuid()); // uuid
-            bossEvent.write(Types.VAR_INT, BossEventOperationType.REMOVE.ordinal()); // operation
+            bossEvent.write(Types.UUID, this.javaUuid()); // UUID
+            bossEvent.write(Types.VAR_INT, BossEventOperationType.REMOVE.ordinal()); // 操作
             bossEvent.send(BedrockProtocol.class);
         }
     }
@@ -113,13 +109,13 @@ public class Entity {
         final List<EntityData> javaEntityData = new ArrayList<>();
         this.updateEntityData(entityData, javaEntityData);
         final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user);
-        setEntityData.write(Types.VAR_INT, this.javaId); // entity id
-        setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
+        setEntityData.write(Types.VAR_INT, this.javaId); // 实体 id
+        setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // 实体数据
         setEntityData.send(BedrockProtocol.class);
     }
 
     public final void updateEntityData(final EntityData[] entityData, final List<EntityData> javaEntityData) {
-        // First pass: validate and store all entity data so translators see the latest values from the entire batch
+        // 第一遍：校验并存储所有实体数据，使翻译器能看到整批中的最新值
         final List<Map.Entry<ActorDataIDs, EntityData>> validData = new ArrayList<>();
         for (EntityData data : entityData) {
             final ActorDataIDs dataId = ActorDataIDs.getByValue(data.id());
@@ -145,8 +141,8 @@ public class Entity {
 
     final void translateEntityDataBatch(final List<Map.Entry<ActorDataIDs, EntityData>> validData,
                                         final List<EntityData> javaEntityData) {
-        // Both words describe one logical flag set. The validation pass already stored the complete
-        // batch, so translating either word once observes the final low/high values.
+        // 两个字描述同一个逻辑标志集。校验遍已存储完整的
+        // 批次，因此翻译任一个字一次即可看到最终的 low/high 值。
         boolean actorFlagsTranslated = false;
         for (Map.Entry<ActorDataIDs, EntityData> entry : validData) {
             if (entry.getKey() == ActorDataIDs.RESERVED_0 || entry.getKey() == ActorDataIDs.RESERVED_092) {
@@ -164,23 +160,23 @@ public class Entity {
 
     public void playSound(final SharedTypes_Legacy_LevelSoundEvent soundEvent) {
         final PacketWrapper levelSoundEvent = PacketWrapper.create(ClientboundBedrockPackets.LEVEL_SOUND_EVENT, this.user);
-        levelSoundEvent.write(BedrockTypes.UNSIGNED_VAR_INT, soundEvent.getValue()); // event
-        levelSoundEvent.write(BedrockTypes.POSITION_3F, this.position); // position
-        levelSoundEvent.write(BedrockTypes.VAR_INT, 0); // data
-        levelSoundEvent.write(BedrockTypes.STRING, this.type); // entity identifier
-        levelSoundEvent.write(Types.BOOLEAN, false); // is baby mob
-        levelSoundEvent.write(Types.BOOLEAN, false); // is global sound
+        levelSoundEvent.write(BedrockTypes.UNSIGNED_VAR_INT, soundEvent.getValue()); // 事件
+        levelSoundEvent.write(BedrockTypes.POSITION_3F, this.position); // 位置
+        levelSoundEvent.write(BedrockTypes.VAR_INT, 0); // 数据
+        levelSoundEvent.write(BedrockTypes.STRING, this.type); // 实体标识符
+        levelSoundEvent.write(Types.BOOLEAN, false); // 是否为幼年生物
+        levelSoundEvent.write(Types.BOOLEAN, false); // 是否为全局音效
         LevelSoundEventLayout.writeTrailer(levelSoundEvent, -1L);
         levelSoundEvent.send(BedrockProtocol.class, false);
     }
 
     public float eyeOffset() {
-        // MOT ADD/MOVE for boats already includes getBaseOffset() (0.375). GanAC then
-        // subtracts the same offset. Writing raw MOT Y would place the JE AABB 0.375 too high.
+        // MOT 对船的 ADD/MOVE 已经包含 getBaseOffset()（0.375）。GanAC 随后
+        // 会减去同一偏移。直接写入 MOT 的原始 Y 会让 JE 的 AABB 高出 0.375。
         if ("minecraft:boat".equals(this.type) || "minecraft:chest_boat".equals(this.type)) {
             return 0.375F;
         }
-        // MOT EntityMinecartAbstract.getBaseOffset() is 0.35. Same ADD/MOVE rule as boats.
+        // MOT EntityMinecartAbstract.getBaseOffset() 为 0.35。ADD/MOVE 规则与船相同。
         if (this.javaType != null && this.javaType.isOrHasParent(EntityTypes1_21_11.ABSTRACT_MINECART)) {
             return 0.35F;
         }

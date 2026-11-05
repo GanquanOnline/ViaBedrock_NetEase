@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Connection-scoped reconciliation state for Bedrock and Java boss bars. */
+/** 连接级的基岩与 Java Boss 血条协调状态。 */
 public final class BossBarStorage extends StoredObject {
 
     private final Map<UUID, BossBar> activeBars = new HashMap<>();
@@ -41,7 +41,7 @@ public final class BossBarStorage extends StoredObject {
     }
 
     public UUID resolveOrCreateJavaUuid(final long bedrockId, final UUID entityUuid) {
-        // Bedrock normally identifies a boss by actor ID; synthetic server bars may intentionally have no actor.
+        // 基岩通常用 actor ID 标识 Boss；服务器合成的血条可以故意不带 actor。
         return this.javaUuidsByBedrockId.computeIfAbsent(bedrockId, ignored -> entityUuid != null ? entityUuid : UUID.randomUUID());
     }
 
@@ -84,7 +84,7 @@ public final class BossBarStorage extends StoredObject {
         return this.clientBars.remove(uuid);
     }
 
-    /** START_CONFIGURATION makes Minecraft clear BossHealthOverlay locally. */
+    /** START_CONFIGURATION 会让 Minecraft 在本地清空 BossHealthOverlay。 */
     public void onJavaOverlayCleared() {
         this.clientBars.clear();
         this.pendingClientBars.clear();

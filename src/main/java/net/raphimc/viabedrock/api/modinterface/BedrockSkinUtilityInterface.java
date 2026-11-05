@@ -52,7 +52,7 @@ public class BedrockSkinUtilityInterface {
 
         {
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, MESSAGE_SKIN_INFORMATION);
             pluginMessage.write(Types.INT, VERSION);
             pluginMessage.write(Types.UUID, uuid);
@@ -69,11 +69,11 @@ public class BedrockSkinUtilityInterface {
         }
         for (int i = 0; i < chunkCount; i++) {
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, MESSAGE_SKIN_DATA);
             pluginMessage.write(Types.UUID, uuid);
             pluginMessage.write(Types.INT, i);
-            if (chunkCount == 1) { // Fast path
+            if (chunkCount == 1) { // 快速路径
                 pluginMessage.write(Types.REMAINING_BYTES, skinData);
             } else {
                 pluginMessage.write(Types.REMAINING_BYTES, Arrays.copyOfRange(skinData, i * maxPayloadSize, Math.min((i + 1) * maxPayloadSize, skinData.length)));
@@ -84,7 +84,7 @@ public class BedrockSkinUtilityInterface {
             final byte[] capeData = ImageType.getImageData(skin.capeData());
 
             final PacketWrapper pluginMessage = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-            pluginMessage.write(Types.STRING, CHANNEL); // Channel
+            pluginMessage.write(Types.STRING, CHANNEL); // 通道
             pluginMessage.write(Types.INT, MESSAGE_CAPE);
             pluginMessage.write(Types.INT, VERSION);
             pluginMessage.write(Types.UUID, uuid);

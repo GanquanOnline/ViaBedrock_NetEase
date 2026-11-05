@@ -58,14 +58,14 @@ import java.util.logging.Level;
 public class CustomEntity extends Entity {
 
     /**
-     * LOD tiers: distance (blocks) -> update interval (ticks).
-     * interpolation_duration matches update interval for seamless transitions.
+     * LOD 层级：距离（方块）-> 更新间隔（刻）。
+     * interpolation_duration 与更新间隔一致，以保证过渡无缝。
      */
     private static final int[][] LOD_TIERS = {
-            {16, 4},    // < 16 blocks: update every 4 ticks
-            {32, 8},    // < 32 blocks: every 8 ticks
-            {48, 12},   // < 48 blocks: every 12 ticks
-            {64, 20},   // < 64 blocks: every 20 ticks
+            {16, 4},    // < 16 方块：每 4 刻更新一次
+            {32, 8},    // < 32 方块：每 8 刻
+            {48, 12},   // < 48 方块：每 12 刻
+            {64, 20},   // < 64 方块：每 20 刻
     };
     private static final int LOD_FREEZE_DISTANCE = 64;
 
@@ -74,12 +74,12 @@ public class CustomEntity extends Entity {
     private boolean spawned;
     private boolean collisionBoxSent;
 
-    // Server-side animation (only used when VBU mod is NOT present)
+    // 服务端动画（仅在未安装 VBU 模组时使用）
     private ServerEntityTicker serverTicker;
     private int ticksSinceLastUpdate;
     private int currentLodInterval = 4;
 
-    // Movement tracking for query bindings
+    // 用于查询绑定的移动追踪
     private Position3f prevEntityPosition;
     private float accumulatedDistance;
     private float groundSpeed;
@@ -97,10 +97,10 @@ public class CustomEntity extends Entity {
     public void tick() {
         super.tick();
 
-        // Update movement tracking every tick (needed for accurate speed/distance computation)
+        // 每刻更新移动追踪（准确的移动速度 / 距离计算依赖于此）
         this.updateMovementTracking();
 
-        // Server-side animation only when VBU is not present
+        // 仅在未安装 VBU 时使用服务端动画
         if (this.serverTicker == null || !this.spawned || this.boneEntities.isEmpty()) {
             return;
         }
@@ -111,17 +111,17 @@ public class CustomEntity extends Entity {
         }
         this.ticksSinceLastUpdate = 0;
 
-        // Update LOD tier based on distance to client player
+        // 根据与客户端玩家的距离更新 LOD 层级
         updateLodTier();
 
-        // Run animation tick
+        // 运行动画刻
         final MutableObjectBinding queryBindings = buildQueryBindings();
         final Map<String, SimpleBoneModel.WorldTransform> transforms = this.serverTicker.tick(queryBindings);
         if (transforms == null || transforms.isEmpty()) {
             return;
         }
 
-        // Send updated transforms to all bone Display Entities
+        // 把更新后的变换发送给所有骨骼显示实体
         sendBoneTransformUpdates(transforms);
     }
 
@@ -193,20 +193,20 @@ public class CustomEntity extends Entity {
         }
     }
 
-    // ---- Server ticker initialization ----
+    // ---- 服务端 ticker 初始化 ----
 
     private void initServerTicker() {
         final ChannelStorage channelStorage = this.user.get(ChannelStorage.class);
         if (channelStorage.hasChannel(ViaBedrockUtilityInterface.CONFIRM_CHANNEL)) {
-            return; // VBU mod handles animations client-side
+            return; // VBU 模组在客户端处理动画
         }
         if (!ViaBedrock.getConfig().shouldEnableServerEntityAnimation()) {
-            return; // Server-side animation disabled by config
+            return; // 服务端动画已被配置禁用
         }
 
         final ResourcePackStorage resourcePackStorage = this.user.get(ResourcePackStorage.class);
 
-        // Find the first geometry model for this entity
+        // 为此实体查找第一个几何模型
         for (Map.Entry<String, String> entry : this.entityDefinition.entityData().getGeometries().entrySet()) {
             final BedrockGeometryModel geometry = resourcePackStorage.getModels().getEntityModel(entry.getValue());
             if (geometry == null) continue;
@@ -226,7 +226,7 @@ public class CustomEntity extends Entity {
         }
     }
 
-    // ---- Spawn / Despawn ----
+    // ---- 生成 / 消失 ----
 
     private void spawn() {
         this.spawned = true;
@@ -235,20 +235,20 @@ public class CustomEntity extends Entity {
         final ResourcePackStorage resourcePackStorage = this.user.get(ResourcePackStorage.class);
         final ChannelStorage channelStorage = this.user.get(ChannelStorage.class);
 
-        // VBU mod present: delegate to client-side rendering
+        // 已安装 VBU 模组：交由客户端渲染
         if (channelStorage.hasChannel(ViaBedrockUtilityInterface.CONFIRM_CHANNEL)) {
             ViaBedrockUtilityInterface.spawnCustomEntity(this.user, this.javaUuid(), this.entityDefinition.identifier(), this.entityData());
             return;
         }
 
-        // Determine current render controller models
+        // 确定当前的渲染控制器模型
         final List<RenderControllerEvaluator.EvaluatedModel> models =
                 this.serverTicker != null ? this.serverTicker.getCurrentModels() : List.of();
         if (models.isEmpty()) {
             return;
         }
 
-        // For each evaluated model, spawn per-bone Display Entities
+        // 为每个求值得到的模型生成逐骨骼的显示实体
         for (RenderControllerEvaluator.EvaluatedModel model : models) {
             final String baseKey = this.entityDefinition.identifier() + "_" + model.key();
 
@@ -262,7 +262,7 @@ public class CustomEntity extends Entity {
                 if (scaleObj == null) continue;
                 final float scale = (float) scaleObj;
 
-                // Compute rest offset from bone's rest pivot
+                // 根据骨骼的静止枢轴计算静止偏移
                 final org.joml.Vector3f restPivot = this.serverTicker != null
                         ? this.serverTicker.getBoneModel().getRestPivot(boneName)
                         : new org.joml.Vector3f();
@@ -274,7 +274,7 @@ public class CustomEntity extends Entity {
 
                 final List<EntityData> javaEntityData = new ArrayList<>();
 
-                // Item model with per-bone custom model data
+                // 带有逐骨骼自定义模型数据的物品模型
                 final StructuredDataContainer data = ProtocolConstants.createStructuredDataContainer();
                 data.set(StructuredDataKey.ITEM_MODEL, CustomEntityResourceRewriter.getItemModel(this.entityDefinition.identifier()));
                 data.set(StructuredDataKey.CUSTOM_MODEL_DATA1_21_4, CustomEntityResourceRewriter.getCustomModelData(boneKey));
@@ -284,18 +284,18 @@ public class CustomEntity extends Entity {
                         boneEntity.getJavaEntityDataIndex(EntityDataFields.ITEM_STACK),
                         VersionedTypes.V26_1.entityDataTypes.itemType, item));
 
-                // Entity-level scale (from RESERVED_038 entity data)
+                // 实体级缩放（取自 RESERVED_038 实体数据）
                 final float entityScale = getEntityScale();
 
-                // Scale (model scale * entity scale)
+                // 缩放（模型缩放 * 实体缩放）
                 javaEntityData.add(new EntityData(
                         boneEntity.getJavaEntityDataIndex(EntityDataFields.SCALE),
                         VersionedTypes.V26_1.entityDataTypes.vector3FType,
                         new Vector3f(scale * entityScale, scale * entityScale, scale * entityScale)));
 
-                // Translation: rest pose offset, scaled by entity scale
-                // Formula: TRANSLATION = (bonePivotWorld_java - R * P_offset) * entityScale
-                // At rest: R = identity, so TRANSLATION = (bedrockPivotToJavaBlocks(restPivot) - restOffset) * entityScale
+                // 平移：静止姿态偏移乘以实体缩放
+                // 公式：TRANSLATION = (bonePivotWorld_java - R * P_offset) * entityScale
+                // 静止时：R = 单位矩阵，因此 TRANSLATION = (bedrockPivotToJavaBlocks(restPivot) - restOffset) * entityScale
                 final Vector3f pivotJava = bedrockPivotToJavaBlocks(restPivot);
                 javaEntityData.add(new EntityData(
                         boneEntity.getJavaEntityDataIndex(EntityDataFields.TRANSLATION),
@@ -304,13 +304,13 @@ public class CustomEntity extends Entity {
                                 (pivotJava.y() - restOffset.y()) * entityScale,
                                 (pivotJava.z() - restOffset.z()) * entityScale)));
 
-                // LEFT_ROTATION: identity quaternion initially
+                // LEFT_ROTATION：初始为单位四元数
                 javaEntityData.add(new EntityData(
                         boneEntity.getJavaEntityDataIndex(EntityDataFields.LEFT_ROTATION),
                         VersionedTypes.V26_1.entityDataTypes.quaternionType,
                         new Quaternion(0F, 0F, 0F, 1F)));
 
-                // Enable interpolation for smooth animation
+                // 启用插值以获得平滑动画
                 javaEntityData.add(new EntityData(
                         boneEntity.getJavaEntityDataIndex(EntityDataFields.TRANSFORMATION_INTERPOLATION_DURATION),
                         VersionedTypes.V26_1.entityDataTypes.varIntType,
@@ -320,7 +320,7 @@ public class CustomEntity extends Entity {
                         VersionedTypes.V26_1.entityDataTypes.varIntType,
                         0));
 
-                // Spawn ADD_ENTITY packet
+                // 生成 ADD_ENTITY 包
                 final PacketWrapper addEntity = PacketWrapper.create(ClientboundPackets26_1.ADD_ENTITY, this.user);
                 addEntity.write(Types.VAR_INT, boneEntity.javaId());
                 addEntity.write(Types.UUID, boneEntity.javaUuid());
@@ -335,7 +335,7 @@ public class CustomEntity extends Entity {
                 addEntity.write(Types.VAR_INT, 0);
                 addEntity.send(BedrockProtocol.class);
 
-                // Set entity data
+                // 设置实体数据
                 final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user);
                 setEntityData.write(Types.VAR_INT, boneEntity.javaId());
                 setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData);
@@ -358,7 +358,7 @@ public class CustomEntity extends Entity {
         }
     }
 
-    // ---- Animation updates ----
+    // ---- 动画更新 ----
 
     private void sendBoneTransformUpdates(Map<String, SimpleBoneModel.WorldTransform> transforms) {
         final float entityScale = getEntityScale();
@@ -369,18 +369,18 @@ public class CustomEntity extends Entity {
 
             final List<EntityData> javaEntityData = new ArrayList<>();
 
-            // Convert world pivot from Bedrock model units to Java blocks (with X flip)
+            // 把世界枢轴从基岩模型单位转换为 Java 方块（含 X 轴翻转）
             final Vector3f pivotJava = bedrockPivotToJavaBlocks(transform.position());
 
-            // Convert rotation quaternion from Bedrock to Java space (X flip)
+            // 把旋转四元数从基岩空间转换到 Java 空间（X 轴翻转）
             final Quaternion rotJava = bedrockQuatToJava(transform.rotation());
 
-            // Extract animation scale (worldScale from bone hierarchy)
+            // 提取动画缩放（来自骨骼层级的 worldScale）
             final org.joml.Vector3f animScale = transform.scale();
 
             // TRANSLATION = entityScale * (pivotJava - R * diag(worldScale) * restOffset)
-            // Scale restOffset by worldScale BEFORE rotating, so that the rotation/scale
-            // center stays at the bone's pivot regardless of animation scale.
+            // 在旋转之前先用 worldScale 缩放 restOffset，使旋转 / 缩放
+            // 中心无论动画缩放如何都保持在骨骼枢轴上。
             final org.joml.Quaternionf rj = new org.joml.Quaternionf(rotJava.x(), rotJava.y(), rotJava.z(), rotJava.w());
             final org.joml.Vector3f scaledRotatedOffset = new org.joml.Vector3f(
                     boneEntity.restOffset.x() * animScale.x,
@@ -395,13 +395,13 @@ public class CustomEntity extends Entity {
                             (pivotJava.y() - scaledRotatedOffset.y) * entityScale,
                             (pivotJava.z() - scaledRotatedOffset.z) * entityScale)));
 
-            // Rotation
+            // 旋转
             javaEntityData.add(new EntityData(
                     boneEntity.getJavaEntityDataIndex(EntityDataFields.LEFT_ROTATION),
                     VersionedTypes.V26_1.entityDataTypes.quaternionType,
                     rotJava));
 
-            // Scale from animation (model scale * animation scale * entity scale)
+            // 动画带来的缩放（模型缩放 * 动画缩放 * 实体缩放）
             final float baseScale = boneEntity.modelScale;
             javaEntityData.add(new EntityData(
                     boneEntity.getJavaEntityDataIndex(EntityDataFields.SCALE),
@@ -410,7 +410,7 @@ public class CustomEntity extends Entity {
                             baseScale * animScale.y * entityScale,
                             baseScale * animScale.z * entityScale)));
 
-            // Set interpolation: duration = LOD interval, start = 0 (now)
+            // 设置插值：时长 = LOD 间隔，起点 = 0（当前）
             javaEntityData.add(new EntityData(
                     boneEntity.getJavaEntityDataIndex(EntityDataFields.TRANSFORMATION_INTERPOLATION_DURATION),
                     VersionedTypes.V26_1.entityDataTypes.varIntType,
@@ -427,13 +427,13 @@ public class CustomEntity extends Entity {
         }
     }
 
-    // ---- LOD system ----
+    // ---- LOD 系统 ----
 
     private void updateLodTier() {
         final EntityTracker entityTracker = this.user.get(EntityTracker.class);
         final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
         if (clientPlayer == null || clientPlayer.position() == null || this.position == null) {
-            this.currentLodInterval = LOD_TIERS[0][1]; // default to closest tier
+            this.currentLodInterval = LOD_TIERS[0][1]; // 默认为最近的层级
             return;
         }
 
@@ -449,11 +449,11 @@ public class CustomEntity extends Entity {
             }
         }
 
-        // Beyond max distance: freeze animation
+        // 超出最大距离：冻结动画
         this.currentLodInterval = Integer.MAX_VALUE;
     }
 
-    // ---- Movement tracking ----
+    // ---- 移动追踪 ----
 
     private void updateMovementTracking() {
         if (this.prevEntityPosition != null && this.position != null) {
@@ -464,18 +464,18 @@ public class CustomEntity extends Entity {
             final float horizontalDist = (float) Math.sqrt(
                     this.positionDeltaX * this.positionDeltaX + this.positionDeltaZ * this.positionDeltaZ);
             this.accumulatedDistance += horizontalDist;
-            this.groundSpeed = horizontalDist * 20f; // blocks per second (20 tps)
+            this.groundSpeed = horizontalDist * 20f; // 每秒方块数（20 tps）
             this.verticalSpeed = this.positionDeltaY * 20f;
         }
         this.prevEntityPosition = this.position;
     }
 
-    // ---- Query bindings ----
+    // ---- 查询绑定 ----
 
     private MutableObjectBinding buildQueryBindings() {
         final MutableObjectBinding queryBinding = new MutableObjectBinding();
 
-        // Entity data queries (variant, mark_variant, skin_id)
+        // 实体数据查询（variant、mark_variant、skin_id）
         if (this.entityData.containsKey(ActorDataIDs.VARIANT)) {
             queryBinding.set("variant", Value.of(this.entityData.get(ActorDataIDs.VARIANT).<Integer>value()));
         }
@@ -486,7 +486,7 @@ public class CustomEntity extends Entity {
             queryBinding.set("skin_id", Value.of(this.entityData.get(ActorDataIDs.SKIN_ID).<Integer>value()));
         }
 
-        // Entity flags
+        // 实体标志位
         final Set<ActorFlags> entityFlags = this.entityFlags();
         for (Map.Entry<ActorFlags, String> entry : BedrockProtocol.MAPPINGS.getBedrockEntityFlagMoLangQueries().entrySet()) {
             if (entityFlags.contains(entry.getKey())) {
@@ -497,18 +497,18 @@ public class CustomEntity extends Entity {
             queryBinding.set("is_onfire", Value.of(true));
         }
 
-        // Movement queries
+        // 移动查询
         queryBinding.set("modified_distance_moved", Value.of(this.accumulatedDistance));
         queryBinding.set("modified_move_speed", Value.of(this.groundSpeed));
         queryBinding.set("ground_speed", Value.of(this.groundSpeed));
         queryBinding.set("vertical_speed", Value.of(this.verticalSpeed));
 
-        // State queries
+        // 状态查询
         queryBinding.set("is_on_ground", Value.of(this.onGround));
         queryBinding.set("is_alive", Value.of(true));
         queryBinding.set("life_time", Value.of(this.age / 20.0f));
 
-        // Rotation queries (rotation: pitch=x, yaw=y, headYaw=z)
+        // 旋转查询（rotation：pitch=x，yaw=y，headYaw=z）
         queryBinding.set("body_y_rotation", Value.of(this.rotation.y()));
         queryBinding.set("body_x_rotation", Value.of(this.rotation.x()));
         queryBinding.set("target_x_rotation", Value.of(this.rotation.x()));
@@ -516,7 +516,7 @@ public class CustomEntity extends Entity {
         queryBinding.set("head_x_rotation", Value.of(this.rotation.x()));
         queryBinding.set("head_y_rotation", Value.of(this.rotation.z()));
 
-        // Camera distance and rotation_to_camera
+        // 相机距离与 rotation_to_camera
         final EntityTracker entityTracker = this.user.get(EntityTracker.class);
         final ClientPlayerEntity clientPlayer = entityTracker.getClientPlayer();
         if (clientPlayer != null && clientPlayer.position() != null && this.position != null) {
@@ -538,7 +538,7 @@ public class CustomEntity extends Entity {
             queryBinding.set("distance_from_camera", Value.of(0));
         }
 
-        // position_delta function
+        // position_delta 函数
         final float pdx = this.positionDeltaX;
         final float pdy = this.positionDeltaY;
         final float pdz = this.positionDeltaZ;
@@ -553,7 +553,7 @@ public class CustomEntity extends Entity {
         return queryBinding;
     }
 
-    // ---- Render controller evaluation ----
+    // ---- 渲染控制器求值 ----
 
     private boolean evaluateRenderControllerChange() {
         if (this.serverTicker == null) {
@@ -562,15 +562,15 @@ public class CustomEntity extends Entity {
         return this.serverTicker.evaluateRenderControllers(buildQueryBindings());
     }
 
-    // ---- Collision box ----
+    // ---- 碰撞箱 ----
 
     private void sendInitialCollisionBox() {
         final List<EntityData> javaEntityData = new ArrayList<>();
         this.updateCollisionBox(javaEntityData);
         if (!javaEntityData.isEmpty()) {
             final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets26_1.SET_ENTITY_DATA, this.user);
-            setEntityData.write(Types.VAR_INT, this.javaId()); // entity id
-            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // entity data
+            setEntityData.write(Types.VAR_INT, this.javaId()); // 实体 id
+            setEntityData.write(VersionedTypes.V26_1.entityDataList, javaEntityData); // 实体数据
             setEntityData.send(BedrockProtocol.class);
         }
     }
@@ -601,7 +601,7 @@ public class CustomEntity extends Entity {
                 VersionedTypes.V26_1.entityDataTypes().floatType, height));
     }
 
-    // ---- Entity scale helper ----
+    // ---- 实体缩放辅助方法 ----
 
     private float getEntityScale() {
         if (this.entityData.containsKey(ActorDataIDs.RESERVED_038)) {
@@ -610,16 +610,16 @@ public class CustomEntity extends Entity {
         return 1.0F;
     }
 
-    // ---- Coordinate conversion helpers ----
+    // ---- 坐标转换辅助方法 ----
 
     /**
-     * Compute the rest offset (P_offset) for a bone in Java Display Entity blocks.
-     * This is where the bone's cubes are centered in the item model's rendered space.
+     * 按 Java 显示实体的方块单位计算某个骨骼的静止偏移（P_offset）。
+     * 这是该骨骼的方块在物品模型渲染空间中的居中位置。
      * <p>
-     * CubeConverter's coordinate mapping:
-     * - Java X = -Bedrock X + 8 (model units), so in blocks: -bpx/16 + 0.5
-     * - Java Y = Bedrock Y, so in blocks: bpy/16
-     * - Java Z = Bedrock Z + 8 (model units), so in blocks: bpz/16 + 0.5
+     * CubeConverter 的坐标映射：
+     * - Java X = -Bedrock X + 8（模型单位），换算为方块：-bpx/16 + 0.5
+     * - Java Y = Bedrock Y，换算为方块：bpy/16
+     * - Java Z = Bedrock Z + 8（模型单位），换算为方块：bpz/16 + 0.5
      */
     private static Vector3f computeRestOffset(final org.joml.Vector3f restPivot) {
         return new Vector3f(
@@ -629,8 +629,8 @@ public class CustomEntity extends Entity {
     }
 
     /**
-     * Convert a bone's animated world pivot from Bedrock model units to Java blocks.
-     * Applies Bedrock→Java X-axis flip.
+     * 把骨骼动画后的世界枢轴从基岩模型单位转换为 Java 方块。
+     * 应用基岩→Java 的 X 轴翻转。
      */
     private static Vector3f bedrockPivotToJavaBlocks(final org.joml.Vector3f bedrockPivot) {
         return new Vector3f(
@@ -640,21 +640,21 @@ public class CustomEntity extends Entity {
     }
 
     /**
-     * Convert a Bedrock-space rotation quaternion to Java space (X-axis flip).
-     * Under X reflection: rotations around Y and Z axes reverse direction.
-     * Quaternion: (qx, qy, qz, qw) → (qx, -qy, -qz, qw)
+     * 把基岩空间的旋转四元数转换到 Java 空间（X 轴翻转）。
+     * 在 X 轴反射下：绕 Y 轴和 Z 轴的旋转方向反转。
+     * 四元数：(qx, qy, qz, qw) → (qx, -qy, -qz, qw)
      */
     private static Quaternion bedrockQuatToJava(final org.joml.Quaternionf q) {
         return new Quaternion(q.x, -q.y, -q.z, q.w);
     }
 
-    // ---- Inner class: per-bone Display Entity ----
+    // ---- 内部类：逐骨骼显示实体 ----
 
     private class BoneDisplayEntity extends Entity {
 
         final String boneName;
         final float modelScale;
-        /** Rest offset in Java blocks — where this bone's cubes are centered in the item model */
+        /** Java 方块单位下的静止偏移——此骨骼的方块在物品模型中的居中位置 */
         final Vector3f restOffset;
 
         public BoneDisplayEntity(final int javaId, final String boneName, final float modelScale, final Vector3f restOffset) {

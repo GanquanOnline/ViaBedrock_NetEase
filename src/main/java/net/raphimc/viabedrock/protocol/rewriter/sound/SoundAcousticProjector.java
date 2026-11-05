@@ -72,7 +72,7 @@ public final class SoundAcousticProjector {
     }
 
     static float audibleRange(final SoundDefinitions.SoundDefinition definition, final float eventVolume) {
-        // Bedrock uses the event volume for reach, but clamps it before applying file volume to loudness.
+        // 基岩用事件音量决定可达距离，但在把文件音量应用到响度之前会先对其做钳制。
         final float volumeRange = Math.max(0F, eventVolume) * BLOCKS_PER_VOLUME;
         if (definition == null || definition.maxDistance() == null
                 || !Float.isFinite(definition.maxDistance())) {
@@ -94,7 +94,7 @@ public final class SoundAcousticProjector {
             return distance <= audibleRange ? 1F : 0F;
         }
         final float remaining = clamp01(1F - ((distance - minDistance) / (attenuationEnd - minDistance)));
-        // Bedrock's documented curve is approximate but visibly convex rather than Java's linear rolloff.
+        // 基岩文档给出的曲线是近似的，但明显是凸的，而不是 Java 的线性衰减。
         return remaining * remaining;
     }
 
@@ -118,7 +118,7 @@ public final class SoundAcousticProjector {
         } else if (targetGain <= gainAtCombinedVolumeOne && gainAtCombinedVolumeOne > 0F) {
             combinedVolume = targetGain / gainAtCombinedVolumeOne;
         } else {
-            // A spatial Java sound only approaches gain 1 as its attenuation range tends to infinity.
+            // Java 的空间音效只有在其衰减范围趋于无穷大时增益才逼近 1。
             final float representableTarget = Math.min(targetGain, MAX_FINITE_GAIN);
             combinedVolume = distance / (attenuation * (1F - representableTarget));
         }

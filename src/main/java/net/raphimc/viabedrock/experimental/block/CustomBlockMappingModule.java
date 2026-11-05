@@ -13,8 +13,8 @@ import net.raphimc.viabedrock.ViaBedrock;
 import java.util.Set;
 
 /**
- * BedrockLoader custom block mapping sync entry point.
- * The old FabricRock disk JSON/global mapping path is intentionally disabled; mappings are now per UserConnection.
+ * BedrockLoader 自定义方块映射同步入口。
+ * 旧的 FabricRock 磁盘 JSON/全局映射路径已被有意禁用；映射现在按 UserConnection 分别维护。
  */
 public class CustomBlockMappingModule implements FeatureModule {
 

@@ -25,9 +25,9 @@ import net.raphimc.viabedrock.api.chunk.BedrockBlockEntity;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
 /**
- * {@link BlockNeighborView} for the initial chunk translation: in-chunk lookups read the freshly remapped Java
- * sections (so neighbor fixes made earlier in the same pass are visible); everything else (cross-chunk block states
- * and all block entities) is delegated to a {@link TrackerNeighborView}.
+ * 用于初始区块转换的 {@link BlockNeighborView}：区块内查找读取刚重映射的 Java
+ * 区块段（因此同一轮中更早做的邻居修正可见）；其余一切（跨区块方块状态
+ * 和所有方块实体）都委托给 {@link TrackerNeighborView}。
  */
 public final class ChunkNeighborView implements BlockNeighborView {
 

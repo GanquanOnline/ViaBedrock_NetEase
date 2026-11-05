@@ -45,7 +45,7 @@ public class PacketCodec extends ByteToMessageCodec<ByteBuf> {
         final int packetId = header & 1023;
         final int senderSubClientId = (header >> 10) & 3;
         final int targetSubClientId = (header >> 12) & 3;
-        if (senderSubClientId != 0) { // Bedrock client drops the packet if sender sub client id is not 0
+        if (senderSubClientId != 0) { // 发送方子客户端 id 不为 0 时基岩客户端会丢弃该数据包
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Dropping packet with invalid sender sub client id: " + senderSubClientId);
             in.skipBytes(in.readableBytes());
             return;

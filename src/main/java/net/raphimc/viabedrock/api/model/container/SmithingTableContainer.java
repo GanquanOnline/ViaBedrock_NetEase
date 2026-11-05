@@ -25,8 +25,8 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerTyp
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 
 /**
- * MOT / Bedrock smithing slots are equipment, ingredient, template, result.
- * Java 1.20+ uses template, base, addition, result.
+ * MOT / 基岩的锻造槽位依次为装备、原料、模板、结果。
+ * Java 1.20+ 使用模板、基础物品、添加物、结果。
  */
 public class SmithingTableContainer extends Container {
 
@@ -37,20 +37,20 @@ public class SmithingTableContainer extends Container {
     @Override
     public int javaSlot(final int slot) {
         return switch (slot) {
-            case 0 -> 1; // equipment -> Java base
-            case 1 -> 2; // ingredient -> Java addition
-            case 2 -> 0; // template -> Java template
-            default -> slot; // result stays 3
+            case 0 -> 1; // 装备 -> Java 基础物品
+            case 1 -> 2; // 原料 -> Java 添加物
+            case 2 -> 0; // 模板 -> Java 模板
+            default -> slot; // 结果仍为 3
         };
     }
 
     @Override
     public int bedrockSlot(final int javaSlot) {
         return switch (javaSlot) {
-            case 0 -> 2; // Java template -> Bedrock slot 2
-            case 1 -> 0; // Java base -> Bedrock slot 0
-            case 2 -> 1; // Java addition -> Bedrock slot 1
-            default -> javaSlot; // result stays 3
+            case 0 -> 2; // Java 模板 -> 基岩槽位 2
+            case 1 -> 0; // Java 基础物品 -> 基岩槽位 0
+            case 2 -> 1; // Java 添加物 -> 基岩槽位 1
+            default -> javaSlot; // 结果仍为 3
         };
     }
 
@@ -58,10 +58,10 @@ public class SmithingTableContainer extends Container {
     public Item[] getJavaItems() {
         final ItemRewriter itemRewriter = this.user.get(ItemRewriter.class);
         final Item[] javaItems = new Item[4];
-        javaItems[0] = itemRewriter.javaItem(this.items[2]); // template
-        javaItems[1] = itemRewriter.javaItem(this.items[0]); // equipment
-        javaItems[2] = itemRewriter.javaItem(this.items[1]); // ingredient
-        javaItems[3] = itemRewriter.javaItem(this.items[3]); // result
+        javaItems[0] = itemRewriter.javaItem(this.items[2]); // 模板
+        javaItems[1] = itemRewriter.javaItem(this.items[0]); // 装备
+        javaItems[2] = itemRewriter.javaItem(this.items[1]); // 原料
+        javaItems[3] = itemRewriter.javaItem(this.items[3]); // 结果
         return javaItems;
     }
 }

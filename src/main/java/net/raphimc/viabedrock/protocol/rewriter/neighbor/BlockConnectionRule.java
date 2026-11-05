@@ -31,9 +31,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Java fences, glass panes and iron bars carry per-side {@code north/east/south/west} connection booleans that
- * Bedrock computes on the client from neighboring blocks. This rule recomputes the connection variant for a single
- * connectable block from its four horizontal neighbors.
+ * Java 的栅栏、玻璃板和铁栏杆带有每边的 {@code north/east/south/west} 连接布尔值，
+ * 而基岩由客户端根据相邻方块计算。该规则会依据四个水平邻居
+ * 重新计算单个可连接方块的连接变体。
  */
 public final class BlockConnectionRule implements NeighborAwareBlockRule {
 

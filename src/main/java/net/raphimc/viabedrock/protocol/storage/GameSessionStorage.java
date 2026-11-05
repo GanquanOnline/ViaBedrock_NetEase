@@ -250,9 +250,9 @@ public class GameSessionStorage extends StoredObject {
     }
 
     /**
-     * NetEase SET_LEVEL_GRAVITY from packet 203. MOT emits {@code -0.08} on join.
-     * Java clients already simulate gravity locally; this value is applied to the
-     * Bedrock PLAYER_AUTH_INPUT velocity we report, not to Java physics.
+     * 来自数据包 203 的网易 SET_LEVEL_GRAVITY。MOT 会在加入时发送 {@code -0.08}。
+     * Java 客户端本身就会在本地模拟重力；这个值只应用到我们上报的
+     * 基岩 PLAYER_AUTH_INPUT 速度上，不影响 Java 物理。
      */
     public Float getNeteaseLevelGravity() {
         return this.neteaseLevelGravity;

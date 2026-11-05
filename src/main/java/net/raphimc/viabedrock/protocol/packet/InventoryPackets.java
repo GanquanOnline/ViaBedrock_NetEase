@@ -80,26 +80,26 @@ public class InventoryPackets {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final BlockStateRewriter blockStateRewriter = wrapper.user().get(BlockStateRewriter.class);
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
-            final byte containerId = wrapper.read(Types.BYTE); // container id
-            final byte rawType = wrapper.read(Types.BYTE); // type
+            final byte containerId = wrapper.read(Types.BYTE); // 容器 id
+            final byte rawType = wrapper.read(Types.BYTE); // 类型
             final ContainerType type = ContainerType.getByValue(rawType);
             if (type == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown ContainerType: " + rawType);
                 wrapper.cancel();
                 return;
             }
-            final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // position
-            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // entity unique id
+            final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // 位置
+            final long entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 id
             ContainerOpenLayout.skipTrailer(wrapper);
-            // PacketWrapper appends unread Bedrock bytes onto Java OPEN_SCREEN.
+            // PacketWrapper 会把未读取的基岩字节追加到 Java OPEN_SCREEN 上。
             PacketLeftoverLayout.discardUnreadInput(wrapper);
 
             if (inventoryTracker.isAnyScreenOpen()) {
                 if (type == ContainerType.INVENTORY) {
-                    // MOT echoes type=-1 after Interact.OpenInventory. If a chest
-                    // is already current, bouncing CONTAINER_CLOSE -1 would close
-                    // that chest (Player.java:4065-4076). Do not acknowledge as
-                    // player-inventory-open while another window is current.
+                    // MOT 在 Interact.OpenInventory 之后会回显 type=-1。如果当前
+                    // 已打开一个箱子，回弹 CONTAINER_CLOSE -1 就会关闭
+                    // 那个箱子（Player.java:4065-4076）。在另一个窗口仍为当前窗口时，
+                    // 不要把它确认为玩家物品栏的打开。
                     wrapper.cancel();
                     return;
                 }
@@ -110,10 +110,10 @@ public class InventoryPackets {
             }
             final boolean dummyWorldPosition = InventoryTracker.isDummyWorldPosition(position);
             final BedrockBlockEntity blockEntity = dummyWorldPosition ? null : chunkTracker.getBlockEntity(position);
-            // MOT CONTAINER_OPEN has no title string. Java 1.21 keys are not "container.<bedrock_tag>"
-            // (ender_chest -> container.enderchest, shulker_box -> container.shulkerBox).
-            // Dummy (0,0,0) holders must not inherit the world-origin block's tag/CustomName
-            // or a plugin chest becomes "Ender Chest" whenever spawn has an ender chest.
+            // MOT CONTAINER_OPEN 没有标题字符串。Java 1.21 的键并不是 "container.<bedrock_tag>"
+            // （ender_chest -> container.enderchest，shulker_box -> container.shulkerBox）。
+            // 哑 (0,0,0) 持有者不能继承世界原点方块的 tag/CustomName，
+            // 否则只要出生点有末影箱，插件箱子就会变成 "Ender Chest"。
             final String bedrockBlockTag = dummyWorldPosition ? null : blockStateRewriter.tag(chunkTracker.getBlockState(position));
             final String javaTitleKey = JavaContainerTitles.key(bedrockBlockTag, type);
             TextComponent title = new TranslationComponent(javaTitleKey);
@@ -125,23 +125,23 @@ public class InventoryPackets {
             int javaMenuId = BedrockProtocol.MAPPINGS.getBedrockToJavaContainers().getOrDefault(type, -1);
             switch (type) {
                 case INVENTORY -> {
-                    // Java already owns the player inventory window. Nukkit still sends CONTAINER_OPEN
-                    // type=-1 after Interact.OpenInventory so SAI transfers are accepted, but treating
-                    // that as a real screen occupies currentContainer and later chest/table opens are
-                    // rejected as "another container is open". Record the Bedrock acknowledgement only.
+                    // Java 已经拥有玩家物品栏窗口。Nukkit 在 Interact.OpenInventory 之后仍会发送 CONTAINER_OPEN
+                    // type=-1，以便 SAI 传输被接受，但把它当成真实界面会占用
+                    // currentContainer，之后打开箱子/工作台就会被拒绝为
+                    // "另一个容器已打开"。只记录这个基岩确认即可。
                     inventoryTracker.acknowledgeBedrockInventoryOpen(containerId, position);
                     wrapper.cancel();
                     return;
                 }
                 case CONTAINER -> {
                     if (entityUniqueId != -1L) {
-                        // Nukkit sends chest boats / minecart chests as type 0 with an entity unique id.
+                        // Nukkit 把运输船箱子 / 矿车箱子作为 type 0 发送，并带上实体唯一 id。
                         container = new GenericContainer(wrapper.user(), containerId, type, title, position, 27);
                     } else if (dummyWorldPosition) {
-                        // MOT fake / plugin inventories and ender chests with no viewing block
-                        // send CONTAINER_OPEN at (0,0,0). Do not classify from the world-origin
-                        // block: spawn ender/shulker/chest would make a distant plugin GUI
-                        // world-backed and InventoryTracker.tick() would close it for distance.
+                        // MOT 的假 / 插件物品栏以及没有查看方块的末影箱
+                        // 会在 (0,0,0) 发送 CONTAINER_OPEN。不要按世界原点
+                        // 方块来分类：出生点的末影箱/潜影盒/箱子会让远处的插件 GUI
+                        // 被当作世界方块支撑，InventoryTracker.tick() 就会因距离而关闭它。
                         container = new GenericContainer(wrapper.user(), containerId, type, title, position, 27);
                     } else {
                         final String blockTag = blockStateRewriter.tag(chunkTracker.getBlockState(position));
@@ -218,9 +218,9 @@ public class InventoryPackets {
                     container = new TradeContainer(wrapper.user(), containerId, title);
                 }
                 case HORSE -> {
-                    // MOT InventoryType.HORSE (network 12) is HorseInventory. Java 1.21.11
-                    // needs MOUNT_SCREEN_OPEN (containerId, columns, entityId), not OPEN_SCREEN.
-                    // Ref: MOT ContainerInventory.onOpen entityId + HorseInventory size 2+chest.
+                    // MOT 的 InventoryType.HORSE（网络 12）是 HorseInventory。Java 1.21.11
+                    // 需要 MOUNT_SCREEN_OPEN (containerId, columns, entityId)，而不是 OPEN_SCREEN。
+                    // 参考：MOT ContainerInventory.onOpen 的 entityId + HorseInventory 大小 2+箱子。
                     if (entityUniqueId == -1L) {
                         wrapper.cancel();
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Tried to open HORSE container without entity unique id");
@@ -237,7 +237,7 @@ public class InventoryPackets {
                     container = new HorseContainer(wrapper.user(), containerId, title, position,
                             HorseContainer.sizeFor(horse), entityUniqueId, horse.javaId());
                 }
-                case NONE, CAULDRON, JUKEBOX, ARMOR, HAND, HUD, DECORATED_POT -> { // Bedrock client can't open these containers
+                case NONE, CAULDRON, JUKEBOX, ARMOR, HAND, HUD, DECORATED_POT -> { // 基岩客户端无法打开这些容器
                     wrapper.cancel();
                     return;
                 }
@@ -251,20 +251,20 @@ public class InventoryPackets {
             }
             inventoryTracker.setCurrentContainer(container);
 
-            // Use the Java window id (javaContainerId), not the raw Bedrock containerId: the crafting
-            // table overrides javaContainerId() to a fixed value and all clientbound updates / serverbound
-            // lookups key off javaContainerId. Sending the raw containerId here desynced the window id so
-            // the table's CONTAINER_CLICK/CLOSE never matched (items not placed, container never closed).
+            // 使用 Java 窗口 id（javaContainerId），而不是原始的基岩 containerId：工作台的
+            // javaContainerId() 会覆写为固定值，且所有服务端→客户端更新 / 客户端→服务端
+            // 查找都以 javaContainerId 为键。这里发送原始 containerId 会使窗口 id 失步，
+            // 导致工作台的 CONTAINER_CLICK/CLOSE 永远匹配不上（物品放不进去，容器也从不关闭）。
             if (container instanceof HorseContainer horseContainer) {
                 wrapper.setPacketType(ClientboundPackets26_1.MOUNT_SCREEN_OPEN);
-                wrapper.write(Types.VAR_INT, horseContainer.javaContainerId()); // container id
-                wrapper.write(Types.VAR_INT, horseContainer.javaColumns()); // inventory columns
-                wrapper.write(Types.INT, horseContainer.javaEntityId()); // mount entity id
+                wrapper.write(Types.VAR_INT, horseContainer.javaContainerId()); // 容器 id
+                wrapper.write(Types.VAR_INT, horseContainer.javaColumns()); // 物品栏列数
+                wrapper.write(Types.INT, horseContainer.javaEntityId()); // 坐骑实体 id
                 return;
             }
-            wrapper.write(Types.VAR_INT, container.javaContainerId()); // container id (Java window id)
-            wrapper.write(Types.VAR_INT, javaMenuId); // type
-            wrapper.write(Types.TAG, TextUtil.textComponentToNbt(title)); // title
+            wrapper.write(Types.VAR_INT, container.javaContainerId()); // 容器 id（Java 窗口 id）
+            wrapper.write(Types.VAR_INT, javaMenuId); // 类型
+            wrapper.write(Types.TAG, TextUtil.textComponentToNbt(title)); // 标题
         });
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_TRADE, null, wrapper -> {
             wrapper.cancel();
@@ -273,10 +273,10 @@ public class InventoryPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.CONTAINER_CLOSE, ClientboundPackets26_1.CONTAINER_CLOSE, new PacketHandlers() {
             @Override
             protected void register() {
-                map(Types.BYTE, Types.VAR_INT); // container id
+                map(Types.BYTE, Types.VAR_INT); // 容器 id
                 handler(wrapper -> {
-                    final ContainerType containerType = ContainerType.getByValue(wrapper.read(Types.BYTE)); // type
-                    final boolean serverInitiated = wrapper.read(Types.BOOLEAN); // server initiated
+                    final ContainerType containerType = ContainerType.getByValue(wrapper.read(Types.BYTE)); // 类型
+                    final boolean serverInitiated = wrapper.read(Types.BOOLEAN); // 服务端发起
                     final byte bedrockContainerId = (byte) (int) wrapper.get(Types.VAR_INT, 0);
 
                     final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
@@ -285,13 +285,13 @@ public class InventoryPackets {
                         container = inventoryTracker.acceptServerClose(bedrockContainerId, containerType);
                     } else {
                         container = inventoryTracker.acceptClientCloseConfirmation(bedrockContainerId);
-                        wrapper.cancel(); // Java already closed the screen which initiated this acknowledgement.
+                        wrapper.cancel(); // Java 已经关闭了发起此确认的界面。
                     }
                     if (container == null) {
                         wrapper.cancel();
                         return;
                     }
-                    // Java window id must match what CONTAINER_OPEN sent (javaContainerId), not the raw Bedrock containerId.
+                    // Java 窗口 id 必须与 CONTAINER_OPEN 发送的一致（javaContainerId），而不是原始的基岩 containerId。
                     wrapper.set(Types.VAR_INT, 0, container.javaContainerId());
 
                     clearClosedCraftingTable(inventoryTracker, container);
@@ -328,8 +328,8 @@ public class InventoryPackets {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             Container container = inventoryTracker.getContainerClientbound(containerId, containerName, storageItem);
             if (container instanceof HorseContainer horse && items != null && items.length != horse.size()) {
-                // MOT sendContents after CONTAINER_OPEN carries the real 2+chestSize array.
-                // Resize the mirror and re-open so Java columns match CONTAINER_SET_CONTENT.
+                // CONTAINER_OPEN 之后 MOT 的 sendContents 携带真实的 2+chestSize 数组。
+                // 调整镜像大小并重新打开，使 Java 列数与 CONTAINER_SET_CONTENT 匹配。
                 final HorseContainer resized = horse.withSize(items.length);
                 inventoryTracker.replaceCurrentContainer(resized);
                 PacketFactory.sendJavaMountScreenOpen(wrapper.user(), resized);
@@ -350,57 +350,57 @@ public class InventoryPackets {
             final FullContainerName containerName = decoded.containerName();
             final BedrockItem storageItem = decoded.storageItem();
             final BedrockItem item = decoded.item();
-            // PacketWrapper appends any unread Bedrock bytes onto the Java packet.
-            // Consume the remainder so a layout mismatch cannot kick 1.21.11 with extra data.
+            // PacketWrapper 会把任何未读取的基岩字节追加到 Java 数据包上。
+            // 消耗掉剩余部分，避免布局不匹配时以多余数据把 1.21.11 踢下线。
             PacketLeftoverLayout.discardUnreadInput(wrapper);
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final Container container = inventoryTracker.getContainerClientbound(containerId, containerName, storageItem);
             if (container != null && container.setItem(slot, item)) {
                 inventoryTracker.incrementAuthoritativeInventoryGeneration(container);
-                if (container.type() == ContainerType.HUD && slot == 0) { // cursor item
+                if (container.type() == ContainerType.HUD && slot == 0) { // 光标物品
                     wrapper.setPacketType(ClientboundPackets26_1.SET_CURSOR_ITEM);
                 } else {
-                    wrapper.write(Types.VAR_INT, container.javaContainerId()); // container id
-                    wrapper.write(Types.VAR_INT, 0); // revision
-                    wrapper.write(Types.SHORT, (short) container.javaSlot(slot)); // slot
+                    wrapper.write(Types.VAR_INT, container.javaContainerId()); // 容器 id
+                    wrapper.write(Types.VAR_INT, 0); // 修订版本
+                    wrapper.write(Types.SHORT, (short) container.javaSlot(slot)); // 槽位
                 }
-                wrapper.write(VersionedTypes.V26_1.item, container.getJavaItem(slot)); // item
+                wrapper.write(VersionedTypes.V26_1.item, container.getJavaItem(slot)); // 物品
             } else {
                 wrapper.cancel();
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.ITEM_STACK_RESPONSE, null, wrapper -> {
             wrapper.cancel();
-            // SAI servers echo every click. Consume the 860/975 container array so the
-            // next mapped packet is not parsed as leftover ITEM_STACK_RESPONSE bytes.
-            // NetEase 860 error entries have no containers, so a rejected click must
-            // roll the optimistic Java prediction back from the pre-click snapshot.
+            // SAI 服务器会回显每次点击。消耗掉 860/975 的容器数组，以免
+            // 下一个已映射的数据包被当成残留的 ITEM_STACK_RESPONSE 字节解析。
+            // 网易 860 的错误条目没有容器，所以被拒绝的点击必须
+            // 从点击前的快照回滚 Java 的乐观预测。
             final ItemStackResponseLayout.DecodedResponse decoded = ItemStackResponseLayout.decode(wrapper);
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             ClientAuthInventoryModule.handleItemStackResponse(wrapper.user(), decoded);
             ExperimentalFeatures.handleItemStackResponse(wrapper.user(), decoded);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.CONTAINER_SET_DATA, ClientboundPackets26_1.CONTAINER_SET_DATA, wrapper -> {
-            final int containerId = wrapper.read(Types.BYTE); // container id
-            final int property = wrapper.read(BedrockTypes.VAR_INT); // property
-            final int value = wrapper.read(BedrockTypes.VAR_INT); // value
+            final int containerId = wrapper.read(Types.BYTE); // 容器 id
+            final int property = wrapper.read(BedrockTypes.VAR_INT); // 属性
+            final int value = wrapper.read(BedrockTypes.VAR_INT); // 值
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final Container container = inventoryTracker.getCurrentContainer();
-            // Only one screen can be open at a time, and the server only sends CONTAINER_SET_DATA while the
-            // furnace screen is open. Anything else (e.g. a brewing stand) is dropped, matching prior behavior.
+            // 同一时间只能打开一个界面，且服务端只在
+            // 熔炉界面打开时发送 CONTAINER_SET_DATA。其他情况（例如酿造台）会被丢弃，与以往行为一致。
             if (!(container instanceof FurnaceContainer) || (byte) containerId != container.containerId()) {
                 wrapper.cancel();
                 return;
             }
 
-            // Bedrock (ContainerSetDataPacket) only sends the numerators:
-            //   0 SMELT_PROGRESS      = cookTime     (0..burnInterval) -> Java cooking_time_spent (data slot 2)
-            //   1 REMAINING_FUEL_TIME = burnDuration (0..burnInterval) -> Java lit_time_remaining (data slot 0)
-            // Java needs the matching denominator slots too, or the flame ratio is wrong and the cooking arrow
-            // is hidden entirely (getBurnProgress returns 0 when cooking_total_time == 0). burnInterval is 200
-            // for a normal furnace and 100 for a blast furnace / smoker (which cook at double speed).
+            // 基岩（ContainerSetDataPacket）只发送分子：
+            // 0 SMELT_PROGRESS      = cookTime     (0..burnInterval) -> Java cooking_time_spent（数据槽 2）
+            // 1 REMAINING_FUEL_TIME = burnDuration (0..burnInterval) -> Java lit_time_remaining（数据槽 0）
+            // Java 还需要对应的分母槽位，否则火焰比例错误、烹饪箭头
+            // 会完全隐藏（cooking_total_time == 0 时 getBurnProgress 返回 0）。burnInterval 对普通熔炉是 200，
+            // 对高炉 / 烟熏炉是 100（它们以双倍速度烹饪）。
             final int burnInterval = container.type() == ContainerType.FURNACE ? 200 : 100;
             final int javaWindowId = container.javaContainerId();
 
@@ -409,20 +409,20 @@ public class InventoryPackets {
             switch (property) {
                 case 0 -> { numeratorSlot = 2; denominatorSlot = 3; } // SMELT_PROGRESS
                 case 1 -> { numeratorSlot = 0; denominatorSlot = 1; } // REMAINING_FUEL_TIME
-                default -> { wrapper.cancel(); return; } // MAX_FUEL_TIME / STORED_XP / FUEL_AUX: not needed by the Java GUI
+                default -> { wrapper.cancel(); return; } // MAX_FUEL_TIME / STORED_XP / FUEL_AUX：Java GUI 不需要
             }
 
-            // Synthesize the denominator (Bedrock never sends it) so the GUI renders a proportional bar.
+            // 合成分母（基岩从不发送它），让 GUI 能渲染出成比例的进度条。
             final PacketWrapper denominator = PacketWrapper.create(ClientboundPackets26_1.CONTAINER_SET_DATA, wrapper.user());
-            denominator.write(Types.VAR_INT, javaWindowId); // container id
-            denominator.write(Types.SHORT, (short) denominatorSlot); // property
-            denominator.write(Types.SHORT, (short) burnInterval); // value
+            denominator.write(Types.VAR_INT, javaWindowId); // 容器 id
+            denominator.write(Types.SHORT, (short) denominatorSlot); // 属性
+            denominator.write(Types.SHORT, (short) burnInterval); // 值
             denominator.send(BedrockProtocol.class);
 
-            // Rewrite this packet as the numerator update.
-            wrapper.write(Types.VAR_INT, javaWindowId); // container id
-            wrapper.write(Types.SHORT, (short) numeratorSlot); // property
-            wrapper.write(Types.SHORT, (short) value); // value
+            // 把这个数据包改写为分子更新。
+            wrapper.write(Types.VAR_INT, javaWindowId); // 容器 id
+            wrapper.write(Types.SHORT, (short) numeratorSlot); // 属性
+            wrapper.write(Types.SHORT, (short) value); // 值
         });
         protocol.registerClientbound(ClientboundBedrockPackets.PLAYER_ENCHANT_OPTIONS, null, wrapper -> {
             wrapper.cancel();
@@ -441,7 +441,7 @@ public class InventoryPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.MODAL_FORM_REQUEST, ClientboundPackets26_1.SHOW_DIALOG, wrapper -> {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final int id = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // id
-            final String data = wrapper.read(BedrockTypes.STRING); // data
+            final String data = wrapper.read(BedrockTypes.STRING); // 数据
 
             if (inventoryTracker.getCurrentContainer() != null || inventoryTracker.getCurrentForm() != null) {
                 sendModalFormCancel(wrapper.user(), id, ModalFormCancelReason.UserBusy);
@@ -461,7 +461,7 @@ public class InventoryPackets {
             final ResourcePackStorage resourcePackStorage = wrapper.user().get(ResourcePackStorage.class);
             form.setTranslator(resourcePackStorage.getTexts()::translate);
             try {
-                wrapper.write(Types.TRUSTED_COMPOUND_TAG_HOLDER, BedrockFormDialogConverter.serialize(BedrockFormDialogConverter.convert(id, form, wrapper.user().getProtocolInfo().protocolVersion()))); // dialog data
+                wrapper.write(Types.TRUSTED_COMPOUND_TAG_HOLDER, BedrockFormDialogConverter.serialize(BedrockFormDialogConverter.convert(id, form, wrapper.user().getProtocolInfo().protocolVersion()))); // 对话框数据
             } catch (RuntimeException e) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error while converting modal form " + id + " (" + form.getClass().getSimpleName() + ")", e);
                 sendModalFormCancel(wrapper.user(), id, ModalFormCancelReason.UserClosed);
@@ -482,16 +482,16 @@ public class InventoryPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.PLAYER_HOTBAR, ClientboundPackets26_1.SET_HELD_SLOT, wrapper -> {
             final InventoryContainer inventoryContainer = wrapper.user().get(InventoryTracker.class).getInventoryContainer();
-            final int slot = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // selected slot
-            final byte containerId = wrapper.read(Types.BYTE); // container id
-            final boolean shouldSelectSlot = wrapper.read(Types.BOOLEAN); // should select slot
+            final int slot = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 选中槽位
+            final byte containerId = wrapper.read(Types.BYTE); // 容器 id
+            final boolean shouldSelectSlot = wrapper.read(Types.BOOLEAN); // 是否应选中槽位
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             if (slot >= 0 && slot < 9 && containerId == inventoryContainer.containerId() && shouldSelectSlot) {
                 inventoryContainer.setSelectedHotbarSlotLocally((byte) slot);
-                wrapper.write(Types.VAR_INT, slot); // slot
+                wrapper.write(Types.VAR_INT, slot); // 槽位
             } else {
                 wrapper.cancel();
-                if (containerId != inventoryContainer.containerId()) { // Bedrock client doesn't render hotbar selection and held item anymore
+                if (containerId != inventoryContainer.containerId()) { // 基岩客户端不再渲染快捷栏选中和手持物品
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Tried to set hotbar slot with wrong container id: " + containerId);
                 }
             }
@@ -499,7 +499,7 @@ public class InventoryPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.CONTAINER_REGISTRY_CLEANUP, null, wrapper -> {
             wrapper.cancel();
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
-            final FullContainerName[] removedContainers = wrapper.read(BedrockTypes.FULL_CONTAINER_NAME_ARRAY); // removed containers
+            final FullContainerName[] removedContainers = wrapper.read(BedrockTypes.FULL_CONTAINER_NAME_ARRAY); // 被移除的容器
             for (FullContainerName containerName : removedContainers) {
                 inventoryTracker.removeDynamicContainer(containerName);
             }
@@ -509,23 +509,23 @@ public class InventoryPackets {
                 wrapper.cancel();
                 return;
             }
-            final int size = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // size
+            final int size = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 大小
             if (size <= 0) {
                 wrapper.cancel();
                 return;
             }
             final Container armorContainer = wrapper.user().get(InventoryTracker.class).getArmorContainer();
 
-            wrapper.write(Types.VAR_INT, wrapper.user().get(EntityTracker.class).getClientPlayer().javaId()); // entity id
+            wrapper.write(Types.VAR_INT, wrapper.user().get(EntityTracker.class).getClientPlayer().javaId()); // 实体 id
             for (int i = 0; i < size; i++) {
-                final int rawArmorSlot = wrapper.read(BedrockTypes.VAR_INT); // armor slot
+                final int rawArmorSlot = wrapper.read(BedrockTypes.VAR_INT); // 盔甲槽位
                 final SharedTypes_Legacy_ArmorSlot armorSlot = SharedTypes_Legacy_ArmorSlot.getByValue(rawArmorSlot);
-                if (armorSlot == null) { // Bedrock client ignores the whole packet if an unknown armor slot is sent
+                if (armorSlot == null) { // 如果发送未知盔甲槽位，基岩客户端会忽略整个数据包
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SharedTypes_Legacy_ArmorSlot: " + rawArmorSlot);
                     wrapper.cancel();
                     return;
                 }
-                final short damage = wrapper.read(BedrockTypes.SHORT_LE); // damage
+                final short damage = wrapper.read(BedrockTypes.SHORT_LE); // 损伤值
 
                 final BedrockItem item = armorSlot.getValue() < armorContainer.size() ? armorContainer.getItem(armorSlot.getValue()) : BedrockItem.empty();
                 if (item.tag() == null) {
@@ -540,16 +540,16 @@ public class InventoryPackets {
                     case Feet -> EquipmentSlot.FEET;
                     case Body -> EquipmentSlot.BODY;
                 };
-                wrapper.write(Types.BYTE, (byte) (equipmentSlot.ordinal() | (i < (size - 1) ? Byte.MIN_VALUE : 0))); // slot
-                wrapper.write(VersionedTypes.V26_1.item, wrapper.user().get(ItemRewriter.class).javaItem(item)); // item
+                wrapper.write(Types.BYTE, (byte) (equipmentSlot.ordinal() | (i < (size - 1) ? Byte.MIN_VALUE : 0))); // 槽位
+                wrapper.write(VersionedTypes.V26_1.item, wrapper.user().get(ItemRewriter.class).javaItem(item)); // 物品
             }
             PacketLeftoverLayout.discardUnreadInput(wrapper);
         });
 
         protocol.registerServerbound(ServerboundPackets26_1.CONTAINER_BUTTON_CLICK, null, wrapper -> {
             wrapper.cancel();
-            final int containerId = wrapper.read(Types.VAR_INT); // container id
-            final int buttonId = wrapper.read(Types.VAR_INT); // button id
+            final int containerId = wrapper.read(Types.VAR_INT); // 容器 id
+            final int buttonId = wrapper.read(Types.VAR_INT); // 按钮 id
             handleEnchantButtonClick(wrapper.user(), containerId, buttonId);
         });
         protocol.registerServerbound(ServerboundPackets26_1.RENAME_ITEM, ServerboundBedrockPackets.FILTER_TEXT, wrapper -> {
@@ -574,11 +574,11 @@ public class InventoryPackets {
         });
         protocol.registerServerbound(ServerboundPackets26_1.CONTAINER_CLICK, null, wrapper -> {
             wrapper.cancel();
-            final int containerId = wrapper.read(Types.VAR_INT); // container id
-            final int revision = wrapper.read(Types.VAR_INT); // revision
-            final short slot = wrapper.read(Types.SHORT); // slot
-            final byte button = wrapper.read(Types.BYTE); // button
-            final ContainerInput action = ContainerInput.values()[wrapper.read(Types.VAR_INT)]; // action
+            final int containerId = wrapper.read(Types.VAR_INT); // 容器 id
+            final int revision = wrapper.read(Types.VAR_INT); // 修订版本
+            final short slot = wrapper.read(Types.SHORT); // 槽位
+            final byte button = wrapper.read(Types.BYTE); // 按钮
+            final ContainerInput action = ContainerInput.values()[wrapper.read(Types.VAR_INT)]; // 动作
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             if (inventoryTracker.getPendingCloseContainer() != null) {
@@ -589,8 +589,8 @@ public class InventoryPackets {
             if (container == null) {
                 if (containerId == ContainerID.CONTAINER_ID_INVENTORY.getValue()) {
                     if (ViaBedrock.getConfig().shouldEnableExperimentalFeatures()) {
-                        // ClientAuthInventoryModule already owns player-inventory clicks. Falling through
-                        // here would turn every backpack take into Interact.OpenInventory.
+                        // ClientAuthInventoryModule 已经接管了玩家物品栏的点击。在这里
+                        // 继续向下处理会把每次从背包取出都变成 Interact.OpenInventory。
                         wrapper.cancel();
                         return;
                     }
@@ -598,7 +598,7 @@ public class InventoryPackets {
                         wrapper.cancel();
                         return;
                     }
-                    // Bedrock clients may send multiple OpenInventory requests if the server doesn't respond.
+                    // 如果服务端不响应，基岩客户端可能发送多个 OpenInventory 请求。
                     PacketFactory.sendBedrockOpenInventory(wrapper.user());
                     PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer());
                 }
@@ -614,15 +614,15 @@ public class InventoryPackets {
             }
         });
         protocol.registerServerbound(ServerboundPackets26_1.SET_CREATIVE_MODE_SLOT, null, wrapper -> {
-            // NetEase 860 SAI creative clicks are owned by ClientAuthInventoryModule.
-            // Official 975 still cancels and resyncs; keep that fork here.
+            // 网易 860 的 SAI 创造模式点击由 ClientAuthInventoryModule 接管。
+            // 官方 975 仍会取消并重新同步；保留这里的这个分支。
             if (ViaBedrock.getConfig().shouldEnableExperimentalFeatures()
                     && ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
                 return;
             }
             wrapper.cancel();
-            final short slot = wrapper.read(Types.SHORT); // slot
-            final Item item = wrapper.read(VersionedTypes.V26_1.lengthPrefixedItem); // item
+            final short slot = wrapper.read(Types.SHORT); // 槽位
+            final Item item = wrapper.read(VersionedTypes.V26_1.lengthPrefixedItem); // 物品
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             if (inventoryTracker.getPendingCloseContainer() != null) {
@@ -634,7 +634,7 @@ public class InventoryPackets {
         protocol.registerServerbound(ServerboundPackets26_1.CUSTOM_CLICK_ACTION, null, wrapper -> {
             wrapper.cancel();
             final String id = wrapper.read(Types.STRING); // id
-            final CompoundTag payload = (CompoundTag) wrapper.read(Types.CUSTOM_CLICK_ACTION_TAG); // payload
+            final CompoundTag payload = (CompoundTag) wrapper.read(Types.CUSTOM_CLICK_ACTION_TAG); // 载荷
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
 
             if (inventoryTracker.getCurrentForm() != null) {
@@ -648,9 +648,9 @@ public class InventoryPackets {
                 final PacketWrapper modalFormResponse = PacketWrapper.create(ServerboundBedrockPackets.MODAL_FORM_RESPONSE, wrapper.user());
                 if (payload.contains("exit") && payload.getBoolean("exit")) {
                     modalFormResponse.write(BedrockTypes.UNSIGNED_VAR_INT, formId); // id
-                    modalFormResponse.write(Types.BOOLEAN, false); // has response
-                    modalFormResponse.write(Types.BOOLEAN, true); // has cancel reason
-                    modalFormResponse.write(Types.BYTE, (byte) ModalFormCancelReason.UserClosed.getValue()); // cancel reason
+                    modalFormResponse.write(Types.BOOLEAN, false); // 是否有响应
+                    modalFormResponse.write(Types.BOOLEAN, true); // 是否有取消原因
+                    modalFormResponse.write(Types.BYTE, (byte) ModalFormCancelReason.UserClosed.getValue()); // 取消原因
                     modalFormResponse.sendToServer(BedrockProtocol.class);
                     return;
                 }
@@ -681,24 +681,24 @@ public class InventoryPackets {
                 }
 
                 modalFormResponse.write(BedrockTypes.UNSIGNED_VAR_INT, formId); // id
-                modalFormResponse.write(Types.BOOLEAN, true); // has response
-                modalFormResponse.write(BedrockTypes.STRING, form.serializeResponse() + '\n'); // response
-                modalFormResponse.write(Types.BOOLEAN, false); // has cancel reason
+                modalFormResponse.write(Types.BOOLEAN, true); // 是否有响应
+                modalFormResponse.write(BedrockTypes.STRING, form.serializeResponse() + '\n'); // 响应
+                modalFormResponse.write(Types.BOOLEAN, false); // 是否有取消原因
                 modalFormResponse.sendToServer(BedrockProtocol.class);
             }
         });
         protocol.registerServerbound(ServerboundPackets26_1.CONTAINER_CLOSE, ServerboundBedrockPackets.CONTAINER_CLOSE, wrapper -> {
             final int javaWindowId = wrapper.read(Types.VAR_INT);
             wrapper.clearInputBuffer();
-            wrapper.write(Types.BYTE, (byte) javaWindowId); // overwritten below
+            wrapper.write(Types.BYTE, (byte) javaWindowId); // 下面会被覆写
             wrapper.write(Types.BYTE, (byte) ContainerType.NONE.getValue());
             wrapper.write(Types.BOOLEAN, false);
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final Container container = inventoryTracker.getContainerServerbound(javaWindowId);
             if (container == null) {
-                // Java's player inventory is not opened by a server container packet. Bedrock uses
-                // container -1 to close that UI after its cursor transaction has completed.
+                // Java 的玩家物品栏不是由服务端容器数据包打开的。基岩会在其光标
+                // 事务完成后用容器 -1 关闭该 UI。
                 if (javaWindowId == 0 && !inventoryTracker.isContainerOpen()) {
                     if (!ClientAuthInventoryModule.returnCursorBeforeClose(wrapper.user())) {
                         wrapper.cancel();
@@ -712,8 +712,8 @@ public class InventoryPackets {
                 return;
             }
 
-            // A Bedrock client resolves its cursor with an inventory transaction before it
-            // closes the screen. Java only sends CONTAINER_CLOSE, so provide that missing step.
+            // 基岩客户端在关闭界面前会用物品栏事务处理它的光标。
+            // Java 只发送 CONTAINER_CLOSE，所以要补上这缺失的一步。
             if (!ClientAuthInventoryModule.returnCursorBeforeClose(wrapper.user())
                     || !inventoryTracker.beginClientClose(container)) {
                 wrapper.cancel();
@@ -722,10 +722,10 @@ public class InventoryPackets {
             wrapper.set(Types.BYTE, 0, container.bedrockCloseContainerId());
         });
         protocol.registerServerbound(ServerboundPackets26_1.SET_CARRIED_ITEM, ServerboundBedrockPackets.MOB_EQUIPMENT, wrapper -> {
-            final short slot = wrapper.read(Types.SHORT); // slot
-            // Nukkit's MobEquipmentProcessor always calls setUsingItem(false), and the silent
-            // reverse F-swap restores the currently selected slot. Pin it through item use or
-            // offhand promotion so neither the use state nor the promoted slot can be corrupted.
+            final short slot = wrapper.read(Types.SHORT); // 槽位
+            // Nukkit 的 MobEquipmentProcessor 总是调用 setUsingItem(false)，而静默的
+            // 反向 F 交换会恢复当前选中的槽位。在物品使用或
+            // 副手提升期间锁定它，以免使用状态和被提升的槽位被破坏。
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
             if (clientPlayer != null && shouldBlockNetEaseHotbarChange(
                     ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
@@ -735,16 +735,16 @@ public class InventoryPackets {
                 wrapper.user().get(InventoryTracker.class).getInventoryContainer().sendSelectedHotbarSlotToClient();
                 return;
             }
-            wrapper.user().get(InventoryTracker.class).getInventoryContainer().setSelectedHotbarSlot((byte) slot, wrapper); // slot
+            wrapper.user().get(InventoryTracker.class).getInventoryContainer().setSelectedHotbarSlot((byte) slot, wrapper); // 槽位
         });
         protocol.registerServerbound(ServerboundPackets26_1.PICK_ITEM_FROM_BLOCK, ServerboundBedrockPackets.BLOCK_PICK_REQUEST, wrapper -> {
-            wrapper.passthroughAndMap(Types.BLOCK_POSITION1_14, BedrockTypes.SIGNED_BLOCK_POSITION); // signed position
-            wrapper.passthrough(Types.BOOLEAN); // include data
-            wrapper.write(Types.UNSIGNED_BYTE, (short) 9); // number of empty hotbar slots (vanilla client always sends 9)
+            wrapper.passthroughAndMap(Types.BLOCK_POSITION1_14, BedrockTypes.SIGNED_BLOCK_POSITION); // 有符号位置
+            wrapper.passthrough(Types.BOOLEAN); // 包含数据
+            wrapper.write(Types.UNSIGNED_BYTE, (short) 9); // 空快捷栏槽位数量（原版客户端总是发送 9）
         });
         protocol.registerServerbound(ServerboundPackets26_1.PICK_ITEM_FROM_ENTITY, ServerboundBedrockPackets.ENTITY_PICK_REQUEST, wrapper -> {
-            final int entityId = wrapper.read(Types.VAR_INT); // entity id
-            final boolean includeData = wrapper.read(Types.BOOLEAN); // include data
+            final int entityId = wrapper.read(Types.VAR_INT); // 实体 id
+            final boolean includeData = wrapper.read(Types.BOOLEAN); // 包含数据
 
             final Entity entity = wrapper.user().get(EntityTracker.class).getEntityByJid(entityId);
             if (entity == null) {
@@ -752,9 +752,9 @@ public class InventoryPackets {
                 if (fakeBlockPosition != null) {
                     wrapper.cancel();
                     final PacketWrapper pick = PacketWrapper.create(ServerboundBedrockPackets.BLOCK_PICK_REQUEST, wrapper.user());
-                    pick.write(BedrockTypes.SIGNED_BLOCK_POSITION, fakeBlockPosition); // signed position
-                    pick.write(Types.BOOLEAN, includeData); // include data
-                    pick.write(Types.UNSIGNED_BYTE, (short) 9); // empty hotbar slots
+                    pick.write(BedrockTypes.SIGNED_BLOCK_POSITION, fakeBlockPosition); // 有符号位置
+                    pick.write(Types.BOOLEAN, includeData); // 包含数据
+                    pick.write(Types.UNSIGNED_BYTE, (short) 9); // 空快捷栏槽位
                     pick.sendToServer(BedrockProtocol.class);
                     return;
                 }
@@ -762,9 +762,9 @@ public class InventoryPackets {
                 return;
             }
 
-            wrapper.write(BedrockTypes.LONG_LE, entity.uniqueId()); // entity unique id
-            wrapper.write(Types.UNSIGNED_BYTE, (short) 9); // number of empty hotbar slots (vanilla client always sends 9)
-            wrapper.write(Types.BOOLEAN, includeData); // include data
+            wrapper.write(BedrockTypes.LONG_LE, entity.uniqueId()); // 实体唯一 id
+            wrapper.write(Types.UNSIGNED_BYTE, (short) 9); // 空快捷栏槽位数量（原版客户端总是发送 9）
+            wrapper.write(Types.BOOLEAN, includeData); // 包含数据
         });
         protocol.registerServerbound(ServerboundPackets26_1.EDIT_BOOK, null, wrapper -> {
             wrapper.cancel();
@@ -951,13 +951,13 @@ public class InventoryPackets {
 
     private static void handleUpdateTrade(final PacketWrapper wrapper) {
         final byte windowId = wrapper.read(Types.BYTE);
-        wrapper.read(Types.BYTE); // window type (MOT always 15 / TRADE)
-        wrapper.read(BedrockTypes.VAR_INT); // size
+        wrapper.read(Types.BYTE); // 窗口类型（MOT 总是 15 / TRADE）
+        wrapper.read(BedrockTypes.VAR_INT); // 大小
         final int tradeTier = wrapper.read(BedrockTypes.VAR_INT);
         final long traderUniqueId = wrapper.read(BedrockTypes.VAR_LONG);
-        wrapper.read(BedrockTypes.VAR_LONG); // player unique id
+        wrapper.read(BedrockTypes.VAR_LONG); // 玩家唯一 id
         final String displayName = wrapper.read(BedrockTypes.STRING);
-        wrapper.read(Types.BOOLEAN); // new trading ui
+        wrapper.read(Types.BOOLEAN); // 新的交易 UI
         final boolean usingEconomyTrade = wrapper.read(Types.BOOLEAN);
         final Tag offersTag = wrapper.read(BedrockTypes.NETWORK_TAG);
         PacketLeftoverLayout.discardUnreadInput(wrapper);
@@ -1026,9 +1026,9 @@ public class InventoryPackets {
     private static void sendModalFormCancel(final UserConnection user, final int formId, final ModalFormCancelReason reason) {
         final PacketWrapper response = PacketWrapper.create(ServerboundBedrockPackets.MODAL_FORM_RESPONSE, user);
         response.write(BedrockTypes.UNSIGNED_VAR_INT, formId); // id
-        response.write(Types.BOOLEAN, false); // has response
-        response.write(Types.BOOLEAN, true); // has cancel reason
-        response.write(Types.BYTE, (byte) reason.getValue()); // cancel reason
+        response.write(Types.BOOLEAN, false); // 是否有响应
+        response.write(Types.BOOLEAN, true); // 是否有取消原因
+        response.write(Types.BYTE, (byte) reason.getValue()); // 取消原因
         response.sendToServer(BedrockProtocol.class);
     }
 

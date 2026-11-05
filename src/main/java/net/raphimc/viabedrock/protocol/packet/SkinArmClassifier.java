@@ -27,15 +27,15 @@ import java.awt.image.BufferedImage;
 import java.util.Locale;
 
 /**
- * Classifies Java slim (Alex, 3px) vs wide (Steve, 4px) arms.
+ * 区分 Java 的细手臂（Alex，3px）与宽手臂（Steve，4px）。
  * <p>
- * MOT ConfirmSkin {@code geoStr} is often a full {@code minecraft:geometry}
- * document that includes both {@code geometry.humanoid.custom} and
- * {@code geometry.humanoid.customSlim}. That document is a template pack, not
- * the player's chosen model. Bedrock clients use {@code skinResourcePatch} /
- * {@code ArmSize} from PLAYER_LIST / PLAYER_SKIN; ConfirmSkin does not carry
- * those fields. Prefer an explicit patch or arm size, then an unambiguous
- * geometry identifier, then the unused 4th arm column in the 64x64 skin.
+ * MOT ConfirmSkin 的 {@code geoStr} 常常是完整的 {@code minecraft:geometry}
+ * 文档，其中同时包含 {@code geometry.humanoid.custom} 与
+ * {@code geometry.humanoid.customSlim}。该文档是模板包，不是
+ * 玩家实际选择的模型。基岩客户端使用 PLAYER_LIST / PLAYER_SKIN 中的
+ * {@code skinResourcePatch} / {@code ArmSize}；ConfirmSkin 不携带
+ * 这些字段。优先使用显式 patch 或 arm size，其次是明确的
+ * 几何模型标识符，最后是 64x64 皮肤中未使用的第 4 条手臂列。
  */
 public final class SkinArmClassifier {
 
@@ -201,10 +201,10 @@ public final class SkinArmClassifier {
     }
 
     /**
-     * Java/Bedrock 64x64 Alex skins leave the unused 4th Steve arm column
-     * ({@code x=43, y=20..31}) transparent. 64x32 skins are always wide.
+     * Java/基岩 64x64 Alex 皮肤会让未使用的第 4 条 Steve 手臂列
+     * （{@code x=43, y=20..31}）保持透明。64x32 皮肤始终是宽手臂。
      *
-     * @return slim/wide when the column is clearly empty or painted, otherwise {@code null}
+     * @return 当该列明显为空或已绘制时返回 slim/wide，否则返回 {@code null}
      */
     public static Boolean slimFromTexture(final BufferedImage image) {
         if (image == null) {

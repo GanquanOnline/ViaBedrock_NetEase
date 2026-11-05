@@ -156,7 +156,7 @@ class LegacyItemTagRewriterTest {
         for (int bedrockMeta = 0; bedrockMeta < sequentialIds.length; bedrockMeta++) {
             ids.put(bedrockMeta, sequentialIds[bedrockMeta]);
         }
-        ids.put(36, null); // Bedrock's potion of decay uses a custom wither effect on Java.
+        ids.put(36, null); // 基岩的衰败药水在 Java 上使用自定义的凋零效果。
         ids.put(37, 19);
         ids.put(38, 20);
         ids.put(39, 21);

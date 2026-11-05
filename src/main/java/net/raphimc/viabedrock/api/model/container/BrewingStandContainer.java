@@ -34,22 +34,22 @@ public class BrewingStandContainer extends Container {
     @Override
     public int javaSlot(final int slot) {
         return switch (slot) {
-            case 0 -> 3; // ingredient -> Java slot 3
-            case 1 -> 0; // potion 1 -> Java slot 0
-            case 2 -> 1; // potion 2 -> Java slot 1
-            case 3 -> 2; // potion 3 -> Java slot 2
-            default -> slot; // fuel (4) -> Java slot 4
+            case 0 -> 3; // 原料 -> Java 槽位 3
+            case 1 -> 0; // 药水 1 -> Java 槽位 0
+            case 2 -> 1; // 药水 2 -> Java 槽位 1
+            case 3 -> 2; // 药水 3 -> Java 槽位 2
+            default -> slot; // 燃料 (4) -> Java 槽位 4
         };
     }
 
     @Override
     public int bedrockSlot(final int javaSlot) {
         return switch (javaSlot) {
-            case 0 -> 1; // Java potion 1 -> Bedrock slot 1
-            case 1 -> 2; // Java potion 2 -> Bedrock slot 2
-            case 2 -> 3; // Java potion 3 -> Bedrock slot 3
-            case 3 -> 0; // Java ingredient -> Bedrock slot 0
-            default -> javaSlot; // fuel stays 4
+            case 0 -> 1; // Java 药水 1 -> 基岩槽位 1
+            case 1 -> 2; // Java 药水 2 -> 基岩槽位 2
+            case 2 -> 3; // Java 药水 3 -> 基岩槽位 3
+            case 3 -> 0; // Java 原料 -> 基岩槽位 0
+            default -> javaSlot; // 燃料仍为 4
         };
     }
 
@@ -57,11 +57,11 @@ public class BrewingStandContainer extends Container {
     public Item[] getJavaItems() {
         final ItemRewriter itemRewriter = this.user.get(ItemRewriter.class);
         final Item[] javaItems = new Item[5];
-        javaItems[0] = itemRewriter.javaItem(this.items[1]); // potion 1
-        javaItems[1] = itemRewriter.javaItem(this.items[2]); // potion 2
-        javaItems[2] = itemRewriter.javaItem(this.items[3]); // potion 3
-        javaItems[3] = itemRewriter.javaItem(this.items[0]); // ingredient
-        javaItems[4] = itemRewriter.javaItem(this.items[4]); // fuel
+        javaItems[0] = itemRewriter.javaItem(this.items[1]); // 药水 1
+        javaItems[1] = itemRewriter.javaItem(this.items[2]); // 药水 2
+        javaItems[2] = itemRewriter.javaItem(this.items[3]); // 药水 3
+        javaItems[3] = itemRewriter.javaItem(this.items[0]); // 原料
+        javaItems[4] = itemRewriter.javaItem(this.items[4]); // 燃料
         return javaItems;
     }
 

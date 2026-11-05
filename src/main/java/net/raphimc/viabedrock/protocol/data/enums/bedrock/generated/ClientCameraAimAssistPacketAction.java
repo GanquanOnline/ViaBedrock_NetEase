@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -6,13 +6,9 @@ import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectOpenHashMap;
 
 public enum ClientCameraAimAssistPacketAction {
 
-    /**
-     * Sets aim-assist to use the settings from a CameraPresets aim_assist field
-     */
+    /** 设置瞄准辅助使用 CameraPresets 中 aim_assist 字段的配置 */
     SetFromCameraPreset(0),
-    /**
-     * Clears aim-assist settings
-     */
+    /** 清除瞄准辅助设置 */
     Clear(1),
     ;
 

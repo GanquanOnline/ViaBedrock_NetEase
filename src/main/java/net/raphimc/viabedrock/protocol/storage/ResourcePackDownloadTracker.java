@@ -184,7 +184,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
         return Math.toIntExact(chunkCount);
     }
 
-    /** Removes an incomplete or unclaimed download and deletes its temporary file. */
+    /** 移除未完成或无人认领的下载，并删除其临时文件。 */
     public void remove(final String key) {
         final Download download;
         synchronized (this.lifecycleLock) {
@@ -195,7 +195,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
         }
     }
 
-    /** Transfers ownership of a completed temporary file to the CAS publisher. */
+    /** 把已完成的临时文件的所有权转交给 CAS 发布器。 */
     public Path takeCompleted(final String key) {
         final Download download;
         final Path completedFile;
@@ -220,7 +220,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
         }
     }
 
-    /** Cancels connection-local transfer work without poisoning the shared archive failure backoff. */
+    /** 取消连接本地的传输工作，而不污染共享的归档失败退避。 */
     public void cancel(final String key, final Throwable reason) {
         final Download download;
         synchronized (this.lifecycleLock) {
@@ -298,8 +298,8 @@ public class ResourcePackDownloadTracker implements StorableObject {
     }
 
     /**
-     * Tracks a follower claim until it either completes or is promoted. The returned future is cancellation-detached
-     * from the shared flight; callers should start protocol chunk requests only when it completes with {@code true}.
+     * 跟踪跟随者认领直至其完成或被提升。返回的 future 与共享飞行任务解绑取消；
+     * 调用方应仅在其以 {@code true} 完成时才发起协议区块请求。
      */
     public CompletableFuture<Boolean> trackArchiveClaim(final ResourcePackArchiveStore.Claim claim) {
         Objects.requireNonNull(claim, "claim");
@@ -349,9 +349,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
             this.channel = FileChannel.open(tempFile, StandardOpenOption.WRITE);
         }
 
-        /**
-         * Writes one protocol chunk at its announced offset. Returns the completed file after the last chunk.
-         */
+        /** 在其声明的偏移处写入一个协议区块。最后一块之后返回完成的文件。 */
         public synchronized Path processDataChunk(final long chunk, final long byteOffset, final byte[] data)
                 throws IOException {
             return this.processDataChunkResult(chunk, byteOffset, data).completedFile();
@@ -444,7 +442,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
             }
         }
 
-        /** Serializes file writes on the bounded shared IO executor. */
+        /** 在有界共享 IO 执行器上串行化文件写入。 */
         public CompletableFuture<ChunkResult> processDataChunkAsync(final ResourcePackWorkScheduler scheduler,
                                                                    final long chunk, final long byteOffset,
                                                                    final byte[] data) {
@@ -456,7 +454,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
             }
         }
 
-        /** Verifies non-CAS downloads without materializing the archive in the heap. */
+        /** 校验非 CAS 下载，且不在堆中实际展开归档。 */
         public synchronized void verifyCompletedHash() throws IOException {
             if (!this.completed) {
                 throw new IllegalStateException("Resource pack download is incomplete");
@@ -498,7 +496,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
             }
         }
 
-        /** Reconstructs the legacy per-connection in-memory pack without involving the shared CAS. */
+        /** 重建旧式的每连接内存资源包，不涉及共享 CAS。 */
         public CompletableFuture<ResourcePack> loadCompletedLegacyPackAsync(
                 final ResourcePackWorkScheduler scheduler) {
             synchronized (this.ioChainLock) {
@@ -594,7 +592,7 @@ public class ResourcePackDownloadTracker implements StorableObject {
             return this.chunkCount;
         }
 
-        /** Claims one not-yet-requested chunk id, or {@code -1} when the whole request window was issued. */
+        /** 认领一个尚未请求的区块 id；当整个请求窗口都已发出时返回 {@code -1}。 */
         public synchronized long claimNextChunkRequest() {
             if (this.nextChunkRequest >= this.chunkCount) {
                 return -1L;

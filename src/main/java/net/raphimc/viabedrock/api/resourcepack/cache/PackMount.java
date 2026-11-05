@@ -11,9 +11,7 @@ package net.raphimc.viabedrock.api.resourcepack.cache;
 
 import java.util.Objects;
 
-/**
- * One ordered stack mount, binding a declared alias to exact content and a subpack selection.
- */
+/** 一个有序堆叠挂载，把声明的别名绑定到确切内容和一次子包选择。 */
 public record PackMount(PackAlias alias, ContentDigest contentDigest, String subpack) {
 
     public PackMount {

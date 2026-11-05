@@ -29,11 +29,11 @@ public class ExperimentalPacketFactory {
 
     public static void sendBedrockPlayerAction(final UserConnection user, long entityId, PlayerActionType actionType, BlockPosition position, BlockPosition resultPosition, int face) {
         final PacketWrapper startItemUseOn = PacketWrapper.create(ServerboundBedrockPackets.PLAYER_ACTION, user);
-        startItemUseOn.write(BedrockTypes.UNSIGNED_VAR_LONG, entityId); // entity runtime id
-        startItemUseOn.write(BedrockTypes.VAR_INT, actionType.getValue()); // action type
-        startItemUseOn.write(BedrockTypes.BLOCK_POSITION, position); // block position
-        startItemUseOn.write(BedrockTypes.BLOCK_POSITION, resultPosition); // result position
-        startItemUseOn.write(BedrockTypes.VAR_INT, face); // face
+        startItemUseOn.write(BedrockTypes.UNSIGNED_VAR_LONG, entityId); // 实体运行时 ID
+        startItemUseOn.write(BedrockTypes.VAR_INT, actionType.getValue()); // 动作类型
+        startItemUseOn.write(BedrockTypes.BLOCK_POSITION, position); // 方块位置
+        startItemUseOn.write(BedrockTypes.BLOCK_POSITION, resultPosition); // 结果位置
+        startItemUseOn.write(BedrockTypes.VAR_INT, face); // 面
         startItemUseOn.sendToServer(BedrockProtocol.class);
     }
 

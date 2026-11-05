@@ -86,9 +86,9 @@ public class WorldPackets {
         return wrapper -> {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final BlockPosition position = wrapper.get(Types.BLOCK_POSITION1_14, 0);
-            final int blockState = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // block state
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // flags
-            final int layer = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // layer
+            final int blockState = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 方块状态
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 标志位
+            final int layer = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 层
             if (layer < 0 || layer > 1) {
                 wrapper.cancel();
                 return;
@@ -100,24 +100,23 @@ public class WorldPackets {
                 return;
             }
 
-            // Recompute neighbor-aware blocks (stair shapes, fence/pane connections, door/bed halves) for this change
-            // and every neighbor it affects.
+            // 针对本次改动及其影响的每个相邻方块，重新计算依赖邻居的方块（楼梯形状、栅栏/铁板连接、门/床的两半）。
             final CustomBlockDisplayTracker displayTracker = wrapper.user().get(CustomBlockDisplayTracker.class);
             final int displayState = displayTracker != null
                     ? displayTracker.overlayJavaBlockState(blockState, remappedBlock.keyInt())
                     : remappedBlock.keyInt();
             final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
             final Map<BlockPosition, Integer> updates = BedrockProtocol.MAPPINGS.getNeighborRewriter().resolveUpdate(view, position, displayState);
-            wrapper.write(Types.VAR_INT, updates.getOrDefault(position, displayState)); // block state
+            wrapper.write(Types.VAR_INT, updates.getOrDefault(position, displayState)); // 方块状态
 
-            // UPDATE_BLOCK_SYNCED appends entity runtime id + sync type after the common fields.
-            // Consume them before leftover discard so send() cannot copy those varlongs onto Java BLOCK_UPDATE.
+            // UPDATE_BLOCK_SYNCED 在公共字段之后追加实体运行时 ID 和同步类型。
+            // 必须在丢弃剩余字节之前读走它们，否则 send() 会把这些 varlong 复制到 Java 的 BLOCK_UPDATE 上。
             if (synced) {
-                wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // entity runtime id
-                wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // block sync type
+                wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
+                wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 方块同步类型
             }
 
-            // Send the BLOCK_UPDATE explicitly to ensure it arrives before any deferred BlockChangedAck
+            // 显式发送 BLOCK_UPDATE，确保它先于任何延迟的 BlockChangedAck 到达
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
@@ -137,7 +136,7 @@ public class WorldPackets {
                 PacketFactory.sendJavaBlockEntityData(wrapper.user(), position, remappedBlock.value());
             }
 
-            // Java client must receive the authoritative main-layer state before ending this break prediction.
+            // Java 客户端必须在结束这条破坏预测之前收到权威的主层状态。
             if (layer == 0) {
                 final BlockBreakingProgressTracker breakTracker = wrapper.user().get(BlockBreakingProgressTracker.class);
                 if (breakTracker != null) {
@@ -148,9 +147,9 @@ public class WorldPackets {
                 }
             }
 
-            // Send deferred BlockChangedAck for block placement (experimental feature).
-            // The ack must arrive AFTER the BLOCK_UPDATE so the Java client's prediction is cleared
-            // only after the server-known state has been updated, preventing placement flicker.
+            // 为方块放置发送延迟的 BlockChangedAck（实验性功能）。
+            // 该 ack 必须在 BLOCK_UPDATE 之后到达，这样 Java 客户端的预测
+            // 只会在服务端已知状态更新之后才被清除，避免放置闪烁。
             final BlockPlacementAckTracker tracker = wrapper.user().get(BlockPlacementAckTracker.class);
             if (tracker != null) {
                 final Integer seq = tracker.consumeAck(position);
@@ -166,26 +165,26 @@ public class WorldPackets {
 
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.SET_SPAWN_POSITION, ClientboundPackets26_1.SET_DEFAULT_SPAWN_POSITION, wrapper -> {
-            final int rawType = wrapper.read(BedrockTypes.VAR_INT); // type
+            final int rawType = wrapper.read(BedrockTypes.VAR_INT); // 类型
             final SpawnPositionType type = SpawnPositionType.getByValue(rawType);
             if (type == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SpawnPositionType: " + rawType);
                 wrapper.cancel();
                 return;
             }
-            final BlockPosition compassPosition = wrapper.read(BedrockTypes.BLOCK_POSITION); // compass position
-            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // dimension
+            final BlockPosition compassPosition = wrapper.read(BedrockTypes.BLOCK_POSITION); // 指南针坐标
+            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 维度
             if (dimension == null) {
                 wrapper.cancel();
                 return;
             }
-            wrapper.read(BedrockTypes.BLOCK_POSITION); // spawn position
+            wrapper.read(BedrockTypes.BLOCK_POSITION); // 生成坐标
 
             switch (type) {
                 case WorldSpawn -> {
                     wrapper.write(Types.GLOBAL_POSITION, new GlobalBlockPosition(dimension.getKey(), compassPosition.x(), compassPosition.y(), compassPosition.z()));
-                    wrapper.write(Types.FLOAT, 0F); // yaw
-                    wrapper.write(Types.FLOAT, 0F); // pitch
+                    wrapper.write(Types.FLOAT, 0F); // 偏航角
+                    wrapper.write(Types.FLOAT, 0F); // 俯仰角
                 }
                 case PlayerRespawn -> wrapper.cancel();
                 default -> throw new IllegalStateException("Unhandled SpawnPositionType: " + type);
@@ -195,18 +194,18 @@ public class WorldPackets {
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
 
-            final int dimensionId = wrapper.read(BedrockTypes.VAR_INT); // dimension
+            final int dimensionId = wrapper.read(BedrockTypes.VAR_INT); // 维度
             final Dimension dimension = Dimension.getByValue(dimensionId);
             if (dimension == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Received CHANGE_DIMENSION with invalid dimension id: " + dimensionId);
                 wrapper.cancel();
                 return;
             }
-            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // position
-            wrapper.read(Types.BOOLEAN); // respawn
+            final Position3f position = wrapper.read(BedrockTypes.POSITION_3F); // 坐标
+            wrapper.read(Types.BOOLEAN); // 重生
             final Long loadingScreenId;
-            if (wrapper.read(Types.BOOLEAN)) { // has loading screen id
-                loadingScreenId = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // loading screen id
+            if (wrapper.read(Types.BOOLEAN)) { // 是否带加载界面 ID
+                loadingScreenId = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 加载界面 ID
             } else {
                 loadingScreenId = null;
             }
@@ -239,47 +238,47 @@ public class WorldPackets {
                 inventoryTracker.closeCurrentForm();
             }
 
-            wrapper.write(Types.VAR_INT, dimension.ordinal()); // dimension type id
-            wrapper.write(Types.STRING, dimensionKey); // dimension name
-            wrapper.write(Types.LONG, 0L); // hashed seed
+            wrapper.write(Types.VAR_INT, dimension.ordinal()); // 维度类型 ID
+            wrapper.write(Types.STRING, dimensionKey); // 维度名
+            wrapper.write(Types.LONG, 0L); // 哈希种子
             final SpectatorCameraTracker spectatorCamera = wrapper.user().get(SpectatorCameraTracker.class);
-            wrapper.write(Types.BYTE, (byte) spectatorCamera.projectJavaGameMode(clientPlayer.javaGameMode()).ordinal()); // game mode
-            wrapper.write(Types.BYTE, (byte) -1); // previous game mode
-            wrapper.write(Types.BOOLEAN, false); // is debug
-            wrapper.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // is flat
-            wrapper.write(Types.OPTIONAL_GLOBAL_POSITION, null); // last death position
-            wrapper.write(Types.VAR_INT, 0); // portal cooldown
-            wrapper.write(Types.VAR_INT, 64); // sea level
-            wrapper.write(Types.BYTE, (byte) (RespawnKeepFlag.ATTRIBUTE_MODIFIERS.getBit() | RespawnKeepFlag.ENTITY_DATA.getBit())); // keep data mask
+            wrapper.write(Types.BYTE, (byte) spectatorCamera.projectJavaGameMode(clientPlayer.javaGameMode()).ordinal()); // 游戏模式
+            wrapper.write(Types.BYTE, (byte) -1); // 上一游戏模式
+            wrapper.write(Types.BOOLEAN, false); // 是否为调试模式
+            wrapper.write(Types.BOOLEAN, gameSession.isFlatGenerator()); // 是否为超平坦
+            wrapper.write(Types.OPTIONAL_GLOBAL_POSITION, null); // 上次死亡坐标
+            wrapper.write(Types.VAR_INT, 0); // 传送门冷却
+            wrapper.write(Types.VAR_INT, 64); // 海平面
+            wrapper.write(Types.BYTE, (byte) (RespawnKeepFlag.ATTRIBUTE_MODIFIERS.getBit() | RespawnKeepFlag.ENTITY_DATA.getBit())); // 保留数据掩码
             PacketLeftoverLayout.discardUnreadInput(wrapper);
             wrapper.send(BedrockProtocol.class);
             wrapper.cancel();
             chunkTracker.resetJavaChunkLoading();
             clientPlayer.sendPlayerPositionPacketToClient(Relative.NONE);
-            // Waterdog 1.19.50+ injects CHANGE_DIMENSION then a server-originated
-            // DIMENSION_CHANGE_SUCCESS. Java clients skip the fake-dimension trick
-            // and wait for this ACK. Send it immediately so leftover bytes or packet
-            // order cannot stall the handshake.
+            // Waterdog 1.19.50+ 会先注入 CHANGE_DIMENSION，再注入一个由服务端发出的
+            // DIMENSION_CHANGE_SUCCESS。Java 客户端会跳过假维度技巧
+            // 并等待这个 ACK。立即发送它，这样剩余字节或数据包
+            // 顺序都不会卡住握手。
             clientPlayer.sendPlayerActionPacketToServer(PlayerActionType.ChangeDimensionAck);
             PacketFactory.sendBedrockLoadingScreen(wrapper.user(), ServerboundLoadingScreenPacketType.EndLoadingScreen, loadingScreenId);
             clientPlayer.setDimensionChangeInfo(null);
-            clientPlayer.sendAttribute("minecraft:health"); // Java client always resets health on respawn, but Bedrock client keeps health when switching dimensions
+            clientPlayer.sendAttribute("minecraft:health"); // Java 客户端重生时总会重置生命值，而基岩客户端切换维度时会保留生命值
             wrapper.user().get(PlayerArmorHudTracker.class).forceSync();
-            clientPlayer.sendEffects(); // Java client always resets effects on respawn. Resend them
+            clientPlayer.sendEffects(); // Java 客户端重生时总会重置状态效果。重新发送它们
 
             final PacketWrapper initializeBorder = PacketWrapper.create(ClientboundPackets26_1.INITIALIZE_BORDER, wrapper.user());
-            initializeBorder.write(Types.DOUBLE, 0D); // center x
-            initializeBorder.write(Types.DOUBLE, 0D); // center z
-            initializeBorder.write(Types.DOUBLE, 0D); // old size
-            initializeBorder.write(Types.DOUBLE, 60_000_000D); // new size
-            initializeBorder.write(Types.VAR_LONG, 0L); // lerp time
-            initializeBorder.write(Types.VAR_INT, 60_000_000); // new absolute max size
-            initializeBorder.write(Types.VAR_INT, 0); // warning blocks
-            initializeBorder.write(Types.VAR_INT, 0); // warning time
+            initializeBorder.write(Types.DOUBLE, 0D); // 中心 x
+            initializeBorder.write(Types.DOUBLE, 0D); // 中心 z
+            initializeBorder.write(Types.DOUBLE, 0D); // 旧大小
+            initializeBorder.write(Types.DOUBLE, 60_000_000D); // 新大小
+            initializeBorder.write(Types.VAR_LONG, 0L); // 插值时间
+            initializeBorder.write(Types.VAR_INT, 60_000_000); // 新的绝对最大大小
+            initializeBorder.write(Types.VAR_INT, 0); // 警告距离（方块）
+            initializeBorder.write(Types.VAR_INT, 0); // 警告时间
             initializeBorder.send(BedrockProtocol.class);
 
-            PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer()); // Java client always resets inventory on respawn. Resend it
-            inventoryTracker.getInventoryContainer().sendSelectedHotbarSlotToClient(); // Java client always resets selected hotbar slot on respawn. Resend it
+            PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer()); // Java 客户端重生时总会重置物品栏。重新发送它
+            inventoryTracker.getInventoryContainer().sendSelectedHotbarSlotToClient(); // Java 客户端重生时总会重置选中的快捷栏槽位。重新发送它
             spectatorCamera.restorePresentationAfterClientReset();
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_CHUNK, null, wrapper -> {
@@ -287,14 +286,14 @@ public class WorldPackets {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final GameSessionStorage gameSession = wrapper.user().get(GameSessionStorage.class);
 
-            final int chunkX = wrapper.read(BedrockTypes.VAR_INT); // chunk x
-            final int chunkZ = wrapper.read(BedrockTypes.VAR_INT); // chunk z
-            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // dimension
+            final int chunkX = wrapper.read(BedrockTypes.VAR_INT); // 区块 x
+            final int chunkZ = wrapper.read(BedrockTypes.VAR_INT); // 区块 z
+            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 维度
             if (dimension != chunkTracker.getDimension()) {
                 return;
             }
-            final int sectionCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // sub chunk count
-            if (sectionCount < -2) { // Bedrock client ignores this packet
+            final int sectionCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 子区块数量
+            if (sectionCount < -2) { // 基岩客户端会忽略这个数据包
                 return;
             }
 
@@ -302,7 +301,7 @@ public class WorldPackets {
             final int endY = chunkTracker.getMaxY() >> 4;
             int requestSectionCount = 0;
             if (sectionCount == -2) {
-                requestSectionCount = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE) + 1; // count
+                requestSectionCount = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE) + 1; // 数量
             } else if (sectionCount == -1) {
                 requestSectionCount = endY - startY;
             }
@@ -333,7 +332,7 @@ public class WorldPackets {
                     final List<BlockEntity> blockEntities = chunk.blockEntities();
                     try {
                         for (int i = 0; i < sectionCount; i++) {
-                            sections[i].mergeWith(chunkTracker.handleBlockPalette(BedrockTypes.CHUNK_SECTION.read(dataBuf))); // chunk section
+                            sections[i].mergeWith(chunkTracker.handleBlockPalette(BedrockTypes.CHUNK_SECTION.read(dataBuf))); // 区块段
                             sections[i].applyPendingBlockUpdates(chunkTracker.bedrockAirId());
                         }
                         if (gameSession.getBedrockVanillaVersion().isLowerThan("1.18.0")) {
@@ -344,7 +343,7 @@ public class WorldPackets {
                             }
                         } else {
                             for (int i = 0; i < sections.length; i++) {
-                                BedrockDataPalette biomePalette = BedrockTypes.RUNTIME_DATA_PALETTE.read(dataBuf); // biome palette
+                                BedrockDataPalette biomePalette = BedrockTypes.RUNTIME_DATA_PALETTE.read(dataBuf); // 生物群系调色板
                                 if (biomePalette == null) {
                                     if (i == 0) {
                                         throw new RuntimeException("First biome palette can not point to previous biome palette");
@@ -355,15 +354,15 @@ public class WorldPackets {
                             }
                         }
 
-                        dataBuf.skipBytes(1); // border blocks
+                        dataBuf.skipBytes(1); // 边界方块
                         while (dataBuf.isReadable()) {
-                            final Tag tag = BedrockTypes.NETWORK_TAG.read(dataBuf); // block entity tag
-                            if (tag instanceof CompoundTag) { // Ignore non-compound tags
+                            final Tag tag = BedrockTypes.NETWORK_TAG.read(dataBuf); // 方块实体标签
+                            if (tag instanceof CompoundTag) { // 忽略非 compound 标签
                                 blockEntities.add(new BedrockBlockEntity((CompoundTag) tag));
                             }
                         }
                     } catch (IndexOutOfBoundsException ignored) {
-                        // Bedrock client stops reading at whatever point and loads whatever it has read successfully
+                        // 基岩客户端会在读到的位置停止，并加载所有已成功读取的内容
                     } catch (Throwable e) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error reading chunk data", e);
                     }
@@ -382,13 +381,13 @@ public class WorldPackets {
                 }
             };
 
-            if (wrapper.read(Types.BOOLEAN)) { // caching enabled
-                final Long[] blobs = wrapper.read(BedrockTypes.LONG_ARRAY); // blob ids
+            if (wrapper.read(Types.BOOLEAN)) { // 是否启用缓存
+                final Long[] blobs = wrapper.read(BedrockTypes.LONG_ARRAY); // blob ID 列表
                 final int expectedLength = sectionCount < 0 ? 1 : sectionCount + 1;
-                if (blobs.length != expectedLength) { // Bedrock client writes random memory contents into the request and most likely crashes
+                if (blobs.length != expectedLength) { // 基岩客户端会把随机的内存内容写入请求，极可能导致崩溃
                     throw new IllegalStateException("Invalid blob count: " + blobs.length + " (expected " + expectedLength + ")");
                 }
-                final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // data
+                final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // 数据
                 wrapper.user().get(BlobCache.class).getBlob(blobs).thenAccept(blob -> {
                     final byte[] combinedData = new byte[data.length + blob.length];
                     System.arraycopy(blob, 0, combinedData, 0, blob.length);
@@ -396,32 +395,32 @@ public class WorldPackets {
                     dataConsumer.accept(combinedData);
                 });
             } else {
-                dataConsumer.accept(wrapper.read(BedrockTypes.BYTE_ARRAY)); // data
+                dataConsumer.accept(wrapper.read(BedrockTypes.BYTE_ARRAY)); // 数据
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SUB_CHUNK, null, wrapper -> {
             wrapper.cancel();
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
 
-            final boolean cachingEnabled = wrapper.read(Types.BOOLEAN); // caching enabled
-            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // dimension
+            final boolean cachingEnabled = wrapper.read(Types.BOOLEAN); // 是否启用缓存
+            final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 维度
             if (dimension != chunkTracker.getDimension()) {
                 return;
             }
-            final BlockPosition center = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // signed center position
-            final long count = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // count
+            final BlockPosition center = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 中心坐标（有符号）
+            final long count = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 数量
 
             for (long i = 0; i < count; i++) {
-                final BlockPosition offset = wrapper.read(BedrockTypes.SUB_CHUNK_OFFSET); // offset
-                final SubChunkPacket_SubChunkRequestResult result = SubChunkPacket_SubChunkRequestResult.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_SubChunkRequestResult.Undefined); // result
-                final byte[] data = result != SubChunkPacket_SubChunkRequestResult.SuccessAllAir || !cachingEnabled ? wrapper.read(BedrockTypes.BYTE_ARRAY) : new byte[0]; // data
-                final SubChunkPacket_HeightMapDataType heightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // heightmap result
+                final BlockPosition offset = wrapper.read(BedrockTypes.SUB_CHUNK_OFFSET); // 偏移
+                final SubChunkPacket_SubChunkRequestResult result = SubChunkPacket_SubChunkRequestResult.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_SubChunkRequestResult.Undefined); // 结果
+                final byte[] data = result != SubChunkPacket_SubChunkRequestResult.SuccessAllAir || !cachingEnabled ? wrapper.read(BedrockTypes.BYTE_ARRAY) : new byte[0]; // 数据
+                final SubChunkPacket_HeightMapDataType heightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 高度图结果
                 if (heightmapResult == SubChunkPacket_HeightMapDataType.HasData) {
-                    wrapper.read(new ByteArrayType(256)); // heightmap data
+                    wrapper.read(new ByteArrayType(256)); // 高度图数据
                 }
-                final SubChunkPacket_HeightMapDataType renderHeightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // render heightmap result
+                final SubChunkPacket_HeightMapDataType renderHeightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 渲染高度图结果
                 if (renderHeightmapResult == SubChunkPacket_HeightMapDataType.HasData) {
-                    wrapper.read(new ByteArrayType(256)); // render heightmap data
+                    wrapper.read(new ByteArrayType(256)); // 渲染高度图数据
                 }
 
                 final BlockPosition absolute = new BlockPosition(center.x() + offset.x(), center.y() + offset.y(), center.z() + offset.z());
@@ -438,15 +437,15 @@ public class WorldPackets {
                             BedrockChunkSection section = new BedrockChunkSectionImpl();
                             final List<BedrockBlockEntity> blockEntities = new ArrayList<>();
                             try {
-                                section = BedrockTypes.CHUNK_SECTION.read(dataBuf); // chunk section
+                                section = BedrockTypes.CHUNK_SECTION.read(dataBuf); // 区块段
                                 while (dataBuf.isReadable()) {
-                                    final Tag tag = BedrockTypes.NETWORK_TAG.read(dataBuf); // block entity tag
-                                    if (tag instanceof CompoundTag) { // Ignore non-compound tags
+                                    final Tag tag = BedrockTypes.NETWORK_TAG.read(dataBuf); // 方块实体标签
+                                    if (tag instanceof CompoundTag) { // 忽略非 compound 标签
                                         blockEntities.add(new BedrockBlockEntity((CompoundTag) tag));
                                     }
                                 }
                             } catch (IndexOutOfBoundsException ignored) {
-                                // Bedrock client stops reading at whatever point and loads whatever it has read successfully
+                                // 基岩客户端会在读到的位置停止，并加载所有已成功读取的内容
                             } catch (Throwable e) {
                                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error reading sub chunk data", e);
                             }
@@ -479,7 +478,7 @@ public class WorldPackets {
                 };
 
                 if (cachingEnabled) {
-                    final long hash = wrapper.read(BedrockTypes.LONG_LE); // blob id
+                    final long hash = wrapper.read(BedrockTypes.LONG_LE); // blob 标识
                     if (waitingForBlob) {
                         final CompletableFuture<byte[]> blobFuture;
                         try {
@@ -514,7 +513,7 @@ public class WorldPackets {
                         try {
                             wrapper.user().get(BlobCache.class).getBlob(hash);
                         } catch (Throwable throwable) {
-                            // All-air and explicit failure responses do not depend on the optional cache side effect.
+                            // 全空气响应和显式失败响应都不依赖可选的缓存副作用。
                             ViaBedrock.getPlatform().getLogger().fine(
                                     "Failed to acknowledge optional sub chunk blob at " + absolute + ": " + throwable
                             );
@@ -529,24 +528,24 @@ public class WorldPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_BLOCK, ClientboundPackets26_1.BLOCK_UPDATE, new PacketHandlers() {
             @Override
             protected void register() {
-                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // position
+                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // 坐标
                 handler(updateBlockHandler(false));
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_BLOCK_SYNCED, ClientboundPackets26_1.BLOCK_UPDATE, new PacketHandlers() {
             @Override
             protected void register() {
-                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // position
+                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // 坐标
                 handler(updateBlockHandler(true));
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.UPDATE_SUB_CHUNK_BLOCKS, null, wrapper -> {
-            wrapper.cancel(); // Need multiple packets because offsets can go over chunk boundaries
+            wrapper.cancel(); // 需要多个数据包，因为偏移可能跨过区块边界
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
-            wrapper.read(BedrockTypes.BLOCK_POSITION); // position | Seems to be unused by the Bedrock client
+            wrapper.read(BedrockTypes.BLOCK_POSITION); // 坐标 | 基岩客户端似乎未使用
             final BlockChangeEntry[][] blockUpdatesArray = new BlockChangeEntry[2][];
-            blockUpdatesArray[0] = wrapper.read(BedrockTypes.BLOCK_CHANGE_ENTRY_ARRAY); // standard blocks
-            blockUpdatesArray[1] = wrapper.read(BedrockTypes.BLOCK_CHANGE_ENTRY_ARRAY); // extra blocks
+            blockUpdatesArray[0] = wrapper.read(BedrockTypes.BLOCK_CHANGE_ENTRY_ARRAY); // 标准方块
+            blockUpdatesArray[1] = wrapper.read(BedrockTypes.BLOCK_CHANGE_ENTRY_ARRAY); // 额外方块
 
             final Map<BlockPosition, List<BlockChangeRecord>> blockChanges = new HashMap<>();
             final Map<BlockPosition, BlockEntity> blockEntities = new HashMap<>();
@@ -574,8 +573,7 @@ public class WorldPackets {
                 }
             }
 
-            // Recompute neighbor-aware fixes (stair shapes, connections, door/bed halves) after every change in this
-            // batch has been applied to the tracker, so cross-block lookups see the final state of the whole batch.
+            // 在本批次的所有改动都应用到跟踪器之后，重新计算依赖邻居的修正（楼梯形状、连接、门/床的两半），以便跨方块查询能看到整个批次的最终状态。
             final BlockNeighborView view = new TrackerNeighborView(chunkTracker);
             final NeighborAwareBlockRewriter neighborRewriter = BedrockProtocol.MAPPINGS.getNeighborRewriter();
             final Map<BlockPosition, Integer> finalBlockStates = new LinkedHashMap<>();
@@ -596,8 +594,8 @@ public class WorldPackets {
                 final long chunkKey = packJavaSectionPosition(chunkPosition.x(), chunkPosition.y(), chunkPosition.z());
 
                 final PacketWrapper multiBlockChange = wrapper.create(ClientboundPackets26_1.SECTION_BLOCKS_UPDATE);
-                multiBlockChange.write(Types.LONG, chunkKey); // chunk position
-                multiBlockChange.write(Types.VAR_LONG_BLOCK_CHANGE_ARRAY, changes.toArray(new BlockChangeRecord[0])); // block change records
+                multiBlockChange.write(Types.LONG, chunkKey); // 区块坐标
+                multiBlockChange.write(Types.VAR_LONG_BLOCK_CHANGE_ARRAY, changes.toArray(new BlockChangeRecord[0])); // 方块改动记录
                 multiBlockChange.send(BedrockProtocol.class);
             }
             for (Map.Entry<BlockPosition, BlockEntity> entry : blockEntities.entrySet()) {
@@ -625,9 +623,9 @@ public class WorldPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.BLOCK_ENTITY_DATA, ClientboundPackets26_1.BLOCK_ENTITY_DATA, new PacketHandlers() {
             @Override
             protected void register() {
-                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // position
+                map(BedrockTypes.BLOCK_POSITION, Types.BLOCK_POSITION1_14); // 坐标
                 handler(wrapper -> {
-                    final Tag tag = wrapper.read(BedrockTypes.NETWORK_TAG); // block entity tag
+                    final Tag tag = wrapper.read(BedrockTypes.NETWORK_TAG); // 方块实体标签
                     if (!(tag instanceof CompoundTag)) {
                         wrapper.cancel();
                         return;
@@ -637,7 +635,7 @@ public class WorldPackets {
                     final BedrockBlockEntity bedrockBlockEntity = new BedrockBlockEntity(wrapper.get(Types.BLOCK_POSITION1_14, 0), (CompoundTag) tag);
                     chunkTracker.addBlockEntity(bedrockBlockEntity);
 
-                    // Item frames are translated to Java entities, not block entities. Update the frame's displayed item/rotation.
+                    // 物品展示框会被转换为 Java 实体而非方块实体。更新展示框显示出的物品/朝向。
                     final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
                     if (entityTracker.getItemFrameId(bedrockBlockEntity.position()) != -1) {
                         entityTracker.updateItemFrameContents(bedrockBlockEntity.position(), bedrockBlockEntity.tag());
@@ -651,8 +649,8 @@ public class WorldPackets {
                     }
 
                     if (javaBlockEntity != null && javaBlockEntity.tag() != null) {
-                        wrapper.write(Types.VAR_INT, javaBlockEntity.typeId()); // type
-                        wrapper.write(Types.COMPOUND_TAG, javaBlockEntity.tag()); // block entity tag
+                        wrapper.write(Types.VAR_INT, javaBlockEntity.typeId()); // 类型
+                        wrapper.write(Types.COMPOUND_TAG, javaBlockEntity.tag()); // 方块实体标签
                     } else {
                         wrapper.cancel();
                     }
@@ -660,30 +658,30 @@ public class WorldPackets {
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.NETWORK_CHUNK_PUBLISHER_UPDATE, ClientboundPackets26_1.SET_CHUNK_CACHE_RADIUS, wrapper -> {
-            final BlockPosition position = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // signed center position
-            final int radius = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT) >> 4; // radius
+            final BlockPosition position = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 中心坐标（有符号）
+            final int radius = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT) >> 4; // 半径
             final int publisherChunkX = position.x() >> 4;
             final int publisherChunkZ = position.z() >> 4;
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final int previousRadius = chunkTracker.radius();
-            // MOT orderChunks() can publish (0,0) or a stale last-order column while
-            // START_GAME spawn is Lobby [13,13]. Java 1.21.11 unloads everything
-            // outside SET_CHUNK_CACHE_CENTER +/- radius, so keep the player column
-            // inside the window and never shrink below viewDistance.
-            // Ref: MOT Player.orderChunks; ChunkTracker.resolveJavaCacheCenter.
+            // 当 START_GAME 生成点为 Lobby [13,13] 时，MOT 的 orderChunks() 可能发布 (0,0)
+            // 或一个过期的最后排序区块。Java 1.21.11 会卸载 SET_CHUNK_CACHE_CENTER
+            // ± 半径之外的所有内容，因此要把玩家所在区块保留在窗口内，
+            // 且半径不得小于 viewDistance。
+            // 参考：MOT Player.orderChunks；ChunkTracker.resolveJavaCacheCenter。
             final boolean centerChanged = chunkTracker.applyPublisher(publisherChunkX, publisherChunkZ, radius);
-            wrapper.write(Types.VAR_INT, chunkTracker.radius()); // radius
+            wrapper.write(Types.VAR_INT, chunkTracker.radius()); // 半径
 
-            final int count = wrapper.read(BedrockTypes.INT_LE); // server built chunks count
+            final int count = wrapper.read(BedrockTypes.INT_LE); // 服务端已构建区块数量
             for (int i = 0; i < count; i++) {
-                wrapper.read(BedrockTypes.VAR_INT); // chunk x
-                wrapper.read(BedrockTypes.VAR_INT); // chunk z
+                wrapper.read(BedrockTypes.VAR_INT); // 区块 x
+                wrapper.read(BedrockTypes.VAR_INT); // 区块 z
             }
 
             if (centerChanged) {
                 final PacketWrapper updateViewPosition = wrapper.create(ClientboundPackets26_1.SET_CHUNK_CACHE_CENTER);
-                updateViewPosition.write(Types.VAR_INT, chunkTracker.centerX()); // chunk x
-                updateViewPosition.write(Types.VAR_INT, chunkTracker.centerZ()); // chunk z
+                updateViewPosition.write(Types.VAR_INT, chunkTracker.centerX()); // 区块 x
+                updateViewPosition.write(Types.VAR_INT, chunkTracker.centerZ()); // 区块 z
                 updateViewPosition.send(BedrockProtocol.class);
             }
             if (previousRadius == chunkTracker.radius()) {
@@ -693,7 +691,7 @@ public class WorldPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.CHUNK_RADIUS_UPDATED, ClientboundPackets26_1.SET_CHUNK_CACHE_RADIUS, new PacketHandlers() {
             @Override
             public void register() {
-                map(BedrockTypes.VAR_INT, Types.VAR_INT); // radius
+                map(BedrockTypes.VAR_INT, Types.VAR_INT); // 半径
                 handler(wrapper -> {
                     final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
                     final int radius = wrapper.get(Types.VAR_INT, 0);
@@ -707,23 +705,23 @@ public class WorldPackets {
             }
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SET_TIME, ClientboundPackets26_1.SET_TIME, wrapper -> {
-            final long bedrockTime = wrapper.read(BedrockTypes.VAR_INT); // time
-            wrapper.write(Types.LONG, wrapper.user().get(GameSessionStorage.class).getLevelTime()); // game time
-            wrapper.write(Types.VAR_INT, 1); // clock update count
-            wrapper.write(Types.VAR_INT, 0); // registry id (overworld clock)
-            wrapper.write(Types.VAR_LONG, bedrockTime >= 0L ? bedrockTime % 24000L : 24000L + (bedrockTime % 24000L)); // total ticks
-            wrapper.write(Types.FLOAT, 0F); // partial tick
-            wrapper.write(Types.FLOAT, wrapper.user().get(GameRulesStorage.class).getGameRule("doDayLightCycle") ? 1F : 0F); // rate
+            final long bedrockTime = wrapper.read(BedrockTypes.VAR_INT); // 时间
+            wrapper.write(Types.LONG, wrapper.user().get(GameSessionStorage.class).getLevelTime()); // 游戏时间
+            wrapper.write(Types.VAR_INT, 1); // 时钟更新计数
+            wrapper.write(Types.VAR_INT, 0); // 注册表 ID（主世界时钟）
+            wrapper.write(Types.VAR_LONG, bedrockTime >= 0L ? bedrockTime % 24000L : 24000L + (bedrockTime % 24000L)); // 总刻数
+            wrapper.write(Types.FLOAT, 0F); // 部分刻
+            wrapper.write(Types.FLOAT, wrapper.user().get(GameRulesStorage.class).getGameRule("doDayLightCycle") ? 1F : 0F); // 速率
         });
 
         protocol.registerServerbound(ServerboundPackets26_1.SIGN_UPDATE, ServerboundBedrockPackets.BLOCK_ENTITY_DATA, wrapper -> {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
             final BlockStateRewriter blockStateRewriter = wrapper.user().get(BlockStateRewriter.class);
-            final BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // position
-            final boolean front = wrapper.read(Types.BOOLEAN); // front
+            final BlockPosition position = wrapper.read(Types.BLOCK_POSITION1_14); // 坐标
+            final boolean front = wrapper.read(Types.BOOLEAN); // 正面
             final List<String> lines = new ArrayList<>(4);
             for (int i = 0; i < 4; i++) {
-                lines.add(wrapper.read(Types.STRING)); // line
+                lines.add(wrapper.read(Types.STRING)); // 线
             }
 
             final String tag = blockStateRewriter.tag(chunkTracker.getBlockState(position));
@@ -740,19 +738,19 @@ public class WorldPackets {
             signTag.putInt("y", position.y());
             signTag.putInt("z", position.z());
 
-            while (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) { // Remove trailing empty lines
+            while (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) { // 去掉末尾空行
                 lines.remove(lines.size() - 1);
             }
             final String text = lines.stream().reduce((a, b) -> a + '\n' + b).orElse("");
             signTag.getCompoundTag(front ? "FrontText" : "BackText").putString("Text", text);
 
-            wrapper.write(BedrockTypes.BLOCK_POSITION, position); // position
-            wrapper.write(BedrockTypes.NETWORK_TAG, signTag.copy()); // block entity tag
+            wrapper.write(BedrockTypes.BLOCK_POSITION, position); // 坐标
+            wrapper.write(BedrockTypes.NETWORK_TAG, signTag.copy()); // 方块实体标签
         });
     }
 
     static boolean shouldRetryFailedSubChunk(final SubChunkPacket_SubChunkRequestResult result) {
-        // Explicit coordinate/dimension failures are stable; only ambiguous session failures get bounded retries.
+        // 显式的坐标/维度失败是稳定的；只有模糊的会话失败才会进行有限次重试。
         return result == SubChunkPacket_SubChunkRequestResult.Undefined
                 || result == SubChunkPacket_SubChunkRequestResult.PlayerDoesntExist;
     }

@@ -27,9 +27,9 @@ import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.storage.ChunkTracker;
 
 /**
- * Chests (including trapped and copper) store double-chest pairing only in Bedrock NBT. Java needs that pairing as
- * the {@code type} block-state property, so this rewriter bakes {@code left}/{@code right}/{@code single} into the
- * Java block state the same way beds bake dye colour.
+ * 箱子（含陷阱箱和铜箱）只在基岩 NBT 中保存双箱配对。Java 需要把该配对作为
+ * {@code type} 方块状态属性，因此该重写器会把 {@code left}/{@code right}/{@code single} 烘焙进
+ * Java 方块状态，做法与床烘焙染料颜色相同。
  */
 public class ChestBlockEntityRewriter extends LootableContainerBlockEntityRewriter {
 

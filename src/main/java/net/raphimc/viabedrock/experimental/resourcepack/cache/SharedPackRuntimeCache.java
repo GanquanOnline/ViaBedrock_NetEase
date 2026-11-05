@@ -70,7 +70,7 @@ public final class SharedPackRuntimeCache {
     private final FailureBackoff<RuntimeStackKey> failureBackoff;
     private final FailureBackoff<ContentDigest> blobFailureBackoff;
     private final ConcurrentMap<ContentDigest, WeakReference<FrozenPackBlob>> liveBlobs = new ConcurrentHashMap<>();
-    // Bundled packs are initialized once with the protocol mappings and never exposed for mutation.
+    // 内置包随协议映射初始化一次，之后不再暴露以供修改。
     private final WeakIdentityMap<ResourcePack, ContentDigest> trustedBuiltInDigests = new WeakIdentityMap<>();
     private final Object admissionLock = new Object();
     private final ResourcePackCacheMetrics metrics;
@@ -87,9 +87,7 @@ public final class SharedPackRuntimeCache {
     private long reservedBuildWeight;
     private final ScheduledFuture<?> maintenanceTask;
 
-    /**
-     * Compatibility constructor for tests and embedders without a disk CAS. Production must supply a store.
-     */
+    /** 面向没有磁盘 CAS 的测试和嵌入方的兼容构造函数。生产环境必须提供 store。 */
     @Deprecated(forRemoval = false)
     public SharedPackRuntimeCache(final ViaBedrockConfig config, final ResourcePackCacheMetrics metrics,
                                   final ResourcePackWorkScheduler scheduler) {
@@ -910,8 +908,8 @@ public final class SharedPackRuntimeCache {
             return;
         }
 
-        // Motion definitions are owned by runtime graphs and governed by the shared hard limit.
-        // This is a retained subset estimate, not an amount to add to runtime/layer weights.
+        // 动画定义由运行时图持有，并受共享硬上限约束。
+        // 这里只是保留子集的估计值，不是要加到运行时/层权重上的数量。
         final Set<SharedPackRuntime> retained = Collections.newSetFromMap(new IdentityHashMap<>());
         long weight = 0L;
         for (ActiveRuntime active : this.activeRuntimes.values()) {
@@ -1083,7 +1081,7 @@ public final class SharedPackRuntimeCache {
         return new IllegalStateException("Failed to build shared resource pack runtime", failure);
     }
 
-    /** Identity memoization without turning every historical connection pack into a GC root. */
+    /** 按身份做记忆化，同时不把每个历史连接包都变成 GC 根。 */
     static final class WeakIdentityMap<K, V> {
         private final ReferenceQueue<K> referenceQueue = new ReferenceQueue<>();
         private final Map<IdentityWeakReference<K>, V> entries = new HashMap<>();
@@ -1145,7 +1143,7 @@ public final class SharedPackRuntimeCache {
         }
     }
 
-    /** Lightweight compatibility view for tests/embedders that construct the cache without a disk CAS. */
+    /** 面向在没有磁盘 CAS 情况下构造缓存的测试/嵌入方的轻量兼容视图。 */
     private static final class CachedBlobContentView extends Content {
 
         private final WeakReference<SharedPackRuntimeCache> owner;

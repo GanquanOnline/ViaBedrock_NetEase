@@ -37,9 +37,9 @@ public class ChunkSectionV8Type extends Type<BedrockChunkSection> {
     @Override
     public BedrockChunkSection read(ByteBuf buffer) {
         final BedrockChunkSection chunkSection = new BedrockChunkSectionImpl();
-        final short layers = buffer.readUnsignedByte(); // layer count
+        final short layers = buffer.readUnsignedByte(); // 层数
         for (int i = 0; i < layers; i++) {
-            chunkSection.addPalette(PaletteType.BLOCKS, BedrockTypes.DATA_PALETTE.read(buffer)); // block palette
+            chunkSection.addPalette(PaletteType.BLOCKS, BedrockTypes.DATA_PALETTE.read(buffer)); // 方块调色板
         }
         return chunkSection;
     }
@@ -47,9 +47,9 @@ public class ChunkSectionV8Type extends Type<BedrockChunkSection> {
     @Override
     public void write(ByteBuf buffer, BedrockChunkSection value) {
         final List<DataPalette> palettes = value.palettes(PaletteType.BLOCKS);
-        buffer.writeByte(palettes.size()); // layer count
+        buffer.writeByte(palettes.size()); // 层数
         for (DataPalette palette : palettes) {
-            BedrockTypes.DATA_PALETTE.write(buffer, (BedrockDataPalette) palette); // block palette
+            BedrockTypes.DATA_PALETTE.write(buffer, (BedrockDataPalette) palette); // 方块调色板
         }
     }
 

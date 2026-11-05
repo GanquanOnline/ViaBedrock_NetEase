@@ -33,8 +33,8 @@ public class JavaMapPaletteUtil {
     private static final int[] JAVA_G;
     private static final int[] JAVA_B_RGB;
 
-    // Palette indices 0-3 are the four shades of the transparent "none" base color, so opaque pixels must not map
-    // to them (they would render as holes). Dithering starts its nearest-color search here.
+    // 调色板索引 0-3 是透明「none」基础色的四种深浅，因此不透明像素不能映射到
+    // 这些索引（否则会渲染成空洞）。抖动算法从这里开始最近色搜索。
     private static final int FIRST_OPAQUE_COLOR = 4;
 
     private static final int CACHE_BITS = 5;
@@ -65,7 +65,7 @@ public class JavaMapPaletteUtil {
     }
 
     public static short[] convertToJavaPalette(int[] bedrockColors) {
-        //TODO: Check biome tinting for grass/foliage/water
+        // TODO: 检查草/树叶/水的生物群系着色
         short[] javaColors = new short[bedrockColors.length];
 
         for (int i = 0; i < bedrockColors.length; i++) {
@@ -113,16 +113,17 @@ public class JavaMapPaletteUtil {
     }
 
     /**
-     * Converts Bedrock map pixels to the Java palette using Floyd-Steinberg dithering. The residual quantization
-     * error of each pixel is diffused to its not-yet-processed neighbours, which turns hard color banding into fine
-     * noise and dramatically improves smooth gradients such as faces/portraits.
+     * 使用 Floyd-Steinberg 抖动把基岩地图像素转换为 Java 调色板。每个像素的残余
+     * 量化误差会扩散到尚未处理的邻居，从而把生硬的色带变成精细
+     * 噪点，大幅改善人脸/肖像之类的平滑渐变。
      *
-     * @param width  the texture width; if the dimensions don't match the pixel count, falls back to nearest-color.
-     * @param height the texture height.
+     * @param width  纹理宽度；如果尺寸与像素数量不匹配，则回退到最近色。
+     *
+     * @param height 纹理高度。
      */
     public static short[] convertToJavaPaletteDithered(final int[] bedrockColors, final int width, final int height) {
         if (width <= 0 || height <= 0 || (long) width * height != bedrockColors.length) {
-            return convertToJavaPalette(bedrockColors); // unknown structure, can't dither safely
+            return convertToJavaPalette(bedrockColors); // 未知结构，无法安全抖动
         }
 
         final short[] javaColors = new short[bedrockColors.length];
@@ -137,11 +138,11 @@ public class JavaMapPaletteUtil {
 
                 final int a = (c >>> 24);
                 if (a == 0) {
-                    javaColors[idx] = 0; // transparent
+                    javaColors[idx] = 0; // 透明
                     continue;
                 }
 
-                // Same channel extraction as the nearest-color path (kept consistent with the palette table).
+                // 与最近色路径相同的通道提取（与调色板表保持一致）。
                 final float fr = ((c >> 16) & 0xFF) + errR[idx];
                 final float fg = ((c >> 8) & 0xFF) + errG[idx];
                 final float fb = (c & 0xFF) + errB[idx];

@@ -24,9 +24,9 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerTyp
 import net.raphimc.viabedrock.protocol.data.generated.bedrock.CustomBlockTags;
 
 /**
- * Furnace / blast furnace / smoker container.
- * Bedrock and Java both use the same 3-slot layout: 0 = smelting input, 1 = fuel, 2 = result,
- * so no slot remapping is required ({@link #javaSlot(int)} stays identity).
+ * 熔炉 / 高炉 / 烟熏炉容器。
+ * 基岩与 Java 都使用相同的 3 槽布局：0 = 熔炼输入，1 = 燃料，2 = 结果，
+ * 因此无需重映射槽位（{@link #javaSlot(int)} 保持恒等映射）。
  */
 public class FurnaceContainer extends Container {
 

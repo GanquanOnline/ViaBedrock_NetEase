@@ -79,8 +79,8 @@ public class LoginPackets {
             final HandshakeStorage handshakeStorage = wrapper.user().get(HandshakeStorage.class);
             final AuthData authData = wrapper.user().get(AuthData.class);
 
-            final int threshold = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // compression threshold
-            final PacketCompressionAlgorithm algorithm = PacketCompressionAlgorithm.getByValue(wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE), PacketCompressionAlgorithm.None); // compression algorithm
+            final int threshold = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 压缩阈值
+            final PacketCompressionAlgorithm algorithm = PacketCompressionAlgorithm.getByValue(wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE), PacketCompressionAlgorithm.None); // 压缩算法
             Via.getManager().getProviders().get(NettyPipelineProvider.class).enableCompression(wrapper.user(), algorithm, threshold);
 
             boolean isSelfSigned = false;
@@ -93,7 +93,7 @@ public class LoginPackets {
                 isSelfSigned = false;
             }
 
-            // Build skinJwt now (deferred from HELLO handler to allow async Java skin fetch)
+            // 现在就构建 skinJwt（从 HELLO 处理器延后到此，以便异步拉取 Java 皮肤）
             if (authData.getSkinJwt() == null) {
                 authData.setSkinJwt(Jwts.builder()
                         .signWith(authData.getSessionKeyPair().getPrivate(), Jwts.SIG.ES384)
@@ -117,16 +117,16 @@ public class LoginPackets {
             final String authInfo = authInfoObj.toString();
 
             final PacketWrapper login = PacketWrapper.create(ServerboundBedrockPackets.LOGIN, wrapper.user());
-            login.write(Types.INT, resolveBedrockProtocolVersion(handshakeStorage)); // protocol version
-            login.write(BedrockTypes.UNSIGNED_VAR_INT, authInfo.length() + authData.getSkinJwt().length() + Integer.BYTES * 2); // length
-            login.write(BedrockTypes.ASCII_STRING, authInfo); // auth info
-            login.write(BedrockTypes.ASCII_STRING, authData.getSkinJwt()); // client properties
+            login.write(Types.INT, resolveBedrockProtocolVersion(handshakeStorage)); // 协议版本
+            login.write(BedrockTypes.UNSIGNED_VAR_INT, authInfo.length() + authData.getSkinJwt().length() + Integer.BYTES * 2); // 长度
+            login.write(BedrockTypes.ASCII_STRING, authInfo); // 认证信息
+            login.write(BedrockTypes.ASCII_STRING, authData.getSkinJwt()); // 客户端属性
             login.sendToServer(BedrockProtocol.class);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SERVER_TO_CLIENT_HANDSHAKE, null, wrapper -> {
             wrapper.cancel();
             final KeyPair sessionKeyPair = wrapper.user().get(AuthData.class).getSessionKeyPair();
-            final Jws<Claims> jwt = Jwts.parser().clockSkewSeconds(CLOCK_SKEW).keyLocator(CryptUtil.X5U_KEY_LOCATOR).build().parseSignedClaims(wrapper.read(BedrockTypes.STRING)); // jwt
+            final Jws<Claims> jwt = Jwts.parser().clockSkewSeconds(CLOCK_SKEW).keyLocator(CryptUtil.X5U_KEY_LOCATOR).build().parseSignedClaims(wrapper.read(BedrockTypes.STRING)); // JWT
             final byte[] salt = Base64.getDecoder().decode(jwt.getPayload().get("salt", String.class));
             final SecretKey secretKey = ecdhKeyExchange(sessionKeyPair.getPrivate(), CryptUtil.X5U_KEY_LOCATOR.locate(jwt.getHeader()), salt);
             Via.getManager().getProviders().get(NettyPipelineProvider.class).enableEncryption(wrapper.user(), secretKey);
@@ -137,9 +137,9 @@ public class LoginPackets {
 
         protocol.registerServerboundTransition(ServerboundHandshakePackets.CLIENT_INTENTION, null, wrapper -> {
             wrapper.cancel();
-            final int protocolVersion = wrapper.read(Types.VAR_INT); // protocol version
-            final String hostname = wrapper.read(Types.STRING); // hostname
-            final int port = wrapper.read(Types.UNSIGNED_SHORT); // port
+            final int protocolVersion = wrapper.read(Types.VAR_INT); // 协议版本
+            final String hostname = wrapper.read(Types.STRING); // 主机名
+            final int port = wrapper.read(Types.UNSIGNED_SHORT); // 端口
             wrapper.user().put(HandshakeStorage.fromHandshake(protocolVersion, hostname, port));
         });
         protocol.registerServerboundTransition(ServerboundLoginPackets.HELLO, ServerboundBedrockPackets.REQUEST_NETWORK_SETTINGS, wrapper -> {
@@ -160,9 +160,9 @@ public class LoginPackets {
                 return;
             }
 
-            final String javaUsername = wrapper.read(Types.STRING); // username
-            final UUID javaUuid = wrapper.read(Types.UUID); // uuid
-            wrapper.write(Types.INT, resolveBedrockProtocolVersion(handshakeStorage)); // protocol version
+            final String javaUsername = wrapper.read(Types.STRING); // 用户名
+            final UUID javaUuid = wrapper.read(Types.UUID); // UUID
+            wrapper.write(Types.INT, resolveBedrockProtocolVersion(handshakeStorage)); // 协议版本
 
             final ProtocolInfo protocolInfo = wrapper.user().getProtocolInfo();
             protocolInfo.setUsername(javaUsername);
@@ -182,7 +182,7 @@ public class LoginPackets {
     }
 
     private static void validateAndFillAuthData(final UserConnection user, final String javaUsername, final UUID javaUuid, final HandshakeStorage handshakeStorage) {
-        if (user.has(AuthData.class)) { // Externally supplied auth data
+        if (user.has(AuthData.class)) { // 外部提供的认证数据
             final AuthData authData = user.get(AuthData.class);
             if (authData.getMojangJwt() != null && authData.getSelfSignedJwt() == null) {
                 final KeyPair sessionKeyPair = authData.getSessionKeyPair();
@@ -230,16 +230,16 @@ public class LoginPackets {
                 final String multiplayerToken = Jwts.builder()
                         .signWith(sessionKeyPair.getPrivate(), Jwts.SIG.ES384)
                         .header().add("x5u", encodedPublicKey).and()
-                        .claim(Claims.AUDIENCE, "api://auth-minecraft-services/multiplayer") // audience
-                        .claim("cpk", encodedPublicKey) // client public key
-                        .claim("leguuid", identity) // ? (Should be the same as SelfSignedId)
-                        .claim("mid", xuid.toUpperCase(Locale.ROOT)) // PlayFab entity id
-                        .claim("nid", "") // ?
-                        .claim("nname", "") // ?
-                        .claim("pid", "") // ?
-                        .claim("pname", "") // ?
+                        .claim(Claims.AUDIENCE, "api://auth-minecraft-services/multiplayer") // 受众
+                        .claim("cpk", encodedPublicKey) // 客户端公钥
+                        .claim("leguuid", identity) // ？（应与 SelfSignedId 相同）
+                        .claim("mid", xuid.toUpperCase(Locale.ROOT)) // PlayFab 实体 ID
+                        .claim("nid", "") // ？
+                        .claim("nname", "") // ？
+                        .claim("pid", "") // ？
+                        .claim("pname", "") // ？
                         .claim("xid", xuid) // xuid
-                        .claim("xname", javaUsername) // display name
+                        .claim("xname", javaUsername) // 显示名称
                         .issuedAt(Date.from(now))
                         .expiration(Date.from(now.plus(365, ChronoUnit.DAYS)))
                         .compact();
@@ -263,13 +263,13 @@ public class LoginPackets {
             }
         }
         if (authData.getDeviceId() == null) {
-            authData.setDeviceId(UUID.randomUUID()); // Not correct, but should be fine for most cases
+            authData.setDeviceId(UUID.randomUUID()); // 不正确，但大多数情况下应该没问题
         }
         if (authData.getSelfSignedId() == null) {
-            authData.setSelfSignedId(javaUuid != null ? javaUuid : UUID.nameUUIDFromBytes(("pocket-auth-1-xuid:" + authData.getXuid()).getBytes(StandardCharsets.UTF_8))); // Not correct, but should be fine for most cases
+            authData.setSelfSignedId(javaUuid != null ? javaUuid : UUID.nameUUIDFromBytes(("pocket-auth-1-xuid:" + authData.getXuid()).getBytes(StandardCharsets.UTF_8))); // 不正确，但大多数情况下应该没问题
         }
         if (authData.getClientRandomId() == null) {
-            authData.setClientRandomId(FNV1.fnv1_64(authData.getSelfSignedId().toString().getBytes(StandardCharsets.UTF_8))); // Not correct, but should be fine for most cases
+            authData.setClientRandomId(FNV1.fnv1_64(authData.getSelfSignedId().toString().getBytes(StandardCharsets.UTF_8))); // 不正确，但大多数情况下应该没问题
         }
         if (authData.getSkinJwt() == null) {
             final int skinFetchTimeout = ViaBedrock.getConfig().getJavaSkinFetchTimeout();

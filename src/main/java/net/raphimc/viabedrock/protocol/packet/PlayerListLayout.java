@@ -24,13 +24,13 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Trailer helpers for Bedrock PLAYER_LIST add (packet 0x3F).
+ * 基岩 PLAYER_LIST 添加（0x3F 号包）的尾部辅助方法。
  * <p>
- * Official Bedrock 860–2167 ends after the trusted-skin boolean array.
- * MOT NetEase {@code protocol >= 649} then appends, per entry:
- * {@code bool, bool, byte[], lint, bool} (the bloom / persona trailer).
- * Java never consumes those fields, but they must be read so leftover discard
- * is not the only thing keeping PLAYER_INFO_UPDATE extra-data-free.
+ * 官方基岩 860–2167 在可信皮肤布尔数组之后结束。
+ * MOT 网易在 {@code protocol >= 649} 时按条目追加：
+ * {@code bool, bool, byte[], lint, bool}（bloom / persona 尾部）。
+ * Java 从不消费这些字段，但必须把它们读掉，这样
+ * PLAYER_INFO_UPDATE 不带 extra data 就不只靠丢弃剩余字节来实现。
  */
 public final class PlayerListLayout {
 

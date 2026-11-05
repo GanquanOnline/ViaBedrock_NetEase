@@ -25,19 +25,13 @@ import java.util.Arrays;
 
 public class PaddedBitArray implements BitArray {
 
-    /**
-     * Array used to store data
-     */
+    /** 用于存储数据的数组 */
     private final int[] words;
 
-    /**
-     * Palette version information
-     */
+    /** 调色板版本信息 */
     private final BitArrayVersion version;
 
-    /**
-     * Number of entries in this palette (<b>not</b> the length of the words array that internally backs this palette)
-     */
+    /** 此调色板的条目数量（<b>不是</b>内部支撑此调色板的 words 数组长度） */
     private final int size;
 
     PaddedBitArray(final BitArrayVersion version, final int size, final int[] words) {

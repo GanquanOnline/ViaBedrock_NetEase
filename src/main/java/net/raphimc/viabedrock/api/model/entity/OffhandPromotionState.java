@@ -27,8 +27,8 @@ final class OffhandPromotionState {
     private int restoreRequestAge = -1;
 
     /**
-     * True only after MOT has accepted the silent F-swap. PENDING still occupies
-     * the tracker physically, but Java OFF_HAND must not be remapped onto it yet.
+     * 仅在 MOT 接受静默 F 键交换之后才为 true。PENDING 仍会在物理上占用
+     * 追踪器，但此时不得把 Java 的 OFF_HAND 重映射到它上面。
      */
     boolean isPromoted() {
         return this.phase != Phase.IDLE && this.phase != Phase.PROMOTION_PENDING;

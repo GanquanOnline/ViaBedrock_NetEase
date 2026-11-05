@@ -25,9 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * SHA-256 of a validated, effective resource pack file tree.
- */
+/** 经校验的有效资源包文件树的 SHA-256。 */
 public record ContentDigest(String hex) {
 
     private static final byte[] DOMAIN = "ViaBedrock-EffectivePack-v1\0".getBytes(StandardCharsets.US_ASCII);

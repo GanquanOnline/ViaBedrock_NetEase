@@ -85,7 +85,7 @@ class ClientPlayerPacketsPoseTest {
 
     @Test
     void jumpHeldInAirDoesNotStopGliding() {
-        // Firework boost keeps JUMP down. Do not treat that as Java air-cancel.
+        // 烟花加速会保持 JUMP 按下。不要把它当作 Java 的空中取消。
         assertFalse(ClientPlayerPackets.shouldStopGliding(true, false, false, false, true));
     }
 

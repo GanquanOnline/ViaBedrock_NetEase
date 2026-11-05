@@ -90,8 +90,8 @@ final class DefinitionImmutability {
     }
 
     static BedrockGeometryModel model(final BedrockGeometryModel source) {
-        // CubeConverter's final model type exposes mutable parents, so detach the model/bone graph and
-        // keep it behind an immutable definition map. Runtime consumers only read or clone it.
+        // CubeConverter 的最终模型类型暴露可变的父级，因此分离模型/骨骼图
+        // 并把它保存在不可变的定义映射之后。运行时使用方只读取或克隆它。
         final BedrockGeometryModel copy = new BedrockGeometryModel(
                 source.getIdentifier(), source.getTextureSize().clone());
         for (Parent parent : source.getParents()) {

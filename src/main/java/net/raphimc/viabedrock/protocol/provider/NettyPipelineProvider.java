@@ -33,17 +33,19 @@ public abstract class NettyPipelineProvider implements Provider {
     }
 
     /**
-     * Returns whether a Java clientbound packet for the given state can be injected into the
-     * platform pipeline without crossing a protocol-state transition.
+     * 返回给定状态的 Java 服务端→客户端数据包能否注入
+     * 平台管线而不跨越协议状态转换。
      *
-     * <p>ViaBedrock-generated packets are fed back through the platform's clientbound pipeline.
-     * The default guard requires both Via protocol directions to agree. Platforms which keep a
-     * second packet registry (for example ViaProxy's NetMinecraft decoder) must additionally
-     * verify that registry in their override.</p>
+     * <p>ViaBedrock 生成的数据包会经平台的服务端→客户端管线回灌。
+     * 默认守卫要求 Via 的两个协议方向都一致。保留第二套
+     * 数据包注册表的平台（例如 ViaProxy 的 NetMinecraft 解码器）
+     * 还必须在其覆写中校验该注册表。</p>
      *
-     * @param user  The user
-     * @param state The state of the Java packet that will be injected
-     * @return Whether the platform pipeline is ready for that packet state
+     * @param user  用户
+     *
+     * @param state 将要注入的 Java 数据包的状态
+     *
+     * @return 平台管线是否已为该数据包状态就绪
      */
     public boolean isJavaClientboundStateReady(final UserConnection user, final State state) {
         return user.getProtocolInfo().getClientState() == state
@@ -51,43 +53,45 @@ public abstract class NettyPipelineProvider implements Provider {
     }
 
     /**
-     * Marks the origin of a synchronously injected Java clientbound packet for platform-level
-     * protocol diagnostics. Implementations must not retain player content.
+     * 标记同步注入的 Java 服务端→客户端数据包的来源，用于平台级
+     * 协议诊断。实现不得保留玩家内容。
      */
     public void beginJavaClientboundPacket(final UserConnection user, final String origin,
                                            final PacketType packetType) {
     }
 
-    /**
-     * Clears a marker installed by {@link #beginJavaClientboundPacket(UserConnection, String, PacketType)}.
-     */
+    /** 清除由 {@link #beginJavaClientboundPacket(UserConnection, String, PacketType)} 安装的标记。 */
     public void endJavaClientboundPacket(final UserConnection user) {
     }
 
     /**
-     * Returns the transport RTT between the proxy and Bedrock server.
+     * 返回代理与基岩服务器之间的传输 RTT。
      *
-     * @param user The user
-     * @return RTT in milliseconds, or {@code -1} when unavailable
+     * @param user 用户
+     *
+     * @return 以毫秒计的 RTT，不可用时为 {@code -1}
      */
     public int getServerTransportLatencyMillis(final UserConnection user) {
         return -1;
     }
 
     /**
-     * Enables compression/decompression for the given user. May get called multiple times for the same user.
+     * 为给定用户启用压缩/解压。同一用户可能被多次调用。
      *
-     * @param user                          The user
-     * @param preferredCompressionAlgorithm The preferred compression algorithm
-     * @param threshold                     The compression threshold
+     * @param user                          用户
+     *
+     * @param preferredCompressionAlgorithm 首选的压缩算法
+     *
+     * @param threshold                     压缩阈值
      */
     public abstract void enableCompression(final UserConnection user, final PacketCompressionAlgorithm preferredCompressionAlgorithm, final int threshold);
 
     /**
-     * Enables encryption/decryption for the given user
+     * 为给定用户启用加密/解密
      *
-     * @param user The user
-     * @param key  The encryption key
+     * @param user 用户
+     *
+     * @param key  加密密钥
      */
     public abstract void enableEncryption(final UserConnection user, final SecretKey key);
 

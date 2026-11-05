@@ -72,7 +72,7 @@ import net.raphimc.viabedrock.experimental.custommapping.CustomMappingSyncStorag
 import net.raphimc.viabedrock.experimental.light.AsyncLightEngine;
 import net.raphimc.viabedrock.experimental.light.ChunkLightProvider;
 
-// TODO: Feature: Block connections
+// TODO: 功能：方块连接
 public class ChunkTracker extends StoredObject {
 
     private static final int MAX_SUB_CHUNK_RETRIES = 2;
@@ -138,11 +138,11 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * MOT 860 spawn is often far from (0, 0) (Lobby [13,13] in the live log).
-     * Java 1.21.11 rejects LEVEL_CHUNK_WITH_LIGHT outside SET_CHUNK_CACHE_CENTER,
-     * so the tracker must start on the START_GAME spawn column instead of (0, 0).
+     * MOT 860 的出生点常常远离 (0, 0)（线上日志里大厅为 [13,13]）。
+     * Java 1.21.11 会拒绝 SET_CHUNK_CACHE_CENTER 之外的 LEVEL_CHUNK_WITH_LIGHT，
+     * 所以追踪器必须以 START_GAME 的出生列而不是 (0, 0) 作为起点。
      *
-     * @return true when the client player position was available
+     * @return 当客户端玩家位置可用时返回 true
      */
     private boolean seedCenterFromClientPlayer() {
         final EntityTracker entityTracker = this.user().get(EntityTracker.class);
@@ -160,12 +160,12 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * Java unloads every column outside SET_CHUNK_CACHE_CENTER +/- radius.
-     * A MOT publisher at (0,0) after Lobby spawn, or a copied previous-dimension
-     * center, would drop the player's column when view distance is 8-12.
-     * Keep the player column inside the Chebyshev window; never shrink below
-     * viewDistance or apply radius 0.
-     * Ref: MOT Player.orderChunks NETWORK_CHUNK_PUBLISHER_UPDATE; Java ClientChunkCache.
+     * Java 会卸载 SET_CHUNK_CACHE_CENTER ± 半径之外的所有列。
+     * 在 Lobby 出生后仍位于 (0,0) 的 MOT 发布器，或复制来的上一维度
+     * 中心，会在视距为 8-12 时丢掉玩家所在的列。
+     * 始终把玩家所在的列保持在切比雪夫窗口内；绝不要缩小到低于
+     * viewDistance 或使用半径 0。
+     * 参考：MOT Player.orderChunks 的 NETWORK_CHUNK_PUBLISHER_UPDATE；Java ClientChunkCache。
      */
     static int chebyshevChunkDistance(final int chunkX1, final int chunkZ1, final int chunkX2, final int chunkZ2) {
         return Math.max(Math.abs(chunkX1 - chunkX2), Math.abs(chunkZ1 - chunkZ2));
@@ -211,8 +211,8 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * Apply MOT NETWORK_CHUNK_PUBLISHER_UPDATE without yanking Java off the
-     * player column. Returns whether the Java center packet must be sent.
+     * 应用 MOT 的 NETWORK_CHUNK_PUBLISHER_UPDATE，而不把 Java 从玩家
+     * 所在的列上拽走。返回是否必须发送 Java 的中心数据包。
      */
     public boolean applyPublisher(final int publisherChunkX, final int publisherChunkZ, final int publisherRadius) {
         final int viewDistance = this.viewDistanceOrDefault();
@@ -305,20 +305,20 @@ public class ChunkTracker extends StoredObject {
 
     public void sendCurrentCacheSettingsToJava() {
         final PacketWrapper setChunkCacheCenter = PacketWrapper.create(ClientboundPackets26_1.SET_CHUNK_CACHE_CENTER, this.user());
-        setChunkCacheCenter.write(Types.VAR_INT, this.centerX); // chunk x
-        setChunkCacheCenter.write(Types.VAR_INT, this.centerZ); // chunk z
+        setChunkCacheCenter.write(Types.VAR_INT, this.centerX); // 区块 x
+        setChunkCacheCenter.write(Types.VAR_INT, this.centerZ); // 区块 z
         setChunkCacheCenter.send(BedrockProtocol.class);
 
         final PacketWrapper setChunkCacheRadius = PacketWrapper.create(ClientboundPackets26_1.SET_CHUNK_CACHE_RADIUS, this.user());
-        setChunkCacheRadius.write(Types.VAR_INT, this.radius); // radius
+        setChunkCacheRadius.write(Types.VAR_INT, this.radius); // 半径
         setChunkCacheRadius.send(BedrockProtocol.class);
     }
 
     public BedrockChunk createChunk(final int chunkX, final int chunkZ, final int nonNullSectionCount) {
         if (!this.isInLoadDistance(chunkX, chunkZ)) {
-            // MOT can publish spawn columns before NETWORK_CHUNK_PUBLISHER_UPDATE.
-            // Recenter onto the START_GAME player so Lobby [13,13] is not dropped
-            // while Java cache center is still (0, 0).
+            // MOT 可能在 NETWORK_CHUNK_PUBLISHER_UPDATE 之前就发布出生列。
+            // 重新以 START_GAME 的玩家为中心，以免在 Java 缓存中心仍是 (0, 0) 时
+            // 丢掉 Lobby [13,13]。
             this.alignCenterToClientPlayer();
             if (!this.isInLoadDistance(chunkX, chunkZ)) {
                 return null;
@@ -370,7 +370,7 @@ public class ChunkTracker extends StoredObject {
         }
 
         final PacketWrapper unloadChunk = PacketWrapper.create(ClientboundPackets26_1.FORGET_LEVEL_CHUNK, this.user());
-        unloadChunk.write(Types.CHUNK_POSITION, chunkPos); // chunk position
+        unloadChunk.write(Types.CHUNK_POSITION, chunkPos); // 区块位置
         unloadChunk.send(BedrockProtocol.class);
     }
 
@@ -446,7 +446,7 @@ public class ChunkTracker extends StoredObject {
         if (blockState0 != this.bedrockAirId() && blockPalettes.size() > 1) {
             final int blockState1 = blockPalettes.get(1).idAt(sectionX, sectionY, sectionZ);
             if (blockState1 != this.bedrockAirId()) {
-                if (CustomBlockTags.WATER.equals(blockStateRewriter.tag(blockState1))) { // Waterlogging
+                if (CustomBlockTags.WATER.equals(blockStateRewriter.tag(blockState1))) { // 含水
                     final int waterloggedBlockState = blockStateRewriter.waterlog(remappedBlockState);
                     if (waterloggedBlockState == -1) {
                         ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Missing waterlogged block state: " + blockState0);
@@ -490,8 +490,8 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * MOT AuthInput Y is eye-space. The freeze gate must use feet Y so swim/crawl
-     * near a subchunk border does not freeze while the feet section is loaded.
+     * MOT AuthInput 的 Y 是眼睛位置。冻结判断必须使用脚部 Y，这样在
+     * 子区块边界附近游泳/爬行时，脚部所在段已加载就不会被冻结。
      */
     public boolean isInUnloadedChunkSection(final Position3f playerPosition, final float eyeOffset) {
         final float feetY = playerPosition.y() - eyeOffset;
@@ -511,7 +511,7 @@ public class ChunkTracker extends StoredObject {
     }
 
     public boolean isInLoadDistance(final int chunkX, final int chunkZ) {
-        if (!this.isInRenderDistance(chunkX, chunkZ)) { // Bedrock accepts chunks outside the chunk render range and uses the player position as a center to determine if a chunk is allowed to be loaded
+        if (!this.isInRenderDistance(chunkX, chunkZ)) { // 基岩接受区块渲染范围之外的区块，并以玩家位置为中心判断某个区块是否允许加载
             final EntityTracker entityTracker = this.user().get(EntityTracker.class);
             if (entityTracker == null) return false;
             final int centerX = (int) Math.floor(entityTracker.getClientPlayer().position().x()) >> 4;
@@ -575,8 +575,8 @@ public class ChunkTracker extends StoredObject {
 
     public SubChunkResponseToken captureSubChunkResponse(final int chunkX, final int subChunkY, final int chunkZ, final boolean waitingForBlob) {
         final SubChunkRequestTracker.Position position = new SubChunkRequestTracker.Position(chunkX, subChunkY, chunkZ);
-        // Bedrock sub-chunk responses use the transport's reliable ordering and carry no request id.
-        // The local attempt token protects the asynchronous blob callback after this point.
+        // 基岩的子区块响应用传输层的可靠顺序，且不携带请求 id。
+        // 本地尝试令牌在这一点之后保护异步 blob 回调。
         final SubChunkRequestTracker.Token<BedrockChunk> token = this.subChunkRequests.captureResponse(
                 position,
                 this.getChunk(chunkX, chunkZ),
@@ -610,7 +610,7 @@ public class ChunkTracker extends StoredObject {
             }
 
             final BedrockChunkSection remappedSection = this.handleBlockPalette(other);
-            // From this point onward a failure may leave a partially-mutated column that must be resent.
+            // 从这一点起，失败可能留下部分修改过的区块列，必须重新发送。
             changed = true;
             section.mergeWith(remappedSection);
             section.applyPendingBlockUpdates(this.bedrockAirId());
@@ -830,7 +830,7 @@ public class ChunkTracker extends StoredObject {
             }
         }
 
-        // SERVER_COMPUTED always has one provider; a refusal means the tracker/mode invariant broke.
+        // SERVER_COMPUTED 始终有一个提供器；被拒绝说明追踪器/模式的不变量被破坏了。
         if (this.lightProvider.processAndSendChunk(this, chunkX, chunkZ, translatableChunk)) {
             return true;
         }
@@ -840,7 +840,7 @@ public class ChunkTracker extends StoredObject {
         throw new IllegalStateException("Current ChunkTracker has no active proxy light provider in server-computed mode");
     }
 
-    /** Re-applies custom-block display overlays after the Java resource pack becomes available. */
+    /** Java 资源包可用之后重新应用自定义方块的显示叠加。 */
     public void rescanCustomBlockDisplays() {
         final CustomBlockDisplayTracker displayTracker = this.user().get(CustomBlockDisplayTracker.class);
         if (displayTracker == null) {
@@ -902,18 +902,18 @@ public class ChunkTracker extends StoredObject {
         this.sendChunkBatchStart(playerChunk, remappedChunk.getX(), remappedChunk.getZ());
 
         final PacketWrapper levelChunkWithLight = PacketWrapper.create(ClientboundPackets26_1.LEVEL_CHUNK_WITH_LIGHT, this.user());
-        levelChunkWithLight.write(this.currentChunkType(), remappedChunk); // chunk
-        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.skyLightMask().toLongArray()); // sky light mask
-        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.blockLightMask().toLongArray()); // block light mask
-        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.emptySkyLightMask().toLongArray()); // empty sky light mask
-        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.emptyBlockLightMask().toLongArray()); // empty block light mask
-        levelChunkWithLight.write(Types.VAR_INT, lightPayload.skyLightArrays().size()); // sky light length
+        levelChunkWithLight.write(this.currentChunkType(), remappedChunk); // 区块
+        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.skyLightMask().toLongArray()); // 天空光照掩码
+        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.blockLightMask().toLongArray()); // 方块光照掩码
+        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.emptySkyLightMask().toLongArray()); // 空天空光照掩码
+        levelChunkWithLight.write(Types.LONG_ARRAY_PRIMITIVE, lightPayload.emptyBlockLightMask().toLongArray()); // 空方块光照掩码
+        levelChunkWithLight.write(Types.VAR_INT, lightPayload.skyLightArrays().size()); // 天空光照长度
         for (byte[] array : lightPayload.skyLightArrays()) {
-            levelChunkWithLight.write(Types.BYTE_ARRAY_PRIMITIVE, array); // sky light
+            levelChunkWithLight.write(Types.BYTE_ARRAY_PRIMITIVE, array); // 天空光照
         }
-        levelChunkWithLight.write(Types.VAR_INT, lightPayload.blockLightArrays().size()); // block light length
+        levelChunkWithLight.write(Types.VAR_INT, lightPayload.blockLightArrays().size()); // 方块光照长度
         for (byte[] array : lightPayload.blockLightArrays()) {
-            levelChunkWithLight.write(Types.BYTE_ARRAY_PRIMITIVE, array); // block light
+            levelChunkWithLight.write(Types.BYTE_ARRAY_PRIMITIVE, array); // 方块光照
         }
         levelChunkWithLight.send(BedrockProtocol.class);
         final CustomBlockDisplayTracker displayTracker = this.user().get(CustomBlockDisplayTracker.class);
@@ -945,7 +945,7 @@ public class ChunkTracker extends StoredObject {
     public boolean stripCustomBlockData(final Chunk chunk) {
         final CustomMappingAccess access = this.user().get(CustomMappingSyncStorage.class).access();
 
-        // Replace block state IDs that are not allowed for this connection with their fallback blocks.
+        // 把此连接不允许的方块状态 ID 替换为其回退方块。
         for (final ChunkSection section : chunk.getSections()) {
             if (section == null) continue;
             final DataPalette blockPalette = section.palette(PaletteType.BLOCKS);
@@ -1073,12 +1073,12 @@ public class ChunkTracker extends StoredObject {
             }
 
             final PacketWrapper subChunkRequest = PacketWrapper.create(ServerboundBedrockPackets.SUB_CHUNK_REQUEST, this.user());
-            subChunkRequest.write(BedrockTypes.VAR_INT, this.dimension.ordinal()); // dimension id
-            subChunkRequest.write(BedrockTypes.SIGNED_BLOCK_POSITION, basePosition); // signed base position
-            subChunkRequest.write(BedrockTypes.INT_LE, group.size()); // sub chunk offset count
+            subChunkRequest.write(BedrockTypes.VAR_INT, this.dimension.ordinal()); // 维度 id
+            subChunkRequest.write(BedrockTypes.SIGNED_BLOCK_POSITION, basePosition); // 带符号的基准位置
+            subChunkRequest.write(BedrockTypes.INT_LE, group.size()); // 子区块偏移数量
             for (SubChunkRequestTracker.Position subChunkPosition : group) {
                 final BlockPosition offset = new BlockPosition(subChunkPosition.chunkX() - basePosition.x(), subChunkPosition.subChunkY(), subChunkPosition.chunkZ() - basePosition.z());
-                subChunkRequest.write(BedrockTypes.SUB_CHUNK_OFFSET, offset); // offset
+                subChunkRequest.write(BedrockTypes.SUB_CHUNK_OFFSET, offset); // 偏移
             }
             subChunkRequest.sendToServer(BedrockProtocol.class);
             this.remainingSubChunkOffsetsThisTick -= group.size();
@@ -1346,9 +1346,9 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * Marks already sent neighbor chunks dirty when this chunk's border contains a block whose fix could depend on a
-     * chunk that had not arrived yet, so that neighbor is re-translated (and re-fixed) with the now complete
-     * neighborhood. A neighbor that has not been sent yet will see this chunk directly and needs no resend.
+     * 当此区块的边界包含某个方块、而该方块的修正可能依赖尚未到达的区块时，
+     * 把已经发送过的相邻区块标记为脏，以便该相邻区块在邻域完整的情况下重新翻译
+     * （并重新修正）。尚未发送过的相邻区块会直接看到此区块，无需重发。
      */
     private void refixSentNeighborChunks(final Chunk chunk, final int chunkX, final int chunkZ) {
         final NeighborAwareBlockRewriter rewriter = BedrockProtocol.MAPPINGS.getNeighborRewriter();
@@ -1439,7 +1439,7 @@ public class ChunkTracker extends StoredObject {
                                     if (blockState1 == airId) continue;
                                     final int javaBlockState = remappedBlockPalette.idAt(x, y, z);
 
-                                    if (CustomBlockTags.WATER.equals(blockStateRewriter.tag(blockState1))) { // Waterlogging
+                                    if (CustomBlockTags.WATER.equals(blockStateRewriter.tag(blockState1))) { // 含水
                                         final int waterloggedBlockState = blockStateRewriter.waterlog(javaBlockState);
                                         final CustomMappingAccess.JavaBlockStateResolution waterloggedResolution = customAccess.resolveWaterloggedJavaBlockState(javaBlockState, waterloggedBlockState, "chunk palette waterlog");
                                         if (waterloggedBlockState == -1 && waterloggedResolution.reason() == CustomMappingAccess.FallbackReason.VANILLA) {
@@ -1512,10 +1512,10 @@ public class ChunkTracker extends StoredObject {
             }
         }
 
-        // Fix neighbor-aware blocks (stair shapes, fence/pane connections, door/bed halves) based on neighboring blocks
+        // 根据相邻方块修正依赖邻居的方块（楼梯形状、栅栏/玻璃板连接、门/床的一半）
         BedrockProtocol.MAPPINGS.getNeighborRewriter().fixChunk(this, remappedChunk, chunk.getX(), chunk.getZ(), this.minY);
-        // A fix computed now is wrong when it depended on a neighbor chunk that had not arrived yet (e.g. a nether
-        // portal plane straddling the border). Re-run the fix on already sent neighbors now that this chunk exists.
+        // 现在计算出的修正若依赖了尚未到达的相邻区块（例如跨边界的地狱
+        // 传送门平面），就是错的。既然此区块已存在，就对已发送的邻居重新执行修正。
         if (!this.javaSentChunks.contains(ChunkPosition.chunkKey(chunk.getX(), chunk.getZ()))) {
             this.refixSentNeighborChunks(remappedChunk, chunk.getX(), chunk.getZ());
         }
@@ -1616,10 +1616,11 @@ public class ChunkTracker extends StoredObject {
     }
 
     /**
-     * Transfers the palette data between two different palette types.
+     * 在两种不同的调色板类型之间转移调色板数据。
      *
-     * @param source The source palette
-     * @param target The target palette
+     * @param source 源调色板
+     *
+     * @param target 目标调色板
      */
     private void transferPaletteData(final DataPalette source, final DataPalette target) {
         for (int x = 0; x < 16; x++) {

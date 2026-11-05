@@ -9,7 +9,7 @@
  */
 package net.raphimc.viabedrock.protocol.packet;
 
-/** Version gates for the Bedrock camera packet layouts. */
+/** 基岩相机包布局的版本判断。 */
 public final class CameraPacketLayout {
 
     public static final int ROTATION_SPEED_PROTOCOL = 729;

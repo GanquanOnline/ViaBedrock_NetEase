@@ -24,12 +24,12 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock DISCONNECT (packet 0x05).
+ * Bedrock DISCONNECT（数据包 0x05）的线上布局辅助方法。
  * <p>
- * Official Bedrock 974+ encodes hide-disconnection-screen as an unsigned varint.
- * NetEase 860 still uses a boolean. Reading the varint on a boolean payload
- * consumes the hide-screen flag plus the first byte of the message string and
- * then aborts Java DISCONNECT as extra / truncated data.
+ * 官方 Bedrock 974+ 把 hide-disconnection-screen 编码为 unsigned varint。
+ * 网易 860 仍然使用布尔值。在布尔载荷上读 varint，
+ * 会吃掉 hide-screen 标志以及消息字符串的第一个字节，
+ * 随后把 Java DISCONNECT 当作多余／截断数据中止。
  */
 public final class DisconnectPacketLayout {
 
@@ -46,9 +46,7 @@ public final class DisconnectPacketLayout {
         return !emulateNetEase || protocol >= UNSIGNED_HIDE_SCREEN_PROTOCOL;
     }
 
-    /**
-     * @return true when a kick message / filtered message follow the hide-screen flag
-     */
+    /** @return 当 hide-screen 标志之后跟着踢出消息／过滤后消息时返回 true */
     public static boolean readHasMessage(final PacketWrapper wrapper) {
         if (usesUnsignedHideScreen()) {
             return wrapper.read(BedrockTypes.UNSIGNED_VAR_INT) == 0;

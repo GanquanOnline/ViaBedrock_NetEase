@@ -172,8 +172,8 @@ final class BedrockFormDialogConverter {
     private static SingleOptionInput singleOptionInput(final String label, final String[] options, final int defaultOption) {
         final SingleOptionInput input = new SingleOptionInput(new ArrayList<>(Math.max(1, options.length)), TextUtil.stringToTextComponent(TextUtil.toSingleLine(label)));
         if (options.length == 0) {
-            // Bedrock represents an empty selector response as index 0; keep that response contract while
-            // satisfying Java's non-empty dialog codec with a visually empty option.
+            // 基岩把空选择器响应用索引 0 表示；在用一个视觉上为空的选项满足 Java 非空对话框编解码要求的同时，
+            // 保留该响应约定。
             input.getOptions().add(new SingleOptionInput.Entry("0", new StringComponent(), true));
             return input;
         }

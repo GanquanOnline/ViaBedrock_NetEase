@@ -85,7 +85,7 @@ class CreativeContentCacheTest {
     }
 
     private static void putCustomData(final StructuredItem item, final CompoundTag customData) {
-        // Avoid StructuredDataContainer.set(), which needs a protocol id lookup.
+        // 避免使用 StructuredDataContainer.set()，它需要一次协议 id 查找。
         item.dataContainer().data().put(StructuredDataKey.CUSTOM_DATA, StructuredData.of(StructuredDataKey.CUSTOM_DATA, customData, 0));
     }
 }

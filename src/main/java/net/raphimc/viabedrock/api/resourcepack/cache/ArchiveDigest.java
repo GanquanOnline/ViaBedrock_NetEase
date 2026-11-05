@@ -14,9 +14,7 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.Objects;
 
-/**
- * SHA-256 of the exact resource pack archive bytes as transported or stored.
- */
+/** 传输或存储时资源包归档原始字节的 SHA-256。 */
 public record ArchiveDigest(String hex) {
 
     public ArchiveDigest {
@@ -28,9 +26,7 @@ public record ArchiveDigest(String hex) {
         return new ArchiveDigest(DigestSupport.toHex(DigestSupport.sha256().digest(archive)));
     }
 
-    /**
-     * Computes a digest without closing the supplied stream.
-     */
+    /** 计算摘要，且不关闭传入的流。 */
     public static ArchiveDigest compute(final InputStream archive) throws IOException {
         Objects.requireNonNull(archive, "archive");
         final MessageDigest digest = DigestSupport.sha256();

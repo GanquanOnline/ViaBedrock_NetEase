@@ -96,9 +96,9 @@ public class ResourcePackRewriter {
     }
 
     /**
-     * Initialize runtime data needed for custom entity rendering.
-     * This must be called after setPackStack() to ensure data is available regardless of
-     * whether the Java client downloads or caches the resource pack.
+     * 初始化自定义实体渲染所需的运行时数据。
+     * 必须在 setPackStack() 之后调用，以确保无论 Java 客户端
+     * 是下载还是缓存资源包，数据都可用。
      */
     public static void initSharedRuntimeData(final ResourcePackStorage resourcePackStorage) {
         requireMatchingRegistry(resourcePackStorage);
@@ -109,13 +109,13 @@ public class ResourcePackRewriter {
         }
 
         if (!ViaBedrock.getConfig().shouldEnableServerEntityAnimation()) {
-            return; // Server-side animation disabled, skip BedrockMotion initialization
+            return; // 服务端动画已禁用，跳过 BedrockMotion 初始化
         }
         initBedrockMotionPackManager(resourcePackStorage);
         initCustomEntityBoneData(resourcePackStorage);
     }
 
-    /** Runs compatibility rewriters once for every connection, preserving session-local extension data. */
+    /** 为每个连接各运行一次兼容性重写器，并保留会话本地的扩展数据。 */
     public static void initSessionRuntimeData(final ResourcePackStorage resourcePackStorage) {
         requireMatchingRegistry(resourcePackStorage);
         for (Rewriter rewriter : REWRITERS) {
@@ -126,9 +126,9 @@ public class ResourcePackRewriter {
     }
 
     /**
-     * Initializes all resource-pack runtime data using the pre-shared-cache behavior.
+     * 使用共享缓存之前的行为初始化全部资源包运行时数据。
      *
-     * @deprecated Shared-cache callers should initialize shared and session data separately.
+     * @deprecated 使用共享缓存的调用方应分别初始化共享数据和会话数据。
      */
     @Deprecated(forRemoval = false)
     public static void initRuntimeData(final ResourcePackStorage resourcePackStorage) {
@@ -139,8 +139,7 @@ public class ResourcePackRewriter {
     public static String rewriterFingerprint() {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            // v3 keeps the manifest and embedded archive set identical when one logical pack UUID
-            // occurs in multiple version layers.
+            // 同一个逻辑资源包 UUID 出现在多个版本层时，v3 保持清单和内嵌归档集合完全一致。
             digest.update("ViaBedrock-Rewriters-v3\0".getBytes(StandardCharsets.US_ASCII));
             for (Rewriter rewriter : REWRITERS) {
                 updateFingerprint(digest, rewriter.getClass().getName());
@@ -170,8 +169,8 @@ public class ResourcePackRewriter {
     }
 
     /**
-     * Populate per-bone metadata (bone names and scales) for all custom entities.
-     * This data is needed by CustomEntity.spawn() to create per-bone Display Entities.
+     * 为所有自定义实体填充各骨骼的元数据（骨骼名称与缩放）。
+     * CustomEntity.spawn() 需要这些数据来创建各骨骼的 Display Entity。
      */
     private static void initCustomEntityBoneData(final ResourcePackStorage resourcePackStorage) {
         if (resourcePackStorage.getEntities() == null || resourcePackStorage.getModels() == null) return;
@@ -224,10 +223,10 @@ public class ResourcePackRewriter {
     }
 
     /**
-     * Create a BedrockMotion PackManager from ViaBedrock's resource packs.
-     * This PackManager provides animation/controller definitions for server-side entity animation.
-     * Shared runtimes expose their typed manager directly; the compatibility path stores its manager
-     * in session-local converter data for {@code ResourcePackStorage}'s legacy fallback.
+     * 从 ViaBedrock 的资源包创建 BedrockMotion 的 PackManager。
+     * 该 PackManager 提供服务端实体动画所需的动画/控制器定义。
+     * 共享运行时会直接暴露其带类型的管理器；兼容路径则把管理器
+     * 存入会话本地的转换器数据，供 {@code ResourcePackStorage} 的旧回退使用。
      */
     static void initBedrockMotionPackManager(final ResourcePackStorage resourcePackStorage) {
         final PackManager sharedPackManager = resourcePackStorage.getBedrockMotionPackManager();
@@ -277,12 +276,12 @@ public class ResourcePackRewriter {
         default void initRuntimeData(final ResourcePackStorage resourcePackStorage) {
         }
 
-        /** Existing third-party rewriters remain per-session unless they explicitly opt into immutable sharing. */
+        /** 现有的第三方重写器仍保持每会话一份，除非它们显式选择不可变共享。 */
         default RuntimeDataScope runtimeDataScope() {
             return RuntimeDataScope.SESSION;
         }
 
-        /** Bump this value whenever this rewriter changes Java artifact output semantics. */
+        /** 只要该重写器改变了 Java 产物输出语义，就递增此值。 */
         default String artifactFingerprint() {
             return "1";
         }

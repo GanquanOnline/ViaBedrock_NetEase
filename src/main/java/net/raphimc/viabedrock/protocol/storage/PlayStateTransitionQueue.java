@@ -32,31 +32,29 @@ import java.util.Queue;
 import java.util.logging.Level;
 
 /**
- * Bridges NetEase's early world stream with ViaBedrock's Java configuration handshake.
+ * 衔接网易的提前世界流与 ViaBedrock 的 Java 配置握手。
  *
- * <p>Vanilla Bedrock servers only send world packets after the client acknowledged the spawn
- * (SET_LOCAL_PLAYER_AS_INITIALIZED), which ViaBedrock sends after the Java client reached the
- * PLAY state. NetEase 860 backends push chunk, entity and inventory packets immediately after
- * START_GAME, while the Java client is still completing its configuration phase. The protocol's
- * pre-play guard dropped those packets, so PLAY_STATUS(PlayerSpawn) never initialized the player
- * and the backend timed the silent client out.</p>
+ * <p>原版基岩服务器只在客户端确认出生（SET_LOCAL_PLAYER_AS_INITIALIZED）之后才发送世界数据包，
+ * 而 ViaBedrock 是在 Java 客户端进入 PLAY 状态之后才发送该确认。网易 860 后端在
+ * START_GAME 之后立刻推送区块、实体和物品栏数据包，此时 Java 客户端仍在完成配置阶段。
+ * 协议的预游玩守卫丢弃了这些数据包，导致 PLAY_STATUS(PlayerSpawn) 从未初始化玩家，
+ * 后端最终把沉默的客户端超时掉。</p>
  *
- * <p>This queue captures the raw early packets and replays them through the normal clientbound
- * pipeline once the Java PLAY state is entered and the START_GAME storages are installed.</p>
+ * <p>此队列捕获早期的原始数据包，并在进入 Java PLAY 状态、START_GAME 的存储安装完成后，
+ * 通过正常的服务端→客户端管线重放它们。</p>
  */
 public class PlayStateTransitionQueue extends StoredObject {
 
     /**
-     * Packets relevant to the early join stream. MOT 860 {@code Player.processLogin()}
-     * sends abilities, creative contents, held-item equipment and trim data immediately
-     * after START_GAME, while the Java client is still in CONFIGURATION. Those packets
-     * have PLAY handlers that need START_GAME storages, so they are copied here and
-     * replayed after {@code finishCustomMappingStartGame}. HUD / education leftovers
-     * stay cancelled.
+     * 与提前加入流相关的数据包。MOT 860 的 {@code Player.processLogin()}
+     * 在 START_GAME 之后立即发送 abilities、创造模式内容、手持物品装备和 trim 数据，
+     * 而此时 Java 客户端仍处于 CONFIGURATION。这些数据包的 PLAY 处理器需要
+     * START_GAME 的存储，因此在此处复制，并在 {@code finishCustomMappingStartGame} 之后
+     * 重放。HUD / 教育相关的残留仍保持取消状态。
      *
-     * <p>Ref: MOT {@code Player.processLogin()} after {@code forceDataPacket(startGamePacket)}
-     * ({@code adventureSettings.update()}, {@code inventory.sendCreativeContents()},
-     * {@code inventory.sendHeldItemIfNotAir()}, {@code TrimDataPacket.getCachedPacket()}).</p>
+     * <p>参考：MOT {@code Player.processLogin()} 中 {@code forceDataPacket(startGamePacket)} 之后
+     * （{@code adventureSettings.update()}、{@code inventory.sendCreativeContents()}、
+     * {@code inventory.sendHeldItemIfNotAir()}、{@code TrimDataPacket.getCachedPacket()}）。</p>
      */
     private static final EnumSet<ClientboundBedrockPackets> DEFERRED_PACKETS = EnumSet.of(
             ClientboundBedrockPackets.PLAY_STATUS,
@@ -92,22 +90,22 @@ public class PlayStateTransitionQueue extends StoredObject {
             ClientboundBedrockPackets.CONFIRM_SKIN,
             ClientboundBedrockPackets.SYNC_SKIN,
             ClientboundBedrockPackets.NETEASE_JSON,
-            // MOT 860 processLogin() after START_GAME. Dropping these left Java
-            // without fly/creative flags, empty CreativeContentCache, and no
-            // held-item MOB_EQUIPMENT. Replay after PLAY so the existing
-            // handlers can use START_GAME storages.
+            // MOT 860 的 processLogin() 在 START_GAME 之后。丢弃这些包会让 Java
+            // 缺少飞行/创造标志、CreativeContentCache 为空，并且没有
+            // 手持物品的 MOB_EQUIPMENT。在 PLAY 之后重放，好让既有的
+            // 处理器能用上 START_GAME 的存储。
             ClientboundBedrockPackets.UPDATE_ABILITIES,
             ClientboundBedrockPackets.UPDATE_ADVENTURE_SETTINGS,
-            // CREATIVE_CONTENT / MOB_EQUIPMENT wait for ITEM_REGISTRY in
-            // InventoryBootstrapQueue so the first rewrite is not empty.
+            // CREATIVE_CONTENT / MOB_EQUIPMENT 在 InventoryBootstrapQueue 中等待
+            // ITEM_REGISTRY，以便第一次重写不是空的。
             ClientboundBedrockPackets.TRIM_DATA,
             ClientboundBedrockPackets.CAMERA_PRESETS,
             ClientboundBedrockPackets.SYNC_ENTITY_PROPERTY,
-            // MOT processLogin() ends with addOnlinePlayer(); plugins can emit
-            // PY_RPC / TEXT / title / toast / boss from that callback while Java
-            // is still in CONFIGURATION. Replay after PLAY so PyRpcDispatcher
-            // and HudPackets can still synthesize the C2S handshake.
-            // Ref: MOT Player.processLogin() this.server.addOnlinePlayer(this);
+            // MOT 的 processLogin() 以 addOnlinePlayer() 结束；插件可以在该回调中
+            // 在 Java 仍处于 CONFIGURATION 时发出 PY_RPC / TEXT / 标题 / toast / boss。
+            // 在 PLAY 之后重放，好让 PyRpcDispatcher 与 HudPackets 仍能合成
+            // C2S 握手。
+            // 参考：MOT Player.processLogin() this.server.addOnlinePlayer(this);
             ClientboundBedrockPackets.PY_RPC,
             ClientboundBedrockPackets.TEXT,
             ClientboundBedrockPackets.SET_TITLE,
@@ -184,8 +182,8 @@ public class PlayStateTransitionQueue extends StoredObject {
                 try {
                     replay.send(BedrockProtocol.class, false);
                 } catch (final Throwable t) {
-                    // One malformed early packet must not abort the rest of the join stream; the
-                    // normal pipeline would have dropped it anyway before this queue existed.
+                    // 单个格式错误的早期数据包不得中断后续加入流；在这个队列出现之前，
+                    // 正常的管线本来也会丢弃它。
                     ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to replay early " + deferredPacket.packet() + " packet", t);
                 }
             }

@@ -35,7 +35,7 @@ public abstract class StatelessProtocol<CU extends ClientboundPacketType, CM ext
 
     @Override
     public void transform(Direction direction, State state, PacketWrapper packetWrapper) throws InformativeException, CancelException {
-        if (state == State.STATUS) { // Needed for RakNet ping workaround
+        if (state == State.STATUS) { // RakNet ping 变通方案所需
             super.transform(direction, state, packetWrapper);
             return;
         }

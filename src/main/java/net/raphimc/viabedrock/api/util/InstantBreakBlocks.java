@@ -20,20 +20,20 @@ package net.raphimc.viabedrock.api.util;
 import java.util.Set;
 
 /**
- * Vanilla blocks whose destroy time is 0 (hardness == 0), i.e. they always break instantly for every
- * player regardless of tool / haste. The vanilla Java client breaks such blocks by sending only a single
- * {@code START_DESTROY_BLOCK} (no {@code STOP_DESTROY_BLOCK}); ViaBedrock must therefore complete the
- * Bedrock break in the START handler, otherwise the block is never broken on the Bedrock server and the
- * client prediction is reverted (see {@code ClientPlayerPackets}).
+ * 破坏时间为 0（hardness == 0）的原版方块，即无论使用何种工具或 haste 效果，
+ * 对每位玩家都会立即破坏。原版 Java 客户端破坏此类方块时只发送单次
+ * {@code START_DESTROY_BLOCK}（不发送 {@code STOP_DESTROY_BLOCK}）；因此 ViaBedrock 必须在
+ * START 处理器中完成基岩侧破坏，否则该方块在基岩服务端永远不会被破坏，
+ * 客户端的预测结果也会被回滚（见 {@code ClientPlayerPackets}）。
  *
- * <p>The set is keyed by the <b>Java</b> block identifier (without namespace, e.g. {@code wheat}) because
- * Java block names are stable across versions, unlike the Bedrock palette names. It mirrors the blocks for
- * which {@code Block#getHardness() == 0} on the EaseCation Nukkit server. Custom (mod) blocks are handled
- * separately via the {@code seconds_to_destroy} synced over the BedrockLoader custom-mapping channel.
+ * <p>该集合以 <b>Java</b> 方块标识符（不含命名空间，例如 {@code wheat}）为键，因为
+ * Java 方块名在各版本间稳定，不像基岩调色板名称。它对应 EaseCation Nukkit 服务端上
+ * {@code Block#getHardness() == 0} 的那些方块。自定义（mod）方块另行处理，
+ * 通过 BedrockLoader 自定义映射通道同步的 {@code seconds_to_destroy}。
  *
- * <p>Matching is exact, so an identifier present here but absent on a given version is simply a no-op
- * (never a false positive). Tool-accelerated instant breaking of non-zero-hardness blocks is intentionally
- * out of scope.
+ * <p>匹配是精确的，因此在此处存在但在某版本中缺失的标识符只是一个空操作
+ * （绝不会误判）。工具加速实现的非零硬度方块瞬间破坏被有意
+ * 排除在范围之外。
  */
 public final class InstantBreakBlocks {
 
@@ -48,37 +48,37 @@ public final class InstantBreakBlocks {
     );
 
     private static final Set<String> VANILLA_INSTANT_BREAK = Set.of(
-            // Crops / farmland plants
+            // 作物 / 耕地植物
             "wheat", "carrots", "potatoes", "beetroots",
             "melon_stem", "pumpkin_stem", "attached_melon_stem", "attached_pumpkin_stem",
             "nether_wart", "torchflower_crop", "pitcher_crop", "sweet_berry_bush",
-            // Saplings / propagules
+            // 树苗 / 胎生苗
             "oak_sapling", "spruce_sapling", "birch_sapling", "jungle_sapling", "acacia_sapling",
             "dark_oak_sapling", "cherry_sapling", "pale_oak_sapling", "mangrove_propagule", "bamboo_sapling",
-            // Small flowers
+            // 小型花
             "dandelion", "poppy", "blue_orchid", "allium", "azure_bluet", "red_tulip", "orange_tulip",
             "white_tulip", "pink_tulip", "oxeye_daisy", "cornflower", "lily_of_the_valley", "wither_rose",
             "torchflower", "closed_eyeblossom", "open_eyeblossom",
-            // Tall flowers / double plants
+            // 高花 / 双层植物
             "sunflower", "lilac", "rose_bush", "peony", "pink_petals", "wildflowers",
-            // Grass / ferns / bushes
+            // 草 / 蕨 / 灌木
             "short_grass", "grass", "fern", "tall_grass", "large_fern", "dead_bush", "bush", "firefly_bush",
-            // Aquatic plants
+            // 水生植物
             "seagrass", "tall_seagrass", "kelp", "kelp_plant", "lily_pad", "sea_pickle",
-            // Nether / cave vegetation
+            // 下界 / 洞穴植被
             "crimson_roots", "warped_roots", "nether_sprouts", "crimson_fungus", "warped_fungus",
             "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
             "cave_vines", "cave_vines_plant", "hanging_roots", "spore_blossom", "small_dripleaf",
             "azalea", "flowering_azalea",
-            // Mushrooms
+            // 蘑菇
             "brown_mushroom", "red_mushroom",
-            // Sugar cane
+            // 甘蔗
             "sugar_cane",
-            // Torches / lights
+            // 火把 / 光源
             "torch", "wall_torch", "soul_torch", "soul_wall_torch",
             "redstone_torch", "redstone_wall_torch", "redstone_wire",
-            // Misc zero-hardness. Scaffolding is Java hardness 0 (START only) but MOT
-            // BlockScaffolding hardness is 0.5, so it is not instant on the backend.
+            // 其他零硬度方块。脚手架在 Java 中硬度为 0（只发 START），但 MOT 的
+            // BlockScaffolding 硬度为 0.5，因此在后端并非瞬间破坏。
             "tnt", "slime_block", "honey_block", "fire", "soul_fire", "frogspawn",
             "tripwire", "flower_pot", "decorated_pot", "end_rod"
     );
@@ -91,10 +91,10 @@ public final class InstantBreakBlocks {
     }
 
     /**
-     * Java creative (and hardness-0 / shears-instant blocks) only send {@code START_DESTROY_BLOCK}.
-     * Nukkit-MOT SAI never handles {@code CreativeDestroyBlock(13)}; it only breaks on
-     * {@code PredictDestroyBlock}. ViaBedrock must therefore finish the Bedrock break in the START
-     * handler for these cases.
+     * Java 创造模式（以及硬度为 0 / 剪刀瞬破的方块）只发送 {@code START_DESTROY_BLOCK}。
+     * Nukkit-MOT SAI 从不处理 {@code CreativeDestroyBlock(13)}；它只在
+     * {@code PredictDestroyBlock} 时破坏。因此这些情况下 ViaBedrock 必须在 START
+     * 处理器中完成基岩侧破坏。
      */
     public static boolean shouldCompleteOnJavaStart(
             final boolean creative,
@@ -119,19 +119,19 @@ public final class InstantBreakBlocks {
     }
 
     /**
-     * Java still only sends {@code START_DESTROY_BLOCK}, but MOT hardness is not 0.
-     * Completing with same-tick {@code PredictDestroyBlock} is rejected as fast-break.
+     * Java 仍然只发送 {@code START_DESTROY_BLOCK}，但 MOT 的硬度不为 0。
+     * 在同一刻用 {@code PredictDestroyBlock} 完成会被判定为快速破坏而拒绝。
      */
     public static boolean isJavaStartOnlyDelayedMotBreak(final String javaIdentifier) {
         return javaIdentifier != null && JAVA_START_ONLY_DELAYED_MOT_BREAK.contains(javaIdentifier);
     }
 
     /**
-     * MOT {@code BlockScaffolding} hardness 0.5, harvestable by hand:
-     * {@code calculateBreakTime = 0.5 * 1.5 = 0.75s}. {@code Level.useBreakOn} subtracts
-     * a 0.15s grace, so PredictDestroy is accepted after 0.60s (12 ticks). START is
-     * typically followed by same-tick {@code CLIENT_TICK_END} which increments age
-     * once, so the due age is 13 ticks after the START snapshot.
+     * MOT 的 {@code BlockScaffolding} 硬度为 0.5，可徒手采集：
+     * {@code calculateBreakTime = 0.5 * 1.5 = 0.75s}。{@code Level.useBreakOn} 会减去
+     * 0.15s 的宽限，因此 PredictDestroy 在 0.60s（12 刻）后才会被接受。START 之后
+     * 通常在同一刻收到 {@code CLIENT_TICK_END}，使 age 递增一次，
+     * 所以应在 START 快照后第 13 刻到期。
      */
     public static int delayedMotBreakTicks(final String javaIdentifier) {
         if (!isJavaStartOnlyDelayedMotBreak(javaIdentifier)) {
@@ -141,8 +141,9 @@ public final class InstantBreakBlocks {
     }
 
     /**
-     * @param javaIdentifier the Java block identifier without namespace (e.g. {@code wheat})
-     * @return whether the vanilla block always breaks instantly (hardness 0)
+     * @param javaIdentifier 不含命名空间的 Java 方块标识符（例如 {@code wheat}）
+     *
+     * @return 该原版方块是否总是瞬间破坏（硬度为 0）
      */
     public static boolean isVanillaInstantBreak(final String javaIdentifier) {
         return VANILLA_INSTANT_BREAK.contains(javaIdentifier);

@@ -22,13 +22,13 @@ import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock TOAST_REQUEST (packet 186).
+ * 基岩 TOAST_REQUEST（186 号包）的线路布局辅助方法。
  * <p>
- * Nukkit-MOT {@code ToastRequestPacket.encode()} writes {@code string title + string content}
- * with no protocol-version fork. Java 1.21.11 has no native toast packet, so ViaBedrock
- * projects this onto {@code SET_ACTION_BAR_TEXT}. MOT {@code Player.sendToast()} already
- * falls back to {@code sendTitle(title, content)} below protocol 527; action-bar is the
- * closest Java HUD that does not steal the current title/subtitle.
+ * Nukkit-MOT {@code ToastRequestPacket.encode()} 写入 {@code string title + string content}，
+ * 不按协议版本分支。Java 1.21.11 没有原生 toast 包，因此 ViaBedrock
+ * 把它投影到 {@code SET_ACTION_BAR_TEXT}。MOT {@code Player.sendToast()} 在协议
+ * 527 以下本来就回退到 {@code sendTitle(title, content)}；动作栏是
+ * 最接近且不会抢占当前标题/副标题的 Java HUD。
  */
 public final class ToastRequestLayout {
 
@@ -53,10 +53,10 @@ public final class ToastRequestLayout {
     }
 
     /**
-     * Combines title and content the same way MOT {@code sendTitle(title, content)} would
-     * when toast is unavailable: empty/blank parts are dropped, remaining parts joined
-     * with a space. Both empty yields a single space so Java still receives a visible
-     * (blank) action-bar packet, matching MOT's {@code " "} fallback.
+     * 按 MOT {@code sendTitle(title, content)} 在 toast 不可用时的方式合并标题与内容：
+     * 丢弃空 / 空白部分，剩余部分用空格连接。两者都为空时产出单个空格，
+     * 使 Java 仍收到一个可见的（空白）动作栏数据包，与 MOT 的 {@code " "}
+     * 回退一致。
      */
     public static String actionBarText(final String title, final String content) {
         final String trimmedTitle = title != null ? title.strip() : "";

@@ -25,16 +25,16 @@ import net.raphimc.viabedrock.experimental.types.inventory.RecipeIngredientType;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock CRAFTING_DATA (packet 0x34).
+ * Bedrock CRAFTING_DATA（数据包 0x34）的线上布局辅助方法。
  * <p>
- * Official 975 and NetEase 860 both still encode shapeless / shaped unlock
- * requirements as a single context byte. Context {@code NONE} (0) then appends
- * an ingredient array. Protocol 2168 switches that field to
- * {@code varint context + boolean + optional ingredients}.
+ * 官方 975 与网易 860 仍然把无序／有序配方的解锁
+ * 需求编码为单个 context 字节。context 为 {@code NONE}（0）时会再追加
+ * 一个原料数组。协议 2168 把该字段换成
+ * {@code varint context + boolean + optional ingredients}。
  * <p>
- * Reading only the context byte leaves those extra ingredients in the buffer
- * and desynchronizes every later recipe. Official 975 MUST keep the 685+ byte
- * layout; do not invent the 2168 varint/bool shape there.
+ * 只读 context 字节会把那些额外原料留在缓冲里，
+ * 使之后每个配方都失步。官方 975 必须保持 685+ 字节的
+ * 布局；不要在那里套用 2168 的 varint/bool 形状。
  */
 public final class CraftingDataLayout {
 

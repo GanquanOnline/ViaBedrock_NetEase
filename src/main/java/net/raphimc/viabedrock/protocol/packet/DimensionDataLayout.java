@@ -23,13 +23,13 @@ import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock DIMENSION_DATA (packet 0xB4 / -76).
+ * Bedrock DIMENSION_DATA（数据包 0xB4 / -76）的线上布局辅助方法。
  * <p>
- * Official Bedrock / Nukkit-MOT protocol 975+ append {@code dimension type}
- * after {@code generator type}. NetEase 860 still encodes four fields per
- * entry: identifier, max height, min height, generator type.
- * Reading the extra varint on 860 consumes the next entry's string length
- * and aborts the remaining definitions, so overworld height can be dropped.
+ * 官方 Bedrock / Nukkit-MOT 协议 975+ 在 {@code generator type}
+ * 之后追加 {@code dimension type}。网易 860 仍然为每个条目
+ * 编码四个字段：identifier、最大高度、最小高度、generator type。
+ * 在 860 上读这个额外的 varint 会吃掉下一条目的字符串长度，
+ * 并中止剩余定义，因此主世界高度可能被丢弃。
  */
 public final class DimensionDataLayout {
 

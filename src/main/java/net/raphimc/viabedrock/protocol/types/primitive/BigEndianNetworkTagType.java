@@ -21,7 +21,7 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-/** Reads a named compound encoded as MOT big-endian network NBT. */
+/** 读取按 MOT 大端网络 NBT 编码的具名复合标签。 */
 public final class BigEndianNetworkTagType extends Type<CompoundTag> {
 
     public BigEndianNetworkTagType() {
@@ -36,7 +36,7 @@ public final class BigEndianNetworkTagType extends Type<CompoundTag> {
         }
 
         try {
-            // The root name is present in named NBT, although MOT sends it empty.
+            // 具名 NBT 中存在根名称，尽管 MOT 发送的是空名称。
             BedrockTypes.STRING.read(buffer);
             final Tag tag = TagRegistry.read(id, new BigEndianNetworkByteBufInputStream(buffer), TagLimiter.noop(), 0);
             if (!(tag instanceof CompoundTag compoundTag)) {

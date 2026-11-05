@@ -83,7 +83,7 @@ class JavaPackCacheTest {
         final String hash = cache.put(CACHE_KEY_A, complete);
         final Path cacheZip = tempDir.resolve(CACHE_KEY_A + ".zip");
 
-        Files.delete(cacheZip); // Break a possible hard link to the immutable artifact first.
+        Files.delete(cacheZip); // 先断开与不可变产物之间可能的硬链接。
         Files.writeString(cacheZip, "truncated", StandardCharsets.UTF_8);
 
         assertNull(cache.getValidHash(CACHE_KEY_A));

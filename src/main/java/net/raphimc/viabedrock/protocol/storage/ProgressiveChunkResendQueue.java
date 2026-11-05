@@ -20,7 +20,7 @@ package net.raphimc.viabedrock.protocol.storage;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Keeps at most one final resend obligation after a column's first visible snapshot. */
+/** 在区块列首次可见快照之后最多保留一次最终重发义务。 */
 final class ProgressiveChunkResendQueue {
 
     private final Set<Long> changedAfterFirstSend = new HashSet<>();

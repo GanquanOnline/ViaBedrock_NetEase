@@ -23,8 +23,8 @@ import net.raphimc.viabedrock.experimental.storage.ScriptDebugTextTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 
 /**
- * Drives {@link ScriptDebugTextTracker#tick()} every tick so that debug text shapes with a
- * finite lifespan ({@code totalTimeLeft}) are auto-removed, matching the Bedrock client.
+ * 每个刻驱动一次 {@link ScriptDebugTextTracker#tick()}，使具有
+ * 有限存活时间（{@code totalTimeLeft}）的调试文本形状被自动移除，与基岩客户端一致。
  */
 public class ScriptDebugTextTickTask implements Runnable {
 

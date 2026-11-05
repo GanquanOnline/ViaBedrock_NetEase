@@ -34,7 +34,7 @@ public class ChunkSectionType extends Type<BedrockChunkSection> {
 
     @Override
     public BedrockChunkSection read(ByteBuf buffer) {
-        final byte version = buffer.readByte(); // version
+        final byte version = buffer.readByte(); // 版本
 
         return switch (version) {
             case 0, 2, 3, 4, 5, 6, 7 -> V0.read(buffer);

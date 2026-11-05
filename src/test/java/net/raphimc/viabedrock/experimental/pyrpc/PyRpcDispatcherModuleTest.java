@@ -43,7 +43,7 @@ class PyRpcDispatcherModuleTest {
     @Test
     void stringsLongerThan31BytesUseStr8() {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-        final String longName = "ClientLoadAddonsFinishedFromGacX"; // 32 bytes
+        final String longName = "ClientLoadAddonsFinishedFromGacX"; // 32 字节
         assertEquals(32, longName.getBytes(StandardCharsets.UTF_8).length);
         PyRpcDispatcherModule.writeMsgPackStr(out, longName);
         final byte[] encoded = out.toByteArray();
@@ -75,8 +75,8 @@ class PyRpcDispatcherModuleTest {
     void motBin8ModEventS2CIsDetected() {
         final byte[] name = "ModEventS2C".getBytes(StandardCharsets.US_ASCII);
         final byte[] data = new byte[3 + name.length];
-        data[0] = (byte) 0x93; // fixarray 3, MOT PyRpcWriter.writeMessage
-        data[1] = (byte) 0xC4; // bin8, MOT PyRpcWriter.writeBinaryString
+        data[0] = (byte) 0x93; // fixarray 3，MOT PyRpcWriter.writeMessage
+        data[1] = (byte) 0xC4; // bin8，MOT PyRpcWriter.writeBinaryString
         data[2] = (byte) name.length;
         System.arraycopy(name, 0, data, 3, name.length);
         assertTrue(PyRpcDispatcherModule.isModEventS2C(data));

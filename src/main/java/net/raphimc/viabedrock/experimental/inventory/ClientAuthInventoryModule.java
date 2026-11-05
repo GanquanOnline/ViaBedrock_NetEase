@@ -117,30 +117,24 @@ public class ClientAuthInventoryModule implements FeatureModule {
         registerCreativeModeSlotHandler(protocol);
         registerSetBeaconHandler(protocol);
         registerCrafterSlotStateHandler(protocol);
-        // Java expects the crafting output preview to be pushed by the server, but Bedrock computes it
-        // client-side and never sends it. Recompute it locally whenever the (server-authoritative) grid
-        // contents change, so the Java output slot reflects the matched recipe's result.
+        // Java 期望合成输出预览由服务器推送，但基岩在客户端计算且从不发送。
+        // 每当（服务端权威的）合成网格内容变化时在本地重新计算，使 Java 输出槽反映匹配配方的结果。
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.INVENTORY_SLOT, wrapper -> updateCraftingOutputPreview(wrapper.user()));
         ProtocolUtil.appendClientbound(protocol, ClientboundBedrockPackets.INVENTORY_CONTENT, wrapper -> updateCraftingOutputPreview(wrapper.user()));
-        // Client-authoritative servers don't echo a clientbound CONTAINER_CLOSE for client-initiated
-        // closes, so pendingCloseContainer would never clear and the container could not be reopened
-        // (until the player walked away and the server force-closed it). Clear it right after the close
-        // is forwarded to the server.
+        // 客户端权威的服务器不会为客户端主动发起的关闭回发服务端→客户端的 CONTAINER_CLOSE，因此 pendingCloseContainer 永远不会被清除，容器也无法再次打开（直到玩家走远、服务器强制关闭它）。
+        // 在关闭被转发给服务器后立即清除它。
         ProtocolUtil.appendServerbound(protocol, ServerboundPackets26_1.CONTAINER_CLOSE, wrapper -> {
             final InventoryTracker tracker = wrapper.user().get(InventoryTracker.class);
             final Container pending = tracker.completePendingCloseWithoutConfirmation();
-            // Java can open and close its player inventory without a matching Bedrock CONTAINER_OPEN.
-            // In that case there is no pending container, but the predicted HUD cursor still has to be
-            // discarded so it cannot be restored by the next full inventory sync.
+            // Java 可以打开和关闭玩家物品栏，而不产生对应的基岩 CONTAINER_OPEN。
+            // 这种情况下没有待处理的容器，但预测的 HUD 光标仍必须丢弃，以免它在下一次完整物品栏同步时被恢复。
             if (tracker.clearCursorIfContainerClosed()) {
                 sendJavaCursor(wrapper.user(), tracker);
                 clearPlayerCraftingGrid(tracker);
             }
             wrapper.user().get(DragState.class).reset();
-            // The server (Nukkit) returns the crafting grid items to the inventory on close
-            // (resetCraftingGridType -> inventory.addItem) and echoes the inventory, but it does NOT echo the
-            // UI grid being emptied. Clear the 2x2/3x3 crafting grid + output mirror here so stale 3x3 items
-            // don't linger and leak into the 2x2 view the next time a crafting screen is opened.
+            // 服务器（Nukkit）在关闭时把合成网格物品还给物品栏（resetCraftingGridType -> inventory.addItem）并回发物品栏，但并不回发 UI 网格被清空。
+            // 在此处清空 2x2/3x3 合成网格加输出的镜像，这样残留的 3x3 物品不会滞留，也不会在下次打开合成界面时泄漏到 2x2 视图中。
             if (pending instanceof CraftingTableContainer) {
                 final Container hud = tracker.getHudContainer();
                 for (int slot = 28; slot <= 40; slot++) {
@@ -165,11 +159,11 @@ public class ClientAuthInventoryModule implements FeatureModule {
 
     private void registerContainerClickHandler(final BedrockProtocol protocol) {
         ProtocolUtil.prependServerbound(protocol, ServerboundPackets26_1.CONTAINER_CLICK, wrapper -> {
-            final int containerId = wrapper.read(Types.VAR_INT); // container id
-            final int revision = wrapper.read(Types.VAR_INT); // revision
-            final short slot = wrapper.read(Types.SHORT); // slot
-            final byte button = wrapper.read(Types.BYTE); // button
-            final int actionId = wrapper.read(Types.VAR_INT); // action
+            final int containerId = wrapper.read(Types.VAR_INT); // 容器 id
+            final int revision = wrapper.read(Types.VAR_INT); // 修订号
+            final short slot = wrapper.read(Types.SHORT); // 槽位
+            final byte button = wrapper.read(Types.BYTE); // 按钮
+            final int actionId = wrapper.read(Types.VAR_INT); // 操作
             if (actionId < 0 || actionId >= ContainerInput.values().length) {
                 wrapper.cancel();
                 return;
@@ -191,7 +185,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             }
             final HashedItem carriedItem = wrapper.read(Types.HASHED_ITEM);
 
-            wrapper.cancel(); // Prevent original handler from executing
+            wrapper.cancel(); // 阻止原处理器执行
 
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
 
@@ -199,7 +193,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
                 return;
             }
 
-            // Resolve container reference
+            // 解析容器引用
             final Container container;
             if (containerId == ContainerID.CONTAINER_ID_INVENTORY.getValue()) {
                 container = inventoryTracker.getInventoryContainer();
@@ -210,10 +204,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
                 }
             }
 
-            // Nukkit opens player-inventory SAI through INTERACT.OpenInventory. The non-experimental
-            // fallback already sends that handshake, but this handler owns player-inventory clicks
-            // and previously skipped it, so Take/Place never had an open inventory and cursor return
-            // could not close container -1.
+            // Nukkit 通过 INTERACT.OpenInventory 打开玩家物品栏的 SAI。
+            // 非实验性的回退路径已经发送该握手，但这个处理器负责玩家物品栏点击且此前跳过了它，
+            // 因此 Take/Place 从未有已打开的容器，光标返回也无法关闭容器 -1。
             if (needsBedrockPlayerInventoryOpen(containerId, inventoryTracker.isBedrockPlayerInventoryOpen())) {
                 PacketFactory.sendBedrockOpenInventory(wrapper.user());
             }
@@ -227,7 +220,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
                             "Failed to simulate Java container click; rolling back to the authoritative inventory", error)) : null;
 
             if (actions == null) {
-                // Unsupported operation — roll back container contents to the authoritative mirror
+                // 不支持的操作 — 把容器内容回滚到权威镜像
                 if (containerId != ContainerID.CONTAINER_ID_INVENTORY.getValue()) {
                     PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer());
                 }
@@ -235,7 +228,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
                 return;
             }
             if (actions.isEmpty()) {
-                return; // No-op, no packet needed
+                return; // 空操作，无需发送数据包
             }
             if (!allowsLockedActions(actions)) {
                 dragState.reset();
@@ -250,9 +243,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
                 return;
             }
 
-            // MOT computes the anvil result server-side. Leave the Java anvil/cursor
-            // prediction in place and wait for INVENTORY_SLOT/CONTENT instead of
-            // stuffing the input item onto the HUD cursor.
+            // MOT 在服务端计算铁砧结果。保留 Java 的铁砧/光标预测，等待 INVENTORY_SLOT/CONTENT，
+            // 而不要把输入物品塞到 HUD 光标上。
             if (AnvilSimulator.isTakeResult(actions)
                     || CartographySimulator.isTakeResult(actions)
                     || GrindstoneSimulator.isTakeResult(actions)
@@ -260,17 +252,15 @@ public class ClientAuthInventoryModule implements FeatureModule {
                     || StonecutterSimulator.isTakeResult(actions)
                     || SmithingSimulator.isTakeResult(actions)
                     || TradeSimulator.isTakeResult(actions)) {
-                // MOT's successful ItemStackResponse only carries deltas. Preserve the expected
-                // result identity in the mirror so an empty target can be reconstructed.
+                // MOT 成功的 ItemStackResponse 只携带增量。把期望的结果标识保留在镜像中，
+                // 以便空目标也能被重建。
                 applyMirrorUpdates(actions, inventoryTracker);
                 return;
             }
 
-            // Optimistically commit the predicted result to our mirror, then push it to Java. Previously we
-            // reset Java to the pre-click state without committing the prediction, which made every action
-            // visually roll back and forced the user to click twice (the second click then desynced because
-            // the server had already applied the first). The server stays authoritative and will correct us
-            // via clientbound inventory packets if it rejects the transaction.
+            // 乐观地把预测结果提交到我们的镜像，再推送给 Java。此前我们在不提交预测的情况下把 Java 重置回点击前状态，
+            // 导致每个操作在视觉上都会回滚，用户不得不点击两次（第二次点击又会失去同步，因为服务器已经应用了第一次）。
+            // 服务器仍是权威来源，若它拒绝该事务，会通过服务端→客户端的物品栏数据包纠正我们。
             applyMirrorUpdates(actions, inventoryTracker);
             if (containerId != ContainerID.CONTAINER_ID_INVENTORY.getValue()) {
                 PacketFactory.sendJavaContainerSetContent(wrapper.user(), inventoryTracker.getInventoryContainer());
@@ -278,7 +268,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             PacketFactory.sendJavaContainerSetContent(wrapper.user(), container);
             sendJavaCursor(wrapper.user(), inventoryTracker);
             updateCraftingOutputPreview(wrapper.user());
-            // NOTE: real Bedrock clients never send an InventoryMismatch after a normal transaction.
+            // 注意：真实基岩客户端在正常事务后从不会发送 InventoryMismatch。
         });
     }
 
@@ -287,9 +277,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * MOT CLICK_AIR / CLICK_BLOCK only read {@code getItemInHand()}. Java offhand
-     * use is promoted by swapping the two slots on MOT, then optionally restoring.
-     * {@code syncJava=false} keeps the Java client showing the original hands.
+     * MOT 的 CLICK_AIR / CLICK_BLOCK 只读取 {@code getItemInHand()}。Java 的副手使用通过在 MOT 上交换这两个槽位来实现，之后可选择恢复。
+     * {@code syncJava=false} 让 Java 客户端继续显示原来的双手物品。
      */
     public static boolean tryHandleSwapHands(final UserConnection user, final boolean syncJava) {
         return tryHandleSwapHandsTracked(user, syncJava).submitted();
@@ -342,8 +331,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
         if (syncJava) {
             PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());
         }
-        // F works with Java inventory still open. Only unwind MOT when this
-        // swap was the SAI handshake, not an already-open E screen.
+        // Java 物品栏仍打开时 F 也能用。只有当这次交换是 SAI 握手、而不是已经打开的 E 界面时，才回退 MOT。
         if (openedForThisAction) {
             closeTransientBedrockPlayerInventory(tracker);
         }
@@ -351,10 +339,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * Java Q / Ctrl-Q is PLAYER_ACTION DROP_ITEM / DROP_ALL_ITEMS. MOT 860 with
-     * SAI enabled drops legacy TYPE_NORMAL InventoryTransaction, so the same
-     * predicted slot delta has to travel as ITEM_STACK_REQUEST Drop.
-     * Ref: MOT Player.java isInventorySAIGateActive; DropActionProcessor.
+     * Java 的 Q / Ctrl-Q 是 PLAYER_ACTION 的 DROP_ITEM / DROP_ALL_ITEMS。MOT 860 在启用 SAI 时会丢弃旧版 TYPE_NORMAL InventoryTransaction，
+     * 因此同一个预测的槽位增量必须以 ITEM_STACK_REQUEST Drop 的形式发送。
+     * 参考：MOT Player.java 的 isInventorySAIGateActive；DropActionProcessor。
      */
     public static boolean tryHandleHotbarDrop(final UserConnection user, final boolean dropAll) {
         final InventoryTracker tracker = user.get(InventoryTracker.class);
@@ -418,8 +405,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
         }
         applyMirrorUpdates(actions, tracker);
         PacketFactory.sendJavaContainerSetContent(user, tracker.getInventoryContainer());
-        // Hotbar Q never opens a Java GUI. Keep MOT closed unless Java E was
-        // already open (Interact.OpenInventory already acknowledged).
+        // 快捷栏的 Q 从不会打开 Java GUI。除非 Java 的 E 界面已经打开（Interact.OpenInventory 已确认），否则保持 MOT 关闭。
         if (openedForThisAction) {
             closeTransientBedrockPlayerInventory(tracker);
         }
@@ -490,11 +476,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
             return;
         }
         if (!decoded.anyRejected()) {
-            // MOT success responses include the authoritative stackNetworkId.
-            // The actor is not resent INVENTORY_SLOT/CONTENT, so the predicted
-            // mirror must stamp those ids or the next click fails netId check.
-            // Ref: MOT ItemStackRequestHandler.handleRequests OK path and
-            // TransferItemActionProcessor.buildContainer.
+            // MOT 的成功响应包含权威的 stackNetworkId。
+            // actor 不会重发 INVENTORY_SLOT/CONTENT，所以预测的镜像必须打上这些 id，否则下一次点击会过不了 netId 校验。
+            // 参考：MOT ItemStackRequestHandler.handleRequests 的 OK 路径与 TransferItemActionProcessor.buildContainer。
             if (decoded.requestIds().length != 0) {
                 for (final int requestId : decoded.requestIds()) {
                     tracker.takePendingItemStackRequest(requestId);
@@ -558,9 +542,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * Writes MOT ITEM_STACK_RESPONSE netIds/counts into the SAI mirror.
-     * Does not push Java CONTAINER_SET_CONTENT: Java already has the predicted
-     * items, and ISR has no item id/NBT to rebuild from.
+     * 把 MOT ITEM_STACK_RESPONSE 的 netId/数量写入 SAI 镜像。
+     * 不推送 Java CONTAINER_SET_CONTENT：Java 已经有预测的物品，而 ISR 没有可用于重建的物品 id/NBT。
      */
     static void applyStackResponse(final InventoryTracker tracker, final ItemStackResponseLayout.DecodedResponse decoded) {
         if (tracker == null || decoded == null || decoded.entries() == null) {
@@ -596,14 +579,12 @@ public class ClientAuthInventoryModule implements FeatureModule {
         }
         final BedrockItem current = safeItem(ref.container(), ref.slot());
         if (current == null || current.isEmpty()) {
-            // ISR has no identifier/NBT. Keep the predicted empty slot rather
-            // than inventing an item; later CONTENT/SLOT can still fill it.
+            // ISR 没有标识符/NBT。保留预测的空槽位，而不是虚构一个物品；后续的 CONTENT/SLOT 仍可填充它。
             return;
         }
         final BedrockItem updated = current.copy();
         updated.setAmount(slot.count());
-        // MOT treats client netId 0 as "skip check". Keep the predicted id when
-        // the success entry omitted a real stackNetworkId.
+        // MOT 把客户端 netId 0 视为「跳过校验」。当成功条目省略了真实的 stackNetworkId 时，保留预测的 id。
         if (slot.stackNetworkId() > 0) {
             updated.setNetId(slot.stackNetworkId());
         }
@@ -616,7 +597,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             return;
         }
         if (slot.durabilityCorrection() != null) {
-            // MOT fills this with Item#getDamage(), so this is an absolute value.
+            // MOT 用 Item#getDamage() 填充此字段，因此这是一个绝对值。
             item.setData(slot.durabilityCorrection());
         }
         if (slot.customName() == null) {
@@ -690,7 +671,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
         if (container == null || container.type() != ContainerType.CRAFTER || container.position() == null) {
             return;
         }
-        // MOT ToggleCrafterSlotRequestPacket: 3x LE int block pos, byte slot, boolean disabled.
+        // MOT ToggleCrafterSlotRequestPacket：3 个小端 int 方块坐标、byte 槽位、boolean 禁用标记。
         final PacketWrapper toggle = PacketWrapper.create(ServerboundBedrockPackets.TOGGLE_CRAFTER_SLOT_REQUEST, user);
         toggle.write(BedrockTypes.INT_LE, container.position().x());
         toggle.write(BedrockTypes.INT_LE, container.position().y());
@@ -755,9 +736,8 @@ public class ClientAuthInventoryModule implements FeatureModule {
             final CreativeSlotSemantics.Plan plan = CreativeSlotSemantics.plan(
                     slot, item, tracker, wrapper.user().get(ItemRewriter.class), wrapper.user().get(CreativeContentCache.class));
             if (plan.isUnsupported()) {
-                // Leave JE's optimistic creative prediction alone. Force-resyncing
-                // from the Bedrock mirror is what made clicked items vanish (#1-1).
-                // Do not invent Take-to-cursor here: emptying a slot is Destroy.
+                // 不要干预 JE 乐观的创造模式预测。强制从基岩镜像重新同步正是让被点击物品消失的原因（#1-1）。
+                // 不要在这里虚构「拿到光标」：清空槽位就是 Destroy。
                 return;
             }
             if (plan.isEmpty()) {
@@ -765,7 +745,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             }
             final ItemStackRequestEncoder.EncodedRequest encoded = encodeCreativePlan(plan, tracker);
             if (encoded.unsupported() || encoded.isEmpty()) {
-                // Same as Plan.unsupported(): do not wipe the cursor or inventory.
+                // 与 Plan.unsupported() 相同：不要清空光标或物品栏。
                 return;
             }
             final InventorySnapshot snapshot = InventorySnapshot.capture(tracker);
@@ -984,11 +964,10 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * Interact.OpenInventory is only for a transient SAI handshake when no
-     * MOT window is already current. Java F/Q with a chest/table open must not
-     * send action 6: MOT then emits CONTAINER_OPEN type=-1, ViaBedrock used to
-     * bounce CONTAINER_CLOSE -1, and Player.java:4065-4076 closes the chest.
-     * DropActionProcessor / SwapActionProcessor do not require inventoryOpen.
+     * Interact.OpenInventory 只在当前没有 MOT 窗口时用于临时的 SAI 握手。
+     * 在箱子/工作台打开时，Java 的 F/Q 不能发送 action 6：那样 MOT 会发出 CONTAINER_OPEN type=-1，
+     * ViaBedrock 以前会回弹 CONTAINER_CLOSE -1，而 Player.java:4065-4076 会关闭箱子。
+     * DropActionProcessor / SwapActionProcessor 并不要求 inventoryOpen。
      */
     static boolean needsBedrockPlayerInventoryOpen(final InventoryTracker tracker, final int containerId) {
         if (tracker == null) {
@@ -1008,12 +987,10 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * Java Q / F never open a GUI. Interact.OpenInventory still opens MOT player
-     * inventory for SAI Drop/Swap. Close window -1 immediately so
-     * {@code inventoryOpen} does not stick and later attacks / chests fail.
-     * DropActionProcessor itself does not require inventoryOpen.
-     * Ref: MOT Player.java Interact action 6, USE_ITEM_ON_ENTITY ATTACK while
-     * inventoryOpen, addWindow.
+     * Java 的 Q / F 从不打开 GUI。Interact.OpenInventory 仍会为 SAI 的 Drop/Swap 打开 MOT 玩家物品栏。
+     * 立即关闭窗口 -1，这样 {@code inventoryOpen} 不会保持为真而导致后续攻击/箱子操作失败。
+     * DropActionProcessor 本身并不要求 inventoryOpen。
+     * 参考：MOT Player.java 的 Interact action 6、inventoryOpen 时的 USE_ITEM_ON_ENTITY ATTACK、addWindow。
      */
     static void closeTransientBedrockPlayerInventory(final InventoryTracker tracker) {
         if (tracker != null) {
@@ -1024,11 +1001,9 @@ public class ClientAuthInventoryModule implements FeatureModule {
     private static final int HUD_OUTPUT_SLOT = 50;
 
     /**
-     * Java relies on the server to push the crafting result into the output slot, but Bedrock computes the
-     * preview client-side and never sends it. This recomputes the result from the (mirror) grid via the
-     * loaded recipe table and pushes it into the Java output slot (slot 0) for both the 2x2 inventory grid
-     * and the 3x3 crafting table. The result is mirrored into HUD slot 50 so the container's getJavaItems
-     * (which reads HUD 50 for slot 0) stays consistent.
+     * Java 依赖服务器把合成结果推入输出槽，但基岩在客户端计算预览且从不发送。
+     * 这里通过已加载的配方表从（镜像中的）合成网格重新计算结果，并推入 Java 输出槽（槽位 0），2x2 物品栏网格与 3x3 工作台都适用。
+     * 结果同时镜像到 HUD 槽位 50，使容器的 getJavaItems（对槽位 0 读取 HUD 50）保持一致。
      */
     public static void updateCraftingOutputPreview(final UserConnection user) {
         final RecipeRegistry registry = user.get(RecipeRegistry.class);
@@ -1047,7 +1022,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
             is3x3 = false;
             javaWindowId = ContainerID.CONTAINER_ID_INVENTORY.getValue();
         } else {
-            return; // No crafting grid in this screen
+            return; // 此界面没有合成网格
         }
 
         final BedrockItem[] gridItems = CraftingSimulator.getGridItems(is3x3, tracker);
@@ -1057,22 +1032,22 @@ public class ClientAuthInventoryModule implements FeatureModule {
         final Container hud = tracker.getHudContainer();
         final BedrockItem previous = hud.getItem(HUD_OUTPUT_SLOT);
         if (!previous.isDifferent(output) && previous.amount() == output.amount()) {
-            return; // No change, avoid redundant packets
+            return; // 无变化，避免冗余数据包
         }
         hud.setItemSilent(HUD_OUTPUT_SLOT, output);
 
         final Item javaOutput = user.get(ItemRewriter.class).javaItem(output);
         final PacketWrapper setSlot = PacketWrapper.create(ClientboundPackets26_1.CONTAINER_SET_SLOT, user);
-        setSlot.write(Types.VAR_INT, javaWindowId); // window id
-        setSlot.write(Types.VAR_INT, 0); // revision
-        setSlot.write(Types.SHORT, (short) 0); // slot 0 = crafting output
+        setSlot.write(Types.VAR_INT, javaWindowId); // 窗口 id
+        setSlot.write(Types.VAR_INT, 0); // 修订号
+        setSlot.write(Types.SHORT, (short) 0); // 槽位 0 = 合成输出
         setSlot.write(VersionedTypes.V26_1.item, javaOutput);
         setSlot.send(BedrockProtocol.class);
     }
 
     /**
-     * Pushes the current cursor item (HUD slot 0) to the Java client as SET_CURSOR_ITEM. sendJavaContainerSetContent
-     * does not include the cursor, so after an optimistic prediction that moved the cursor we must sync it explicitly.
+     * 把当前光标物品（HUD 槽位 0）以 SET_CURSOR_ITEM 推送给 Java 客户端。
+     * sendJavaContainerSetContent 不包含光标，因此在乐观预测移动了光标之后必须显式同步。
      */
     private static void sendJavaCursor(final UserConnection user, final InventoryTracker tracker) {
         final BedrockItem cursor = tracker.getHudContainer().getItem(0);
@@ -1099,23 +1074,22 @@ public class ClientAuthInventoryModule implements FeatureModule {
     }
 
     /**
-     * Applies the expected inventory state changes to the container mirror.
-     * In client-authoritative mode, the client applies changes optimistically.
-     * If the server rejects the transaction, it will send revert packets to correct the mirror.
+     * 把预期的物品栏状态变更应用到容器镜像。
+     * 在客户端权威模式下，客户端乐观地应用变更。
+     * 如果服务器拒绝该事务，它会发送回滚数据包来纠正镜像。
      */
     private static void applyMirrorUpdates(final List<InventoryActionData> actions, final InventoryTracker tracker) {
         for (final InventoryActionData action : actions) {
-            // Only ContainerInventory actions mutate slots in our mirror (grid slots, cursor, inventory,
-            // armor, offhand). SOURCE_TODO craft markers (-5 USE_INGREDIENT / -4 CRAFTING_RESULT) carry no
-            // mirror change — the grid decrement is now sent as an explicit ContainerInventory grid SlotChange,
-            // so consuming them here too would double-decrement the grid.
+            // 只有 ContainerInventory 操作会改我们镜像中的槽位（合成网格槽位、光标、物品栏、盔甲、副手）。
+            // SOURCE_TODO 合成标记（-5 USE_INGREDIENT / -4 CRAFTING_RESULT）不带来镜像变化 — 网格扣减现在作为显式的 ContainerInventory 网格 SlotChange 发送，
+            // 因此在这里也消费它们会导致网格被重复扣减。
             if (action.source().type() == InventorySourceType.ContainerInventory) {
                 final Container container = resolveContainerById(action.source().containerId(), tracker);
                 if (container != null) {
                     container.setItemSilent(action.slot(), action.toItem());
                 }
             }
-            // Skip WorldInteraction (drops) and CreativeInventory actions
+            // 跳过 WorldInteraction（丢弃）与 CreativeInventory 操作
         }
     }
 
@@ -1131,7 +1105,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
         return tracker.getContainerServerbound(containerId);
     }
 
-    // --- DragState (per-connection storage for QUICK_CRAFT) ---
+    // --- DragState（QUICK_CRAFT 的按连接存储）---
 
     public static class DragState extends StoredObject {
         private int dragMode = -1;

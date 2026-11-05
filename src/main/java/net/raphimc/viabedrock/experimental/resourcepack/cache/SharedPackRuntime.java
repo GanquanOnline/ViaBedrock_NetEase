@@ -76,7 +76,7 @@ public final class SharedPackRuntime {
     private final Map<ArtifactVariant, ArtifactKey> artifactKeys = new ConcurrentHashMap<>();
     private final long runtimeGraphWeightBytes;
     private volatile long converterDataWeightBytes;
-    // Per-entry closure weight makes idle-cache eviction conservative; global snapshots deduplicate by identity.
+    // 按条目计算闭包权重使空闲缓存淘汰更保守；全局快照按身份去重。
     private volatile long estimatedWeightBytes;
     private final AtomicBoolean rejected = new AtomicBoolean();
 
@@ -127,8 +127,8 @@ public final class SharedPackRuntime {
         }
         long runtimeGraphWeight = 64L * 1024L
                 + (long) (this.packSourcesBottomToTop.size() + this.retainedLayers.size()) * 4L * 1024L;
-        // Folded maps share definition values with layers, but still retain their own hash tables.
-        // A quarter of parsed graph weight is deliberately conservative for those indices.
+        // 折叠后的映射与各层共享定义值，但仍保留自己的哈希表。
+        // 对这些索引按解析图权重的四分之一计算，是刻意保守的做法。
         runtimeGraphWeight = saturatingAdd(runtimeGraphWeight, retainedLayerWeight / 4L);
         if (this.bedrockMotionPackManager != null) {
             runtimeGraphWeight = saturatingAdd(runtimeGraphWeight,

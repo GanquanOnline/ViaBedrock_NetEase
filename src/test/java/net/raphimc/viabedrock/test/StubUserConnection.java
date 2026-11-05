@@ -43,9 +43,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * Lightweight {@link UserConnection} for tests that only need stored objects.
- * {@link com.viaversion.viaversion.connection.UserConnectionImpl} requires Via to
- * be loaded because it sizes protocol storables from the global manager.
+ * 轻量级 {@link UserConnection}，供只需要存储对象的测试使用。
+ * {@link com.viaversion.viaversion.connection.UserConnectionImpl} 要求 Via
+ * 已加载，因为它会从全局管理器计算协议可存储项的大小。
  */
 public final class StubUserConnection implements UserConnection {
 

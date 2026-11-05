@@ -65,8 +65,8 @@ class InventoryTrackerDummyContainerTest {
 
     @Test
     void dummyChestAtWorldOriginStaysOpenEvenIfWorldBacked() {
-        // Pre-fix path: spawn chest at (0,0,0) made plugin GUIs world-backed
-        // so tick() closed them for the 6-block distance check.
+        // 修复前的路径：在 (0,0,0) 生成箱子会让插件 GUI 变成由世界方块支撑，
+        // 于是 tick() 会因 6 格距离校验而关闭它们。
         final ChestContainer spawnTagged = new ChestContainer(this.user, (byte) 12, null, new BlockPosition(0, 0, 0), 27);
         this.tracker.setCurrentContainer(spawnTagged);
         assertTrue(spawnTagged.isWorldBacked());

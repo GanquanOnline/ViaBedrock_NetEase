@@ -72,9 +72,8 @@ public class CraftingDataModule implements FeatureModule {
             final CraftingDataEntryType type = CraftingDataEntryType.getByValue(rawType);
 
             if (type == null) {
-                // FurnaceRecipe(2) and FurnaceAuxRecipe(3) are missing from the generated enum.
-                // NetEase 860 still emits the old furnace payload. Official 974+ remaps them to
-                // shapeless, so only the 860 path skips the legacy layout.
+                // 生成的枚举中缺少 FurnaceRecipe(2) 与 FurnaceAuxRecipe(3)。
+                // 网易 860 仍会发出旧的熔炉载荷。官方 974+ 会把它们重映射为无形状配方，因此只有 860 路径会跳过旧布局。
                 if (CraftingDataLayout.isLegacyFurnaceType(rawType)) {
                     if (CraftingDataLayout.usesShapelessFurnaceLayout(
                             ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
@@ -100,33 +99,33 @@ public class CraftingDataModule implements FeatureModule {
             }
         }
 
-        // Skip brewing data
+        // 跳过酿造数据
         final int brewingCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         for (int i = 0; i < brewingCount; i++) {
-            wrapper.read(BedrockTypes.VAR_INT); // input id
-            wrapper.read(BedrockTypes.VAR_INT); // input meta
-            wrapper.read(BedrockTypes.VAR_INT); // reagent id
-            wrapper.read(BedrockTypes.VAR_INT); // reagent meta
-            wrapper.read(BedrockTypes.VAR_INT); // output id
-            wrapper.read(BedrockTypes.VAR_INT); // output meta
+            wrapper.read(BedrockTypes.VAR_INT); // 输入 id
+            wrapper.read(BedrockTypes.VAR_INT); // 输入 meta
+            wrapper.read(BedrockTypes.VAR_INT); // 试剂 id
+            wrapper.read(BedrockTypes.VAR_INT); // 试剂 meta
+            wrapper.read(BedrockTypes.VAR_INT); // 输出 id
+            wrapper.read(BedrockTypes.VAR_INT); // 输出 meta
         }
 
-        // Skip container mix data
+        // 跳过容器混合数据
         final int containerCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         for (int i = 0; i < containerCount; i++) {
-            wrapper.read(BedrockTypes.VAR_INT); // input id
-            wrapper.read(BedrockTypes.VAR_INT); // reagent id
-            wrapper.read(BedrockTypes.VAR_INT); // output id
+            wrapper.read(BedrockTypes.VAR_INT); // 输入 id
+            wrapper.read(BedrockTypes.VAR_INT); // 试剂 id
+            wrapper.read(BedrockTypes.VAR_INT); // 输出 id
         }
 
-        // Skip material reducer data
+        // 跳过材料分解数据
         final int materialReducerCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         for (int i = 0; i < materialReducerCount; i++) {
-            wrapper.read(BedrockTypes.VAR_INT); // input id
+            wrapper.read(BedrockTypes.VAR_INT); // 输入 id
             final int outputCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
             for (int j = 0; j < outputCount; j++) {
-                wrapper.read(BedrockTypes.VAR_INT); // output id
-                wrapper.read(BedrockTypes.VAR_INT); // output count
+                wrapper.read(BedrockTypes.VAR_INT); // 输出 id
+                wrapper.read(BedrockTypes.VAR_INT); // 输出数量
             }
         }
 
@@ -166,7 +165,7 @@ public class CraftingDataModule implements FeatureModule {
             primaryOutput = BedrockItem.empty();
         }
 
-        wrapper.read(BedrockTypes.UUID); // uuid
+        wrapper.read(BedrockTypes.UUID); // uuid（唯一标识符）
         final String tag = wrapper.read(BedrockTypes.STRING);
         final int priority = wrapper.read(BedrockTypes.VAR_INT);
         skipUnlockingRequirement(wrapper);
@@ -200,7 +199,7 @@ public class CraftingDataModule implements FeatureModule {
             primaryOutput = BedrockItem.empty();
         }
 
-        wrapper.read(BedrockTypes.UUID); // uuid
+        wrapper.read(BedrockTypes.UUID); // uuid（唯一标识符）
         final String tag = wrapper.read(BedrockTypes.STRING);
         final int priority = wrapper.read(BedrockTypes.VAR_INT);
         final boolean assumeSymmetry = wrapper.read(Types.BOOLEAN);
@@ -222,41 +221,41 @@ public class CraftingDataModule implements FeatureModule {
     }
 
     private static void skipFurnaceRecipe(final PacketWrapper wrapper) {
-        wrapper.read(BedrockTypes.VAR_INT); // input id
-        wrapper.read(InstanceItemType.INSTANCE); // output
-        wrapper.read(BedrockTypes.STRING); // tag
+        wrapper.read(BedrockTypes.VAR_INT); // 输入 id
+        wrapper.read(InstanceItemType.INSTANCE); // 输出
+        wrapper.read(BedrockTypes.STRING); // 标签
     }
 
     private static void skipFurnaceAuxRecipe(final PacketWrapper wrapper) {
-        wrapper.read(BedrockTypes.VAR_INT); // input id
-        wrapper.read(BedrockTypes.VAR_INT); // input data
-        wrapper.read(InstanceItemType.INSTANCE); // output
-        wrapper.read(BedrockTypes.STRING); // tag
+        wrapper.read(BedrockTypes.VAR_INT); // 输入 id
+        wrapper.read(BedrockTypes.VAR_INT); // 输入数据
+        wrapper.read(InstanceItemType.INSTANCE); // 输出
+        wrapper.read(BedrockTypes.STRING); // 标签
     }
 
     private static void skipMultiRecipe(final PacketWrapper wrapper) {
-        wrapper.read(BedrockTypes.UUID); // uuid
-        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // network id
+        wrapper.read(BedrockTypes.UUID); // uuid（唯一标识符）
+        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 网络 ID
     }
 
     private static void readSmithingTransformRecipe(final PacketWrapper wrapper, final List<RecipeRegistry.SmithingRecipe> recipes) {
-        wrapper.read(BedrockTypes.STRING); // recipe id
+        wrapper.read(BedrockTypes.STRING); // 配方 ID
         final RecipeIngredient template = wrapper.read(RecipeIngredientType.INSTANCE);
         final RecipeIngredient base = wrapper.read(RecipeIngredientType.INSTANCE);
         final RecipeIngredient addition = wrapper.read(RecipeIngredientType.INSTANCE);
-        wrapper.read(InstanceItemType.INSTANCE); // output
-        wrapper.read(BedrockTypes.STRING); // tag
+        wrapper.read(InstanceItemType.INSTANCE); // 输出
+        wrapper.read(BedrockTypes.STRING); // 标签
         final int networkId = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         recipes.add(new RecipeRegistry.SmithingRecipe(networkId, false, base, addition, template));
     }
 
     private static void skipSmithingTrimRecipe(final PacketWrapper wrapper) {
-        wrapper.read(BedrockTypes.STRING); // recipe id
-        wrapper.read(RecipeIngredientType.INSTANCE); // template
-        wrapper.read(RecipeIngredientType.INSTANCE); // base
-        wrapper.read(RecipeIngredientType.INSTANCE); // addition
-        wrapper.read(BedrockTypes.STRING); // tag
-        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // network id
+        wrapper.read(BedrockTypes.STRING); // 配方 ID
+        wrapper.read(RecipeIngredientType.INSTANCE); // 模板
+        wrapper.read(RecipeIngredientType.INSTANCE); // 基底
+        wrapper.read(RecipeIngredientType.INSTANCE); // 附加材料
+        wrapper.read(BedrockTypes.STRING); // 标签
+        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 网络 ID
     }
 
 }

@@ -108,8 +108,8 @@ class RidingTrackerMotTest {
 
     @Test
     void predictedBoatFromSpawnedJavaFootMatchesMotNetworkY() {
-        // After ADD_ENTITY strips MOT getBaseOffset, JE MOVE_VEHICLE reports the foot.
-        // That foot + boat eyeOffset must equal the MOT network Y used without MOVE_VEHICLE.
+        // ADD_ENTITY 去掉 MOT 的 getBaseOffset 之后，JE 的 MOVE_VEHICLE 上报的是脚部。
+        // 该脚部 + 船的 eyeOffset 必须等于不带 MOVE_VEHICLE 时使用的 MOT 网络 Y。
         final Position3f motNetworkBoat = new Position3f(10F, 64.375F, -3F);
         final Position3f javaFoot = RidingTracker.predictedBoatJavaFoot(motNetworkBoat, 0.375F);
         final Position3f fromMoveVehicle = RidingTracker.predictedBoatAuthInputPosition(javaFoot, 0.375F);
@@ -124,8 +124,8 @@ class RidingTrackerMotTest {
 
     @Test
     void predictedBoatIgnoresJavaBuoyancyYWhenMoveVehicleIsPresent() {
-        // JE client boat buoyancy can raise MOVE_VEHICLE Y every tick. MOT 860 onInput writes
-        // that Y into the hull; feeding it back would make the boat climb forever (#1-2).
+        // JE 客户端的船浮力可能每刻抬高 MOVE_VEHICLE 的 Y。MOT 860 的 onInput 会把
+        // 该 Y 写进船体；再把它回灌就会让船无限爬升（#1-2）。
         final Position3f motNetworkBoat = new Position3f(10F, 64.375F, -3F);
         final Position3f buoyantJavaFoot = new Position3f(11F, 65.0F, -2F);
         final Position3f auth = RidingTracker.predictedBoatAuthInputPosition(buoyantJavaFoot, motNetworkBoat, 0.375F);
@@ -140,8 +140,8 @@ class RidingTrackerMotTest {
 
     @Test
     void predictedBoatJavaSyncSoftFollowsTargetFootWhilePreservingSteerXZ() {
-        // Large JE climb corrections still start from the visual foot and approach the resting
-        // target one step at a time (no teleport), while preserving steer XZ.
+        // 大的 JE 上升修正仍从视觉脚部出发，一步一步接近静止
+        // 目标（不传送），同时保留转向 XZ。
         final Position3f motNetworkBoat = new Position3f(10F, 64.375F, -3F);
         final Position3f buoyantJavaFoot = new Position3f(11F, 65.0F, -2F);
         final Position3f sync = RidingTracker.predictedBoatJavaSyncPosition(buoyantJavaFoot, motNetworkBoat, 0.375F);
@@ -155,8 +155,8 @@ class RidingTrackerMotTest {
 
     @Test
     void predictedBoatApproachesWaterSurfaceInsteadOfTeleporting() {
-        // Occupied MOT boats disable wave sim, so tracker Y stays at the mount snapshot. Hard
-        // snapping to the water surface teleports the hull; approach one step per auth tick.
+        // 有人的 MOT 船会禁用波浪模拟，所以追踪器 Y 停在坐骑快照上。硬
+        // 吸附到水面会让船体瞬移；每个 auth 刻前进一步。
         final Position3f frozenTracker = new Position3f(10F, 70.375F, -3F);
         final Position3f steeredJavaFoot = new Position3f(10.2F, 69.9F, -3.1F);
         final ItemUseAirClickTarget.WorldView world = waterWorld(10, 64, -3, 0);
@@ -220,8 +220,8 @@ class RidingTrackerMotTest {
 
     @Test
     void predictedBoatApproachesLandGroundInsteadOfHoveringOnCliff() {
-        // No water under the hull: previous code rejected large downward JE deltas and froze at
-        // the mount snapshot, so land cliffs left the boat floating. Soft-follow solid ground.
+        // 船体下方没有水：旧代码会拒绝较大的 JE 向下增量并冻结在
+        // 坐骑快照上，于是陆地悬崖让船悬空。改为柔性跟随实心地面。
         final Position3f frozenTracker = new Position3f(10F, 70.375F, -3F);
         final Position3f fallingJavaFoot = new Position3f(10.1F, 68.5F, -3.1F);
         final ItemUseAirClickTarget.WorldView world = solidWorld(10, 64, -3);

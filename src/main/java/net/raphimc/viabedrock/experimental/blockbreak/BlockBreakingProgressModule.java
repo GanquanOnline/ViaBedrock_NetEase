@@ -197,7 +197,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         }
         if (instantBreak) {
             clientPlayer.clearDelayedMotBreak();
-            // Instant breaks still wait for the authoritative UPDATE_BLOCK before their ACK.
+            // 瞬间破坏仍要等权威的 UPDATE_BLOCK 之后才 ACK。
             this.finishMining(user, user.get(GameSessionStorage.class), clientPlayer, tracker, chunkTracker, position, direction, sequence);
         } else {
             ClientPlayerPackets.scheduleDelayedMotBreak(clientPlayer, chunkTracker, position, direction);
@@ -219,8 +219,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         clientPlayer.cancelNextSwingPacket();
         clientPlayer.clearDelayedMotBreak();
         clientPlayer.setBlockBreakingInfo(null);
-        // MOT PredictDestroy already aborts then completes. Same-tick Abort(face=0)
-        // is redundant. Ref: MOT Player.java PREDICT_DESTROY_BLOCK.
+        // MOT 的 PredictDestroy 已经先中止再完成。同一刻内的 Abort(face=0) 是多余的。参考：MOT Player.java 的 PREDICT_DESTROY_BLOCK。
         if (!gameSession.isBlockBreakingServerAuthoritative()) {
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.StopDestroyBlock));
             clientPlayer.addAuthInputBlockAction(new ClientPlayerEntity.AuthInputBlockAction(PlayerActionType.CrackBlock, position, direction.ordinal()));
@@ -234,8 +233,7 @@ public final class BlockBreakingProgressModule implements FeatureModule {
     }
 
     static List<PlayerActionType> serverAuthoritativeCompletionActions(final boolean emulateNetEase) {
-        // MOT stores AuthInput block actions in an EnumMap and processes Predict before Continue.
-        // Sending both would complete the block and immediately restart mining it.
+        // MOT 把 AuthInput 的方块动作存在 EnumMap 中，并先处理 Predict 再处理 Continue。两者都发会先完成该方块，再立即重新开始挖掘它。
         return emulateNetEase
                 ? List.of(PlayerActionType.PredictDestroyBlock)
                 : List.of(PlayerActionType.ContinueDestroyBlock, PlayerActionType.PredictDestroyBlock);

@@ -24,13 +24,13 @@ import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Wire-layout helpers for Bedrock UPDATE_CLIENT_INPUT_LOCKS (packet 196).
+ * 基岩 UPDATE_CLIENT_INPUT_LOCKS（196 号包）的线路布局辅助方法。
  * <p>
- * MOT {@code UpdateClientInputLocksPacket} writes an unsigned-varint bitset,
- * then {@code serverPosition} only when {@code protocol < 944}. NetEase 860
- * still includes that vector. Official 944+ drops it.
+ * MOT {@code UpdateClientInputLocksPacket} 写入无符号 varint 位集，
+ * 然后仅在 {@code protocol < 944} 时写入 {@code serverPosition}。网易 860
+ * 仍包含该向量。官方 944+ 已将其移除。
  * <p>
- * MOT uses bit 2 for camera and bit 4 for movement ({@code InputLockType}).
+ * MOT 用位 2 表示相机，位 4 表示移动（{@code InputLockType}）。
  */
 public final class UpdateClientInputLocksLayout {
 
@@ -46,8 +46,8 @@ public final class UpdateClientInputLocksLayout {
     }
 
     public static boolean usesServerPosition(final boolean emulateNetEase, final int protocol) {
-        // Official 975 is treated as latest and already dropped serverPosition.
-        // NetEase 860 still writes the vector (MOT removes it only at 944).
+        // 官方 975 被视为最新版本，已移除 serverPosition。
+        // 网易 860 仍写入该向量（MOT 只在 944 时移除）。
         return emulateNetEase && protocol < SERVER_POSITION_REMOVED_PROTOCOL;
     }
 

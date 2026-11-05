@@ -87,7 +87,7 @@ public class CompressionCodec extends ByteToMessageCodec<ByteBuf> {
 
         final int rawAlgorithm = in.readUnsignedByte();
         final PacketCompressionAlgorithm algorithm = PacketCompressionAlgorithm.getByValue(rawAlgorithm);
-        if (algorithm == null) { // Bedrock client drops the packet if the algorithm is unknown
+        if (algorithm == null) { // 算法未知时基岩客户端会丢弃该数据包
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Dropping packet with unknown PacketCompressionAlgorithm: " + rawAlgorithm);
             in.skipBytes(in.readableBytes());
             return;
@@ -98,7 +98,7 @@ public class CompressionCodec extends ByteToMessageCodec<ByteBuf> {
             out.add(in.retain());
         } else {
             final ByteBuf uncompressedData = ctx.alloc().buffer();
-            compressionAlgorithm.decompress(in, uncompressedData); // Bedrock client would drop packets with invalid data, but this would be too insane to do
+            compressionAlgorithm.decompress(in, uncompressedData); // 基岩客户端会丢弃数据非法的数据包，但那样做实在太离谱了
             out.add(uncompressedData);
         }
     }

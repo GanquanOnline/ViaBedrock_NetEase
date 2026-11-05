@@ -42,8 +42,8 @@ import java.util.logging.Level;
 public class UnhandledPackets {
 
     /**
-     * Clientbound types that exist in {@link ClientboundBedrockPackets} but have no
-     * Java mapping. ViaVersion passthrough would leak Bedrock bytes as Java packets.
+     * 存在于 {@link ClientboundBedrockPackets} 但没有
+     * Java 映射的服务端→客户端类型。ViaVersion 透传会把基岩字节当作 Java 包泄漏。
      */
     static final ClientboundBedrockPackets[] NETEASE_UNMAPPED_CLIENTBOUND = {
             ClientboundBedrockPackets.SERVER_PLAYER_POST_MOVE_POSITION,
@@ -97,12 +97,12 @@ public class UnhandledPackets {
     };
 
     public static void register(final BedrockProtocol protocol) {
-        // MOT Player.kill() + doImmediateRespawn writes SetHealthPacket(maxHealth)
-        // while the player is still dead. Vanilla Bedrock ignores this packet.
-        // Java 1.21.11 with showDeathScreen=false still needs PLAYER_COMBAT_KILL /
-        // SET_HEALTH(0) before it emits PERFORM_RESPAWN; the Java client itself
-        // sends ClientReadyToSpawn. Do not auto-reply here or MOT sees two
-        // ClientReadyToSpawn packets.
+        // MOT Player.kill() + doImmediateRespawn 会在玩家仍处于死亡状态时写入
+        // SetHealthPacket(maxHealth)。原版基岩会忽略该数据包。
+        // Java 1.21.11 在 showDeathScreen=false 时仍需要 PLAYER_COMBAT_KILL /
+        // SET_HEALTH(0) 才会发出 PERFORM_RESPAWN；Java 客户端自己会
+        // 发送 ClientReadyToSpawn。不要在这里自动回复，否则 MOT 会看到两个
+        // ClientReadyToSpawn 数据包。
         protocol.registerClientbound(ClientboundBedrockPackets.SET_HEALTH, null, wrapper -> {
             wrapper.cancel();
             final int health = DeathSyncLayout.readSetHealth(wrapper);
@@ -133,34 +133,34 @@ public class UnhandledPackets {
                 Via.getPlatform().getLogger().log(Level.WARNING, "Unable to parse MOT SYNC_ENTITY_PROPERTY", exception);
             }
         });
-        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.PHOTO_TRANSFER); // Not relevant (Education Edition)
+        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.PHOTO_TRANSFER); // 不适用（教育版）
         protocol.cancelClientbound(ClientboundBedrockPackets.SHOW_PROFILE);
-        protocol.cancelClientbound(ClientboundBedrockPackets.LAB_TABLE); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.EDUCATION_SETTINGS); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.EMOTE); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.CODE_BUILDER); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.EMOTE_LIST); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.PLAYER_FOG); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.EDU_URI_RESOURCE); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.LESSON_PROGRESS); // Not relevant (Education Edition)
-        protocol.cancelClientbound(ClientboundBedrockPackets.SET_HUD); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.CURRENT_STRUCTURE_FEATURE); // Useless
-        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST_PRESETS); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.PLAYER_VIDEO_CAPTURE); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.GRAPHICS_OVERRIDE_PARAMETER); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.TEXTURE_SHIFT); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_SPLINE); // Not possible in Java Edition
-        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST_ACTOR_PRIORITY); // Not possible in Java Edition
-        // MOT packet-pool IDs that ViaBedrock's generated MinecraftPacketIds omit.
-        // Without a registered type they surface as "Received unknown packet" and
-        // abort the current batch. MOT 860 never constructs 301/319, but 173/197
-        // exist in the pool; cancel them so leftover bytes cannot kick Java.
+        protocol.cancelClientbound(ClientboundBedrockPackets.LAB_TABLE); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.EDUCATION_SETTINGS); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.EMOTE); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.CODE_BUILDER); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.EMOTE_LIST); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.PLAYER_FOG); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.EDU_URI_RESOURCE); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.LESSON_PROGRESS); // 不适用（教育版）
+        protocol.cancelClientbound(ClientboundBedrockPackets.SET_HUD); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.CURRENT_STRUCTURE_FEATURE); // 无用
+        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST_PRESETS); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.PLAYER_VIDEO_CAPTURE); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.GRAPHICS_OVERRIDE_PARAMETER); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.TEXTURE_SHIFT); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_SPLINE); // Java 版不可能出现
+        protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_AIM_ASSIST_ACTOR_PRIORITY); // Java 版不可能出现
+        // ViaBedrock 生成的 MinecraftPacketIds 遗漏的 MOT 数据包池 ID。
+        // 没有注册类型时它们会以“Received unknown packet”出现并
+        // 中止当前批次。MOT 860 从不构造 301/319，但 173/197
+        // 存在于池中；取消它们，以免残留字节踢掉 Java。
         protocol.cancelClientbound(ClientboundBedrockPackets.PHOTO_INFO_REQUEST);
         protocol.cancelClientbound(ClientboundBedrockPackets.CLIENT_CHEAT_ABILITY);
-        // MOT ProtocolInfo leftover IDs that exist in MinecraftPacketIds but
-        // have no Java mapping. Cancel so an unknown ID cannot abort a batch.
+        // MOT ProtocolInfo 中存在于 MinecraftPacketIds 但
+        // 没有 Java 映射的遗留 ID。取消，以免未知 ID 中止批次。
         protocol.cancelClientbound(ClientboundBedrockPackets.REFRESH_ENTITLEMENTS);
         protocol.cancelClientbound(ClientboundBedrockPackets.RESOURCE_PACKS_READY_FOR_VALIDATION);
         protocol.cancelClientbound(ClientboundBedrockPackets.COMPRESSED_BIOME_DEFINITION_LIST);
@@ -180,18 +180,18 @@ public class UnhandledPackets {
         protocol.cancelClientbound(ClientboundBedrockPackets.UPDATE_SOUND_DATA);
         protocol.cancelClientbound(ClientboundBedrockPackets.SEND_PARTY_DESTINATION_COOKIE);
         protocol.cancelClientbound(ClientboundBedrockPackets.PARTY_DESTINATION_COOKIE_RESPONSE);
-        // MOT 860 processLogin() always sends TrimData + SyncEntityProperty.
-        // Java has no trim palette / actor-property packets; cancel so leftover
-        // bytes cannot abort the replayed join batch.
+        // MOT 860 的 processLogin() 总会发送 TrimData + SyncEntityProperty。
+        // Java 没有盔甲纹饰调色板 / 演员属性包；取消它们，以免残留
+        // 字节中止重放的加入批次。
         protocol.cancelClientbound(ClientboundBedrockPackets.TRIM_DATA);
-        // CameraInterface overwrites this when experimental features are on.
+        // 开启实验性功能时 CameraInterface 会覆写此项。
         protocol.cancelClientbound(ClientboundBedrockPackets.CAMERA_PRESETS);
-        // MOT 860 has SetPlayerInventoryOptions (307) but Java has no inventory-layout
-        // packet. Cancel so leftover bytes cannot abort a join/inventory batch.
+        // MOT 860 有 SetPlayerInventoryOptions (307)，但 Java 没有物品栏布局
+        // 数据包。取消，以免残留字节中止加入 / 物品栏批次。
         protocol.cancelClientbound(ClientboundBedrockPackets.SET_PLAYER_INVENTORY_OPTIONS);
-        // Unmapped clientbound IDs would otherwise passthrough as Java packets and
-        // kick 1.21.11 ("Received unknown packet" / leftover bytes abort the batch).
-        // JE-only drop: Bedrock clients do not use ViaBedrock.
+        // 未映射的服务端→客户端 ID 否则会作为 Java 包透传并
+        // 踢掉 1.21.11（“Received unknown packet”/ 残留字节中止批次）。
+        // 仅 JE 丢弃：基岩客户端不使用 ViaBedrock。
         for (final ClientboundBedrockPackets leftover : NETEASE_UNMAPPED_CLIENTBOUND) {
             protocol.cancelClientbound(leftover);
         }

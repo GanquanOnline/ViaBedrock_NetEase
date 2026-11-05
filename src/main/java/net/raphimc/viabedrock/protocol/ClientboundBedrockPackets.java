@@ -38,7 +38,7 @@ public enum ClientboundBedrockPackets implements ClientboundPacketType {
     TAKE_ITEM_ENTITY(MinecraftPacketIds.TakeItemActor.getValue()),
     MOVE_ENTITY_ABSOLUTE(MinecraftPacketIds.MoveAbsoluteActor.getValue()),
     MOVE_PLAYER(MinecraftPacketIds.MovePlayer.getValue()),
-    // MOT leftover IDs omitted from generated MinecraftPacketIds. Unknown IDs abort the RakNet batch.
+    // 生成的 MinecraftPacketIds 中遗漏的 MOT 遗留 ID。未知 ID 会中止 RakNet 批次。
     TICK_SYNC(MinecraftPacketIds.TickSync.getValue()),
     LEVEL_SOUND_EVENT_V1(MinecraftPacketIds.LevelSoundEventV1.getValue()),
     ENTITY_FALL(MinecraftPacketIds.EntityFall.getValue()),
@@ -219,16 +219,16 @@ public enum ClientboundBedrockPackets implements ClientboundPacketType {
     ATTRIBUTE_LAYER_SYNC(MinecraftPacketIds.ClientboundAttributeLayerSyncPacket.getValue()),
     SERVER_STORE_INFO(MinecraftPacketIds.ServerStoreInfo.getValue()),
     SERVER_PRESENCE_INFO(MinecraftPacketIds.ServerPresenceInfo.getValue()),
-    // MOT packet-pool IDs that generated MinecraftPacketIds omit (ends at 347).
-    // Clientbound 342 is PartyChanged; 348-350 are sound/party cookies. Without
-    // a registered type they surface as "Received unknown packet" and abort the batch.
+    // MOT 包池中生成的 MinecraftPacketIds 遗漏的 ID（到 347 结束）。
+    // 服务端→客户端的 342 是 PartyChanged；348-350 是声音/队伍 cookie。没有
+    // 注册类型时它们会以「Received unknown packet」出现并中止批次。
     PARTY_CHANGED(342),
     UPDATE_SOUND_DATA(348),
     SEND_PARTY_DESTINATION_COOKIE(349),
     PARTY_DESTINATION_COOKIE_RESPONSE(350),
     PY_RPC(0xC8),
-    // NetEase title-specific packets. MOT packetPoolCurrentNetEase registers these on
-    // top of the international pool: PY_RPC=200, NETEASE_JSON=203, CONFIRM_SKIN=228, SYNC_SKIN=236.
+    // 网易专用的数据包。MOT 的 packetPoolCurrentNetEase 在国际池之上
+    // 注册这些包：PY_RPC=200、NETEASE_JSON=203、CONFIRM_SKIN=228、SYNC_SKIN=236。
     NETEASE_JSON(0xCB),
     CONFIRM_SKIN(0xE4),
     SYNC_SKIN(0xEC);

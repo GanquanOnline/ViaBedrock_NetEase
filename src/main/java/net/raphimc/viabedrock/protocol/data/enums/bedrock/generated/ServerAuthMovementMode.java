@@ -1,4 +1,4 @@
-// THIS FILE IS AUTO-GENERATED. DO NOT EDIT!
+// 本文件由程序自动生成，请勿编辑！
 package net.raphimc.viabedrock.protocol.data.enums.bedrock.generated;
 
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
@@ -8,31 +8,31 @@ public enum ServerAuthMovementMode {
 
     LegacyClientAuthoritativeV1_Deprecated(0),
     /**
-     * Referred to in the rest of the documentation as 'Client Authoritative'.<br>
-     * This mode is the current default with previews coming soon for migrating to server authoritative<br>
-     * The packets sent from client to server are largely the same as for server authoritative, see their documentation for details:<br>
-     * - PlayerAuthInputPacket (Primary motion and input data)<br>
-     * - InventoryTransactionPacket (Item use, tangentially movement related)<br>
-     * PlayerActionPacket is sent in some cases, and in others has become a bit inside of PlayerAuthInputPacket.<br>
-     * The client can be repositioned with:<br>
+     * 本文档其余部分称其为“客户端权威”。<br>
+     * 该模式是当前的默认模式，预览中即将提供迁移到服务端权威的方案<br>
+     * 客户端发往服务端的包与服务器权威模式基本相同，详见其文档：<br>
+     * - PlayerAuthInputPacket（主要运动与输入数据）<br>
+     * - InventoryTransactionPacket（物品使用，与移动间接相关）<br>
+     * 某些情况下会发送 PlayerActionPacket，另一些情况下它已部分并入 PlayerAuthInputPacket。<br>
+     * 可通过以下方式重新定位客户端：<br>
      * - MovePlayerPacket<br>
      * - SetActorMotionPacket
      */
     ClientAuthoritativeV2(1),
     /**
-     * Referred to in the rest of the documentation as 'Server Authoritative'<br>
-     * This mode is intended to become the new default after previews coming soon.<br>
-     * The packets from client to server are similar.<br>
-     * - PlayerAuthInputPacket (Primary motion and input data)<br>
-     * - InventoryTransactionPacket (Item use, tangentially movement related)<br>
-     * PlayerActionPacket is sent in some cases, and in others has become a bit inside of PlayerAuthInputPacket.<br>
-     * The client can be repositioned with:<br>
+     * 本文档其余部分称其为“服务端权威”<br>
+     * 在即将到来的预览之后，该模式旨在成为新的默认模式。<br>
+     * 客户端发往服务端的包类似。<br>
+     * - PlayerAuthInputPacket（主要运动与输入数据）<br>
+     * - InventoryTransactionPacket（物品使用，与移动间接相关）<br>
+     * 某些情况下会发送 PlayerActionPacket，另一些情况下它已部分并入 PlayerAuthInputPacket。<br>
+     * 可通过以下方式重新定位客户端：<br>
      * - MovePlayerPacket<br>
      * - CorrectPlayerMovePredictionPacket<br>
      * - SetActorMotionPacket<br>
-     * Additionally, in this mode many client-bound packets have a 'Tick' value. These echo back the tick value that the client supplies in the PlayerAuthInputPacket.<br>
-     * For packets relating to a player or client predicted vehicle, the tick value should be that of the most recently processed PlayerAuthInputPacket from the player.<br>
-     * Specifying zero is also acceptable although may result in minor visual flickering as it may confuse client predicted actions.
+     * 此外，该模式下许多服务端→客户端包带有 'Tick' 值。这些值回显客户端在 PlayerAuthInputPacket 中提供的 tick 值。<br>
+     * 对于与玩家或客户端预测载具相关的包，tick 值应取该玩家最近一次处理过的 PlayerAuthInputPacket 的值。<br>
+     * 指定为零也是可接受的，但可能造成轻微的画面闪烁，因为它可能干扰客户端预测动作。
      */
     ServerAuthoritativeV3(2),
     ;

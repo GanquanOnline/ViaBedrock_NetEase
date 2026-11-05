@@ -26,9 +26,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Last PLAYER_ENCHANT_OPTIONS payload for the currently open enchanting table.
- * Java only stores three buttons (ids 0-2); MOT publishes up to three options
- * and later CraftRecipe uses the matching {@code enchantNetId}.
+ * 当前打开的附魔台最近一次 PLAYER_ENCHANT_OPTIONS 负载。
+ * Java 只保存三个按钮（id 0-2）；MOT 最多发布三个选项，
+ * 之后的 CraftRecipe 会使用匹配的 {@code enchantNetId}。
  */
 public final class EnchantingSessionStorage extends StoredObject {
 

@@ -87,11 +87,11 @@ public class BedrockDataEnumGenerator {
             enums.put(enumName, new ArrayList<>(enumFields.values()));
         }
 
-        // Mojang seems to have pushed an outdated version of this enum. Those values exist in 1.21.50, but not in 1.21.60
+        // Mojang 似乎推送了这个枚举的过时版本。那些值存在于 1.21.50，但不存在于 1.21.60
         final List<EnumField> levelEventEnum = enums.get("LevelEvent");
         levelEventEnum.add(new EnumField("ParticleCreakingHeartTrail", "9816"));
 
-        // Fix wrong values
+        // 修正错误的值
         final List<EnumField> packetCompressionAlgorithmEnum = enums.get("PacketCompressionAlgorithm");
         packetCompressionAlgorithmEnum.removeIf(field -> field.name.equals("None"));
         packetCompressionAlgorithmEnum.add(new EnumField("None", "0xFF"));

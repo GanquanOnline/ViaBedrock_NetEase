@@ -53,8 +53,8 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 
 /**
- * Handles NPC dialogue packets (NPC_DIALOGUE clientbound, NPC response via CUSTOM_CLICK_ACTION).
- * NpcDialogueState is stored in InventoryTracker as it participates in isAnyScreenOpen() checks.
+ * 处理 NPC 对话数据包（NPC_DIALOGUE 为服务端→客户端，NPC 响应经 CUSTOM_CLICK_ACTION 回传）。
+ * NpcDialogueState 存放在 InventoryTracker 中，因为它参与 isAnyScreenOpen() 检查。
  */
 public class NpcDialogueModule implements FeatureModule {
 
@@ -73,13 +73,13 @@ public class NpcDialogueModule implements FeatureModule {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long npcEntityUniqueId = wrapper.read(BedrockTypes.LONG_LE); // npc entity unique id
-            final int rawActionType = wrapper.read(BedrockTypes.VAR_INT); // action type
+            final long npcEntityUniqueId = wrapper.read(BedrockTypes.LONG_LE); // NPC 实体唯一 ID
+            final int rawActionType = wrapper.read(BedrockTypes.VAR_INT); // 动作类型
             final NpcDialoguePacket_NpcDialogueActionType actionType = NpcDialoguePacket_NpcDialogueActionType.getByValue(rawActionType);
-            final String dialogue = wrapper.read(BedrockTypes.STRING); // dialogue
-            final String sceneName = wrapper.read(BedrockTypes.STRING); // scene name
-            final String npcName = wrapper.read(BedrockTypes.STRING); // npc name
-            final String actionJson = wrapper.read(BedrockTypes.STRING); // action json
+            final String dialogue = wrapper.read(BedrockTypes.STRING); // 对话
+            final String sceneName = wrapper.read(BedrockTypes.STRING); // 场景名称
+            final String npcName = wrapper.read(BedrockTypes.STRING); // NPC 名称
+            final String actionJson = wrapper.read(BedrockTypes.STRING); // 动作 JSON
 
             ViaBedrock.getPlatform().getLogger().log(Level.INFO, "NPC_DIALOGUE: uniqueId=" + npcEntityUniqueId + " actionType=" + rawActionType + " dialogue=\"" + dialogue + "\" sceneName=\"" + sceneName + "\" npcName=\"" + npcName + "\" actionJson=\"" + actionJson + "\"");
 
@@ -134,7 +134,7 @@ public class NpcDialogueModule implements FeatureModule {
                     for (int i = 0; i < buttonsArray.size(); i++) {
                         final com.viaversion.viaversion.libs.gson.JsonObject buttonObj = buttonsArray.get(i).getAsJsonObject();
                         final int mode = buttonObj.has("mode") ? buttonObj.get("mode").getAsInt() : 0;
-                        if (mode != 0) continue; // Only show mode=0 (BUTTON) buttons
+                        if (mode != 0) continue; // 只显示 mode=0 (BUTTON) 的按钮
 
                         final String buttonName = buttonObj.has("button_name") ? buttonObj.get("button_name").getAsString() : "";
                         final String buttonText = buttonObj.has("text") ? buttonObj.get("text").getAsString() : "";
@@ -148,14 +148,14 @@ public class NpcDialogueModule implements FeatureModule {
                 }
             }
 
-            // MultiActionDialog requires at least one action button for serialization
+            // MultiActionDialog 序列化时至少需要一个动作按钮
             if (dialog.getActions().isEmpty()) {
                 dialog.getActions().add(exitButton);
             }
 
             try {
                 final PacketWrapper showDialog = PacketWrapper.create(ClientboundPackets26_1.SHOW_DIALOG, wrapper.user());
-                showDialog.write(Types.TRUSTED_COMPOUND_TAG_HOLDER, Holder.of((CompoundTag) DialogSerializer.V1_21_6.getDirectCodec().serialize(NbtConverter_v1_21_5.INSTANCE, dialog).get())); // dialog data
+                showDialog.write(Types.TRUSTED_COMPOUND_TAG_HOLDER, Holder.of((CompoundTag) DialogSerializer.V1_21_6.getDirectCodec().serialize(NbtConverter_v1_21_5.INSTANCE, dialog).get())); // 对话数据
                 showDialog.send(BedrockProtocol.class);
             } catch (Throwable e) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Error serializing NPC dialogue dialog", e);
@@ -163,13 +163,13 @@ public class NpcDialogueModule implements FeatureModule {
                 return;
             }
 
-            // Send ExecuteOpeningCommands to trigger mode=2 button commands
+            // 发送 ExecuteOpeningCommands 以触发 mode=2 按钮的命令
             final PacketWrapper openingRequest = PacketWrapper.create(ServerboundBedrockPackets.NPC_REQUEST, wrapper.user());
-            openingRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, npcEntityRuntimeId); // entity runtime id
-            openingRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteOpeningCommands.getValue()); // type
-            openingRequest.write(BedrockTypes.STRING, ""); // command
-            openingRequest.write(Types.BYTE, (byte) 0); // action index
-            openingRequest.write(BedrockTypes.STRING, sceneName); // scene name
+            openingRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, npcEntityRuntimeId); // 实体运行时 ID
+            openingRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteOpeningCommands.getValue()); // 类型
+            openingRequest.write(BedrockTypes.STRING, ""); // 命令
+            openingRequest.write(Types.BYTE, (byte) 0); // 动作索引
+            openingRequest.write(BedrockTypes.STRING, sceneName); // 场景名称
             openingRequest.sendToServer(BedrockProtocol.class);
         });
     }
@@ -178,13 +178,13 @@ public class NpcDialogueModule implements FeatureModule {
         ProtocolUtil.prependServerbound(protocol, ServerboundPackets26_1.CUSTOM_CLICK_ACTION, wrapper -> {
             final InventoryTracker inventoryTracker = wrapper.user().get(InventoryTracker.class);
             if (inventoryTracker.getCurrentNpcDialogue() == null) {
-                return; // Not an NPC dialogue response, fall through to form handler
+                return; // 不是 NPC 对话响应，交给表单处理器处理
             }
 
-            // NPC dialogue is active — read and handle the response
+            // NPC 对话处于激活状态 —— 读取并处理响应
             wrapper.cancel();
-            final String id = wrapper.read(Types.STRING); // id
-            final CompoundTag payload = (CompoundTag) wrapper.read(Types.CUSTOM_CLICK_ACTION_TAG); // payload
+            final String id = wrapper.read(Types.STRING); // ID
+            final CompoundTag payload = (CompoundTag) wrapper.read(Types.CUSTOM_CLICK_ACTION_TAG); // 负载
             final InventoryTracker.NpcDialogueState npcState = inventoryTracker.getCurrentNpcDialogue();
 
             if (!id.equals("viabedrock:npc/" + npcState.sceneName())) {
@@ -200,11 +200,11 @@ public class NpcDialogueModule implements FeatureModule {
             inventoryTracker.setCurrentNpcDialogue(null);
 
             final PacketWrapper npcRequest = PacketWrapper.create(ServerboundBedrockPackets.NPC_REQUEST, wrapper.user());
-            npcRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, npcState.npcEntityRuntimeId()); // entity runtime id
-            npcRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteAction.getValue()); // type
-            npcRequest.write(BedrockTypes.STRING, ""); // command
-            npcRequest.write(Types.BYTE, (byte) buttonIndex); // action index
-            npcRequest.write(BedrockTypes.STRING, npcState.sceneName()); // scene name
+            npcRequest.write(BedrockTypes.UNSIGNED_VAR_LONG, npcState.npcEntityRuntimeId()); // 实体运行时 ID
+            npcRequest.write(Types.BYTE, (byte) NpcRequestPacket_RequestType.ExecuteAction.getValue()); // 类型
+            npcRequest.write(BedrockTypes.STRING, ""); // 命令
+            npcRequest.write(Types.BYTE, (byte) buttonIndex); // 动作索引
+            npcRequest.write(BedrockTypes.STRING, npcState.sceneName()); // 场景名称
             npcRequest.sendToServer(BedrockProtocol.class);
         });
     }

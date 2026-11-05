@@ -24,9 +24,9 @@ import net.raphimc.viabedrock.protocol.model.PlayerAbilities;
 public class GameTypeRewriter {
 
     /**
-     * MOT {@code Player.SPECTATOR} is 3 and its {@code GameType} enum is ordinal-based
-     * ({@code SURVIVAL_VIEWER=3}, {@code CREATIVE_VIEWER=4}, {@code SPECTATOR=6}).
-     * Official Bedrock spectator is 6. Wire 3/4 must not fall through as {@code Undefined}.
+     * MOT 的 {@code Player.SPECTATOR} 是 3，其 {@code GameType} 枚举按序号取值
+     * （{@code SURVIVAL_VIEWER=3}、{@code CREATIVE_VIEWER=4}、{@code SPECTATOR=6}）。
+     * 官方基岩的旁观者是 6。线上的 3/4 不能落到 {@code Undefined}。
      */
     public static GameType fromWire(final int value) {
         return switch (value) {
@@ -48,9 +48,9 @@ public class GameTypeRewriter {
     }
 
     /**
-     * Remote players always stay {@link GameMode#SPECTATOR} so vanilla clients hide them.
-     * The local player may present {@link GameMode#ADVENTURE} when VBU can force
-     * {@code Entity.noClip}, because Java SPECTATOR locks the MOT backpack.
+     * 远程玩家始终保持 {@link GameMode#SPECTATOR}，以便原版客户端隐藏它们。
+     * 当 VBU 能强制 {@code Entity.noClip} 时，本地玩家可以呈现为 {@link GameMode#ADVENTURE}，
+     * 因为 Java 的 SPECTATOR 会锁住 MOT 背包。
      */
     public static GameMode getEffectiveGameMode(final GameType playerGameType, final GameType levelGameType,
                                                 final boolean localSpectatorNoclip) {
@@ -59,7 +59,7 @@ public class GameTypeRewriter {
             effectiveGameType = levelGameType;
         }
         if (effectiveGameType == GameType.Undefined || effectiveGameType == GameType.Default) {
-            effectiveGameType = GameType.Survival; // Bedrock client defaults to survival in case of out of bounds values
+            effectiveGameType = GameType.Survival; // 遇到越界值时基岩客户端默认使用生存模式
         }
         return (switch (effectiveGameType) {
             case Survival -> GameMode.SURVIVAL;

@@ -100,8 +100,8 @@ public class RidingModule implements FeatureModule {
             wrapper.cancel();
         });
 
-        // Java PADDLE_BOAT is auto-cancelled. MOT 860 Player.handle(AnimatePacket)
-        // only updates boat paddle metadata from ROW_LEFT/ROW_RIGHT + rowingTime.
+        // Java 的 PADDLE_BOAT 会被自动取消。MOT 860 的 Player.handle(AnimatePacket)
+        // 只会根据 ROW_LEFT/ROW_RIGHT 和 rowingTime 更新船的划桨元数据。
         ProtocolUtil.prependServerbound(protocol, ServerboundPackets26_1.PADDLE_BOAT, wrapper -> {
             wrapper.cancel();
             final boolean leftPaddle = wrapper.read(Types.BOOLEAN);
@@ -110,9 +110,9 @@ public class RidingModule implements FeatureModule {
         });
 
         ProtocolUtil.prependServerbound(protocol, ServerboundPackets26_1.PLAYER_COMMAND, wrapper -> {
-            wrapper.passthrough(Types.VAR_INT); // entity id
-            final int actionId = wrapper.passthrough(Types.VAR_INT); // action
-            wrapper.passthrough(Types.VAR_INT); // data
+            wrapper.passthrough(Types.VAR_INT); // 实体 ID
+            final int actionId = wrapper.passthrough(Types.VAR_INT); // 动作
+            wrapper.passthrough(Types.VAR_INT); // 数据
             if (actionId < 0 || actionId >= PlayerCommandAction.values().length) {
                 wrapper.cancel();
                 return;
@@ -127,8 +127,8 @@ public class RidingModule implements FeatureModule {
                     if (vehicle != null) {
                         sendInteract(wrapper.user(), vehicle.runtimeId(), InteractPacket_Action.OpenInventory);
                     } else {
-                        // Java PLAYER_COMMAND.OPEN_INVENTORY has no Bedrock equivalent besides Interact.6.
-                        // GanAC PacketFlow requires that precursor before TYPE_NORMAL inventory clicks.
+                        // Java 的 PLAYER_COMMAND.OPEN_INVENTORY 除 Interact.6 之外没有对应的基岩包。
+                        // GanAC 的 PacketFlow 要求在 TYPE_NORMAL 物品栏点击之前先有这个前置包。
                         PacketFactory.sendBedrockOpenInventory(wrapper.user());
                     }
                     wrapper.cancel();
@@ -140,9 +140,9 @@ public class RidingModule implements FeatureModule {
             final double x = wrapper.passthrough(Types.DOUBLE); // x
             final double y = wrapper.passthrough(Types.DOUBLE); // y
             final double z = wrapper.passthrough(Types.DOUBLE); // z
-            final float yaw = wrapper.passthrough(Types.FLOAT); // yaw
-            final float pitch = wrapper.passthrough(Types.FLOAT); // pitch
-            final boolean onGround = wrapper.passthrough(Types.BOOLEAN); // on ground
+            final float yaw = wrapper.passthrough(Types.FLOAT); // 偏航角
+            final float pitch = wrapper.passthrough(Types.FLOAT); // 俯仰角
+            final boolean onGround = wrapper.passthrough(Types.BOOLEAN); // 在地面上
 
             final RidingTracker tracker = wrapper.user().get(RidingTracker.class);
             if (tracker != null && tracker.isLocalRiding()) {
@@ -244,7 +244,7 @@ public class RidingModule implements FeatureModule {
         EntityPacketLayout.writeAnimateAction(animate, action);
         animate.write(BedrockTypes.UNSIGNED_VAR_LONG, runtimeId);
         animate.write(BedrockTypes.FLOAT_LE, 0F);
-        // MOT 860 onPaddle() only copies a non-zero rowingTime into ROW_TIME_LEFT/RIGHT.
+        // MOT 860 的 onPaddle() 只会把非零的 rowingTime 复制到 ROW_TIME_LEFT/RIGHT。
         EntityPacketLayout.writeRowingTime(animate, action, 1F);
         EntityPacketLayout.writeAnimateTrailer(animate, null);
         animate.sendToServer(BedrockProtocol.class);
@@ -252,8 +252,8 @@ public class RidingModule implements FeatureModule {
 
     private static void sendInteract(final UserConnection user, final long targetRuntimeId, final InteractPacket_Action action) {
         final PacketWrapper interact = PacketWrapper.create(ServerboundBedrockPackets.INTERACT, user);
-        interact.write(Types.UNSIGNED_BYTE, (short) action.getValue()); // action
-        interact.write(BedrockTypes.UNSIGNED_VAR_LONG, targetRuntimeId); // target entity runtime id
+        interact.write(Types.UNSIGNED_BYTE, (short) action.getValue()); // 动作
+        interact.write(BedrockTypes.UNSIGNED_VAR_LONG, targetRuntimeId); // 目标实体运行时 ID
         InteractPacketLayout.writePosition(interact, action, Position3f.ZERO);
         interact.sendToServer(BedrockProtocol.class);
     }
