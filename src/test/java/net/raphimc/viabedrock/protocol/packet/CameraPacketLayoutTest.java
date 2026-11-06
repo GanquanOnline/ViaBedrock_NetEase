@@ -48,6 +48,27 @@ class CameraPacketLayoutTest {
         assertFalse(CameraPacketLayout.usesAlignTargetAndCameraForward(true, 818));
         assertFalse(CameraPacketLayout.usesAimAssist(true, 765));
         assertTrue(CameraPacketLayout.usesAimAssist(true, 766));
+        assertFalse(CameraPacketLayout.usesStartingRotation(true, 860));
+    }
+
+    @Test
+    void easeByNameAndSplineKeyframeEaseFollow924And944() {
+        assertFalse(CameraPacketLayout.usesSplineKeyframeEase(923));
+        assertTrue(CameraPacketLayout.usesSplineKeyframeEase(924));
+        assertTrue(CameraPacketLayout.usesSplineKeyframeEase(2225));
+        assertFalse(CameraPacketLayout.usesEaseByName(943));
+        assertTrue(CameraPacketLayout.usesEaseByName(944));
+        assertTrue(CameraPacketLayout.usesEaseByName(975));
+    }
+
+    @Test
+    void startingRotationIs2192Only() {
+        assertFalse(CameraPacketLayout.usesStartingRotation(true, 2191));
+        assertTrue(CameraPacketLayout.usesStartingRotation(true, 2192));
+        assertTrue(CameraPacketLayout.usesStartingRotation(true, 2225));
+        assertFalse(CameraPacketLayout.usesStartingRotation(false, 975));
+        assertFalse(CameraPacketLayout.usesStartingRotation(false, 2191));
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2192));
     }
 
 }

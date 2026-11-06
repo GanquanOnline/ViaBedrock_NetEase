@@ -34,6 +34,8 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.experimental.util.ProtocolUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ScriptModuleDebugUtilities_ScriptDebugShapeType;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.model.Position3f;
@@ -72,6 +74,10 @@ public class ScriptDebugTextTracker extends StoredObject {
     private static final byte STYLE_SEE_THROUGH = 0x02; // 穿透方块渲染
     private static final float DEFAULT_VIEW_RANGE_BLOCKS = 64.0f; // view_range == 1.0 ~= 64 格
     private static final String PASSENGER_SOURCE = "script-debug-text";
+    /** 924 起 {@code dimension} 与 {@code attachedEntityId} 由必填改成可选（后者才开始写）。 */
+    private static final int OPTIONAL_TAIL_PROTOCOL = 924;
+    /** 974 起形状头部才写 {@code maximumRenderDistance}，TEXT 载荷才写朝向/背景色/三个开关。 */
+    private static final int V974_TAIL_PROTOCOL = 974;
 
     private final Map<Long, ShapeInfo> shapes = new HashMap<>();
     private long tickCounter = 0;
@@ -106,22 +112,29 @@ public class ScriptDebugTextTracker extends StoredObject {
         });
     }
 
-    // ---- 数据包解析（基岩 1.26.20 PrimitiveShapesPacket 线格式） ----
+    // ---- 数据包解析（MOT writeShape859：860..975 共用，只在 924 与 974 两个阈值上分叉） ----
 
     private void handlePrimitiveShapes(final PacketWrapper wrapper) {
-        final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数量
+        // MOT 的 writeShape859 只在 924 与 974 两个阈值上分叉（三处字段），其余字段全版本可选：
+        // 924 起 dimension 由必填改成可选、attachedEntityId 才开始写；974 起才写 maximumRenderDistance。
+        final int protocol = BedrockWire.effectiveProtocol();
+        final boolean v974 = protocol >= V974_TAIL_PROTOCOL;
+        final ShapeReader source = new ShapeReader() {
+            @Override
+            <T> T read(final Type<T> type) {
+                return wrapper.read(type);
+            }
+        };
+        final int count = source.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数量
         for (int i = 0; i < count; i++) {
-            final long id = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 形状 id
-            final Byte typeByte = readOptional(wrapper, Types.BYTE); // 可选类型（序号）
-            final Position3f location = readOptional(wrapper, BedrockTypes.POSITION_3F);
-            final Float scale = readOptional(wrapper, BedrockTypes.FLOAT_LE);
-            readOptional(wrapper, BedrockTypes.POSITION_3F); // 旋转（欧拉角）——未应用（文本朝向相机）
-            final Float totalTimeLeft = readOptional(wrapper, BedrockTypes.FLOAT_LE);
-            final Float maxRenderDistance = readOptional(wrapper, BedrockTypes.FLOAT_LE);
-            readOptional(wrapper, BedrockTypes.INT_LE); // 颜色——文本颜色由文本中的 § 码决定
-            readOptional(wrapper, BedrockTypes.VAR_INT); // 维度——每个 Java 连接只有一个维度
-            final Long attachedRuntimeId = readOptional(wrapper, BedrockTypes.UNSIGNED_VAR_LONG);
-            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // payloadType（总是写入，但被忽略——我们按 type 分派）
+            final ShapeHeader header = readHeader(source, protocol);
+            final long id = header.id();
+            final Byte typeByte = header.typeByte();
+            final Position3f location = header.location();
+            final Float scale = header.scale();
+            final Float totalTimeLeft = header.totalTimeLeft();
+            final Float maxRenderDistance = header.maxRenderDistance();
+            final Long attachedRuntimeId = header.attachedRuntimeId();
 
             if (typeByte == null) {
                 // type 缺失 = 移除。
@@ -144,12 +157,17 @@ public class ScriptDebugTextTracker extends StoredObject {
             boolean depthTest = false;
             switch (type) {
                 case Text -> {
-                    text = wrapper.read(BedrockTypes.STRING); // 文本（非可选）
-                    textRotation = wrapper.read(Types.BOOLEAN);
-                    backgroundColor = readOptional(wrapper, BedrockTypes.INT_LE);
-                    depthTest = wrapper.read(Types.BOOLEAN);
-                    wrapper.read(Types.BOOLEAN); // showBackface
-                    wrapper.read(Types.BOOLEAN); // showTextBackface
+                    text = wrapper.read(BedrockTypes.STRING); // 文本（非可选，全版本都有）
+                    if (v974) {
+                        textRotation = wrapper.read(Types.BOOLEAN);
+                        backgroundColor = readOptional(wrapper, BedrockTypes.INT_LE);
+                        if (BedrockWire.applies(BedrockDeviation.DEBUG_DRAWER_TEXT_LINE_GAP)) {
+                            wrapper.read(BedrockTypes.FLOAT_LE); // 行间距（MOT 在 2192 才写，走偏差表）
+                        }
+                        depthTest = wrapper.read(Types.BOOLEAN);
+                        wrapper.read(Types.BOOLEAN); // showBackface
+                        wrapper.read(Types.BOOLEAN); // showTextBackface
+                    }
                 }
                 case Arrow -> {
                     readOptional(wrapper, BedrockTypes.POSITION_3F); // lineEndLocation
@@ -175,6 +193,54 @@ public class ScriptDebugTextTracker extends StoredObject {
 
     private static <T> T readOptional(final PacketWrapper wrapper, final Type<T> type) {
         return wrapper.read(Types.BOOLEAN) ? wrapper.read(type) : null;
+    }
+
+    /**
+     * 形状头部的字节源。写成抽象类而不是函数接口，是因为读方法本身就是泛型方法。
+     * 生产环境包成 {@link PacketWrapper}，测试直接包 {@code ByteBuf}。
+     */
+    abstract static class ShapeReader {
+
+        abstract <T> T read(Type<T> type);
+    }
+
+    /**
+     * 一条形状记录的公共头；{@code payloadType} 之后是类型专属载荷。
+     * <p>
+     * {@code payloadType} 生产侧不用（业务分支按 {@code typeByte} 分派），但必须读掉才能对齐载荷。
+     */
+    record ShapeHeader(long id, Byte typeByte, Position3f location, Float scale, Float totalTimeLeft,
+                       Float maxRenderDistance, Long attachedRuntimeId, int payloadType) {
+    }
+
+    /**
+     * 按 MOT {@code DebugDrawerPacket.writeShape859} 的顺序读公共头。
+     * <p>
+     * 三个版本分叉：{@code maximumRenderDistance} 974 起才写；{@code dimension} 924 之前是必填裸 varint；
+     * {@code attachedEntityId} 924 之前根本不写。
+     */
+    static ShapeHeader readHeader(final ShapeReader source, final int protocol) {
+        final long id = source.read(BedrockTypes.UNSIGNED_VAR_LONG); // 形状 id
+        final Byte typeByte = readOptional(source, Types.BYTE); // 可选类型（序号）
+        final Position3f location = readOptional(source, BedrockTypes.POSITION_3F);
+        final Float scale = readOptional(source, BedrockTypes.FLOAT_LE);
+        readOptional(source, BedrockTypes.POSITION_3F); // 旋转（欧拉角）——未应用（文本朝向相机）
+        final Float totalTimeLeft = readOptional(source, BedrockTypes.FLOAT_LE);
+        final Float maxRenderDistance = protocol >= V974_TAIL_PROTOCOL ? readOptional(source, BedrockTypes.FLOAT_LE) : null;
+        readOptional(source, BedrockTypes.INT_LE); // 颜色——文本颜色由文本中的 § 码决定
+        if (protocol >= OPTIONAL_TAIL_PROTOCOL) {
+            readOptional(source, BedrockTypes.VAR_INT); // 维度——每个 Java 连接只有一个维度
+        } else {
+            source.read(BedrockTypes.VAR_INT); // 维度（924 之前必填，没有存在标志）
+        }
+        final Long attachedRuntimeId = protocol >= OPTIONAL_TAIL_PROTOCOL
+                ? readOptional(source, BedrockTypes.UNSIGNED_VAR_LONG) : null; // 924 之前不写
+        final int payloadType = source.read(BedrockTypes.UNSIGNED_VAR_INT); // 总是写入，但被忽略——我们按 type 分派
+        return new ShapeHeader(id, typeByte, location, scale, totalTimeLeft, maxRenderDistance, attachedRuntimeId, payloadType);
+    }
+
+    private static <T> T readOptional(final ShapeReader source, final Type<T> type) {
+        return source.read(Types.BOOLEAN) ? source.read(type) : null;
     }
 
     // ---- 形状生命周期 ----

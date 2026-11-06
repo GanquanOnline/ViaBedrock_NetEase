@@ -17,6 +17,7 @@ import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -27,6 +28,11 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class JoinGateChunkOrderTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     private final EmbeddedChannel channel = new EmbeddedChannel();
     private final UserConnectionImpl user = new UserConnectionImpl(this.channel);

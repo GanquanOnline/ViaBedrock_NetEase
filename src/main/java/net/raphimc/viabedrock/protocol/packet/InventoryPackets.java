@@ -55,6 +55,7 @@ import net.raphimc.viabedrock.experimental.inventory.ItemStackRequestEncoder;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.*;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.ContainerInput;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.EquipmentSlot;
@@ -802,7 +803,7 @@ public class InventoryPackets {
             return;
         }
         final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        final int protocol = BedrockWire.effectiveProtocol();
         for (final byte[] payload : BookEditLayout.diffPages(bedrockSlot, BookEditLayout.pagesFromItem(current), javaPages, emulateNetEase, protocol)) {
             sendBookEdit(user, payload);
         }

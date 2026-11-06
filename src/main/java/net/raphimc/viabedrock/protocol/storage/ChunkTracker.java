@@ -50,6 +50,8 @@ import net.raphimc.viabedrock.api.model.BedrockBlockState;
 import net.raphimc.viabedrock.api.util.PacketFactory;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
 import net.raphimc.viabedrock.protocol.data.enums.java.GameEventType;
@@ -1095,11 +1097,23 @@ public class ChunkTracker extends StoredObject {
 
             final PacketWrapper subChunkRequest = PacketWrapper.create(ServerboundBedrockPackets.SUB_CHUNK_REQUEST, this.user());
             subChunkRequest.write(BedrockTypes.VAR_INT, this.dimension.ordinal()); // 维度 id
-            subChunkRequest.write(BedrockTypes.SIGNED_BLOCK_POSITION, basePosition); // 带符号的基准位置
-            subChunkRequest.write(BedrockTypes.INT_LE, group.size()); // 子区块偏移数量
-            for (SubChunkRequestTracker.Position subChunkPosition : group) {
-                final BlockPosition offset = new BlockPosition(subChunkPosition.chunkX() - basePosition.x(), subChunkPosition.subChunkY(), subChunkPosition.chunkZ() - basePosition.z());
-                subChunkRequest.write(BedrockTypes.SUB_CHUNK_OFFSET, offset); // 偏移
+            if (BedrockWire.applies(BedrockDeviation.SUB_CHUNK_REQUEST_OFFSETS_FIRST)) {
+                // 1001 起先写偏移，基准原点改三个小端 int32
+                subChunkRequest.write(BedrockTypes.UNSIGNED_VAR_INT, group.size()); // 子区块偏移数量
+                for (SubChunkRequestTracker.Position subChunkPosition : group) {
+                    final BlockPosition offset = new BlockPosition(subChunkPosition.chunkX() - basePosition.x(), subChunkPosition.subChunkY(), subChunkPosition.chunkZ() - basePosition.z());
+                    subChunkRequest.write(BedrockTypes.SUB_CHUNK_OFFSET, offset); // 偏移
+                }
+                subChunkRequest.write(BedrockTypes.INT_LE, basePosition.x()); // 基准原点 X
+                subChunkRequest.write(BedrockTypes.INT_LE, basePosition.y()); // 基准原点 Y
+                subChunkRequest.write(BedrockTypes.INT_LE, basePosition.z()); // 基准原点 Z
+            } else {
+                subChunkRequest.write(BedrockTypes.SIGNED_BLOCK_POSITION, basePosition); // 带符号的基准位置
+                subChunkRequest.write(BedrockTypes.INT_LE, group.size()); // 子区块偏移数量
+                for (SubChunkRequestTracker.Position subChunkPosition : group) {
+                    final BlockPosition offset = new BlockPosition(subChunkPosition.chunkX() - basePosition.x(), subChunkPosition.subChunkY(), subChunkPosition.chunkZ() - basePosition.z());
+                    subChunkRequest.write(BedrockTypes.SUB_CHUNK_OFFSET, offset); // 偏移
+                }
             }
             subChunkRequest.sendToServer(BedrockProtocol.class);
             this.remainingSubChunkOffsetsThisTick -= group.size();

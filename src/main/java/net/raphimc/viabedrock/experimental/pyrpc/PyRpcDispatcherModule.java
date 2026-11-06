@@ -18,6 +18,7 @@
 package net.raphimc.viabedrock.experimental.pyrpc;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import net.raphimc.viabedrock.ViaBedrock;
@@ -54,10 +55,19 @@ public class PyRpcDispatcherModule implements FeatureModule {
     // NukkitMaster 的 PyRpcMessageListener 只接受这个魔法 msgId（网易客户端
     // 总是发送它）。服务端→客户端方向则改用 PyRpcPacket.DEFAULT_MSG_ID = 9753608。
     static final int MSG_ID = 98247598;
+    /** ModUIClient 负载类型序号：0=CONFIRM，1=PY_RPC_DATA（对应 ModUIPayload.PayloadType）。 */
+    static final int CONFIRM_PAYLOAD_TYPE = 0;
+    static final int PY_RPC_DATA_PAYLOAD_TYPE = 1;
     /** NukkitMaster {@code ClientEventListener} 中 HUD / 玩家信息的引擎调用开关。 */
     public static final String CLIENT_LOAD_ADDONS_FINISHED = "ClientLoadAddonsFinishedFromGac";
     /** SET_LOCAL_PLAYER_AS_INITIALIZED 之后的延迟，好让 MOT 先处理完 PlayerJoinEvent。 */
     static final long ADDONS_FINISHED_DELAY_MS = 250L;
+    /**
+     * 进服后若服务端一直没有主动推送 ModEventS2C，到此延迟就由代理补发
+     * ScreenInfoEvent + RequestHudNodeDataEvent。留在 JE 客户端自己的请求之后，
+     * 这样客户端报的真实分辨率优先；只有服务端始终不开口时才用代理的几何参数。
+     */
+    static final long BOOTSTRAP_FALLBACK_DELAY_MS = 2500L;
 
     private static void sendPyRpc(final com.viaversion.viaversion.api.connection.UserConnection user, final byte[] msgpackData) {
         try {
@@ -223,6 +233,7 @@ public class PyRpcDispatcherModule implements FeatureModule {
             sendPyRpc(user, buildClientLoadAddonsFinished());
             storage.sent = true;
             ViaBedrock.getPlatform().getLogger().info("[PY_RPC] sent ClientLoadAddonsFinishedFromGac");
+            scheduleBootstrapFallback(user);
         };
         final io.netty.channel.Channel channel = user.getChannel();
         if (channel != null && channel.eventLoop() != null) {
@@ -272,25 +283,234 @@ public class PyRpcDispatcherModule implements FeatureModule {
         return new String(data, index, length, java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    private static ModUiLifecycleStorage storage(final com.viaversion.viaversion.api.connection.UserConnection user) {
+        ModUiLifecycleStorage storage = user.get(ModUiLifecycleStorage.class);
+        if (storage == null) {
+            storage = new ModUiLifecycleStorage(user);
+            user.put(storage);
+        }
+        return storage;
+    }
+
+    /**
+     * 解析 {@code [method, [modName, systemName, eventName, ...], nil]}。引擎调用
+     * （如 ClientLoadAddonsFinishedFromGac）只有一层的 {@code [method]}，此时返回单元素数组。
+     *
+     * @return null 表示信封无法解析
+     */
+    static String[] readModEventTriple(final byte[] data) {
+        if (data == null) {
+            return null;
+        }
+        final Cursor cursor = new Cursor(data);
+        final int outerSize = cursor.readArrayHeader();
+        if (outerSize < 1) {
+            return null;
+        }
+        final String method = cursor.readString();
+        if (method == null) {
+            return null;
+        }
+        if (outerSize < 2 || cursor.readArrayHeader() < 3) {
+            return new String[]{method};
+        }
+        final String modName = cursor.readString();
+        final String systemName = cursor.readString();
+        final String eventName = cursor.readString();
+        if (modName == null || systemName == null || eventName == null) {
+            return new String[]{method};
+        }
+        return new String[]{method, modName, systemName, eventName};
+    }
+
+    /** 只够走完 ModEvent 信封前三个字符串的最小 MsgPack 游标。 */
+    private static final class Cursor {
+
+        private final byte[] data;
+        private int index;
+
+        private Cursor(final byte[] data) {
+            this.data = data;
+        }
+
+        int readArrayHeader() {
+            if (this.index >= this.data.length) {
+                return -1;
+            }
+            final int code = this.data[this.index++] & 0xFF;
+            if ((code & 0xF0) == 0x90) {
+                return code & 0x0F;
+            }
+            if (code == 0xDC && this.index + 2 <= this.data.length) { // array16
+                final int size = ((this.data[this.index] & 0xFF) << 8) | (this.data[this.index + 1] & 0xFF);
+                this.index += 2;
+                return size;
+            }
+            return -1;
+        }
+
+        String readString() {
+            if (this.index >= this.data.length) {
+                return null;
+            }
+            final int code = this.data[this.index] & 0xFF;
+            final int length;
+            if ((code & 0xE0) == 0xA0) { // fixstr
+                length = code & 0x1F;
+                this.index += 1;
+            } else if (code == 0xC4 || code == 0xD9) { // bin8 / str8
+                if (this.index + 2 > this.data.length) {
+                    return null;
+                }
+                length = this.data[this.index + 1] & 0xFF;
+                this.index += 2;
+            } else if (code == 0xC5 || code == 0xDA) { // bin16 / str16
+                if (this.index + 3 > this.data.length) {
+                    return null;
+                }
+                length = ((this.data[this.index + 1] & 0xFF) << 8) | (this.data[this.index + 2] & 0xFF);
+                this.index += 3;
+            } else {
+                return null;
+            }
+            if (this.index + length > this.data.length) {
+                return null;
+            }
+            final String value = new String(this.data, this.index, length, java.nio.charset.StandardCharsets.UTF_8);
+            this.index += length;
+            return value;
+        }
+
+    }
+
+    /**
+     * 记录 PY_RPC 两端的每一次事件。HUD 不渲染时这行日志直接决定是服务端没发、
+     * 被通道门槛丢掉，还是发了但 JE 侧没画。同名事件只在首次以 INFO 打印。
+     */
+    static void logPyRpc(final String direction, final com.viaversion.viaversion.api.connection.UserConnection user, final byte[] data, final int msgId) {
+        final String[] triple = readModEventTriple(data);
+        if (triple == null) {
+            ViaBedrock.getPlatform().getLogger().info("[PY_RPC] " + direction + " msgId=" + msgId
+                    + " bytes=" + (data == null ? 0 : data.length) + " (undecodable envelope)");
+            return;
+        }
+        final boolean isModEvent = triple.length > 3;
+        final ModUiLifecycleStorage storage = storage(user);
+        if (isModEvent && "ModEventS2C".equals(triple[0])) {
+            storage.s2cSeen = true;
+        }
+        final String key = isModEvent ? triple[0] + '\u007c' + triple[3] : triple[0];
+        final int seen = storage.countEvent(key);
+        final String line = "[PY_RPC] " + direction + " msgId=" + msgId + " method=" + triple[0]
+                + (isModEvent ? " mod=" + triple[1] + " system=" + triple[2] + " event=" + triple[3] : "")
+                + " bytes=" + (data == null ? 0 : data.length);
+        // 前三次附负载预览：未知事件（如服务端自定义的 VertexHudUpdate）只能靠它定格式。
+        final boolean withPreview = seen < 3;
+        final String text = withPreview ? line + " payload=" + preview(data) : line;
+        if (seen == 0) {
+            ViaBedrock.getPlatform().getLogger().info(text);
+        } else {
+            ViaBedrock.getPlatform().getLogger().fine(text);
+        }
+    }
+
+    /**
+     * MsgPack 里的字符串/键名在字节流里是明文，直接抽可打印字符就足以看出信封结构。
+     */
+    static String preview(final byte[] data) {
+        if (data == null || data.length == 0) {
+            return "";
+        }
+        final int limit = Math.min(data.length, 320);
+        final String raw = new String(data, 0, limit, java.nio.charset.StandardCharsets.UTF_8);
+        final StringBuilder sb = new StringBuilder(raw.length() + 3);
+        for (int i = 0; i < raw.length(); i++) {
+            final char c = raw.charAt(i);
+            sb.append(c < 0x20 || c == 0x7F ? '.' : c);
+        }
+        if (data.length > limit) {
+            sb.append("...");
+        }
+        return sb.toString();
+    }
+
+    static void logS2CDropped(final com.viaversion.viaversion.api.connection.UserConnection user, final String channel, final byte[] data) {
+        final ModUiLifecycleStorage storage = storage(user);
+        if (storage.droppedLogs >= 8) {
+            return;
+        }
+        storage.droppedLogs++;
+        final String[] triple = readModEventTriple(data);
+        final String what = triple != null && triple.length > 3
+                ? "event=" + triple[3] + " mod=" + triple[1] + " system=" + triple[2]
+                : "event=?";
+        ViaBedrock.getPlatform().getLogger().info("[PY_RPC] dropping S2C payload (" + what + "): channel " + channel
+                + " was never announced by the JE client");
+    }
+
+    /**
+     * 代理侧驱动 ModUI 生命周期：先 ScreenInfoEvent（HUD 系统要屏幕几何才提供节点数据），
+     * 再 RequestHudNodeDataEvent。每次连接只发一次。
+     *
+     * @return 本次调用真正发出时返回 true
+     */
+    static boolean ensureModUiBootstrap(final com.viaversion.viaversion.api.connection.UserConnection user, final String reason) {
+        if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
+            return false;
+        }
+        if (user.getProtocolInfo().getClientState() != State.PLAY) {
+            return false;
+        }
+        final ModUiLifecycleStorage storage = storage(user);
+        if (storage.bootstrapSent) {
+            return false;
+        }
+        storage.bootstrapSent = true;
+        sendPyRpc(user, buildScreenInfoC2s());
+        sendPyRpc(user, buildC2sEvent("ECNukkitClientMod", "ECNukkitClientSystem", "RequestHudNodeDataEvent", new byte[0]));
+        ViaBedrock.getPlatform().getLogger().info("[PY_RPC] ModUI bootstrap sent (ScreenInfoEvent + RequestHudNodeDataEvent), reason=" + reason);
+        return true;
+    }
+
+    /**
+     * 服务端始终不主动说话时的兜底：进服 {@link #BOOTSTRAP_FALLBACK_DELAY_MS} 之后
+     * 还没见到任何 ModEventS2C，就补发一次请求。只排在 Netty 事件循环上，
+     * 不在 Via 主线程 sleep。
+     */
+    static void scheduleBootstrapFallback(final com.viaversion.viaversion.api.connection.UserConnection user) {
+        if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
+            return;
+        }
+        final ModUiLifecycleStorage storage = storage(user);
+        if (storage.fallbackScheduled) {
+            return;
+        }
+        final io.netty.channel.Channel channel = user.getChannel();
+        if (channel == null || channel.eventLoop() == null) {
+            return;
+        }
+        storage.fallbackScheduled = true;
+        channel.eventLoop().schedule(() -> {
+            if (user.getProtocolInfo().getClientState() != State.PLAY || storage.s2cSeen) {
+                return;
+            }
+            ensureModUiBootstrap(user, "no-server-s2c-after-" + BOOTSTRAP_FALLBACK_DELAY_MS + "ms");
+        }, BOOTSTRAP_FALLBACK_DELAY_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
 
     @Override
     public void onPacketRegistration(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PY_RPC, null, wrapper -> {
             wrapper.cancel();
-            // 服务端→客户端方向的布局是 [payload][int32 LE msgId]（负载在前），与客户端→服务端相反。
-            // 按 msgId 在前解码会剥掉 4 个字节，使 isModEventS2C() 失效。
+            // 与 MOT PyRpcPacket.encode() 一致：服务端→客户端同样是 [payload][int32 LE msgId]。
+            // 先读 msgId 会把负载削掉 4 个字节，使 isModEventS2C() 失效。
             final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // MsgPack 数据
             final int msgId = wrapper.read(BedrockTypes.INT_LE); // msgId（转发服务端→客户端时不需要）
-            if (ViaBedrock.getConfig().shouldEmulateNetEaseClient() && isModEventS2C(data)) {
-                // 网易 HUD 系统通过 ModEventS2C 推送 VertexHudUpdate，并期望客户端参与
-                // ModUI 协议。改由代理自己驱动该生命周期（先 ScreenInfoEvent，再
-                // RequestHudNodeDataEvent），这样进服不再依赖 Java 客户端安装 ModUIClient。
-                if (!wrapper.user().has(ModUiLifecycleStorage.class)) {
-                    wrapper.user().put(new ModUiLifecycleStorage());
-                    sendPyRpc(wrapper.user(), buildScreenInfoC2s());
-                    final byte[] request = buildC2sEvent("ECNukkitClientMod", "ECNukkitClientSystem", "RequestHudNodeDataEvent", new byte[0]);
-                    sendPyRpc(wrapper.user(), request);
-                }
+            logPyRpc("S2C", wrapper.user(), data, msgId);
+            if (isModEventS2C(data)) {
+                // 服务端先开口时立即参与 ModUI 协议，不等回退定时器。
+                ensureModUiBootstrap(wrapper.user(), "server-s2c");
             }
 
             final GlowProjectionTracker glow = wrapper.user().get(GlowProjectionTracker.class);
@@ -302,10 +522,15 @@ public class PyRpcDispatcherModule implements FeatureModule {
             final String targetChannel = routedChannel != null ? routedChannel : DATA_CHANNEL;
             final ChannelStorage channels = wrapper.user().get(ChannelStorage.class);
             if (DATA_CHANNEL.equals(targetChannel)) {
-                if (!channels.hasChannel(CONFIRM_CHANNEL)) {
+                // confirm 是客户端专门用来声明「我会 ModUI」的能力通道，而且客户端确实
+                // 在 data 上发过 ModEventC2S。Fabric 不会自动宣告 data，只认 data
+                // 会把服务端发的每一个 ModUI 负载全部丢掉。
+                if (!channels.hasChannel(DATA_CHANNEL) && !channels.hasChannel(CONFIRM_CHANNEL)) {
+                    logS2CDropped(wrapper.user(), targetChannel, data);
                     return;
                 }
             } else if (!channels.hasChannel(targetChannel)) {
+                logS2CDropped(wrapper.user(), targetChannel, data);
                 return;
             }
 
@@ -315,29 +540,50 @@ public class PyRpcDispatcherModule implements FeatureModule {
             final PacketWrapper msg = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, wrapper.user());
             msg.write(Types.STRING, targetChannel);
             if (DATA_CHANNEL.equals(targetChannel)) {
-                msg.write(Types.INT, 1); // PayloadType.PY_RPC_DATA
+                msg.write(Types.INT, PY_RPC_DATA_PAYLOAD_TYPE);
             }
             msg.write(Types.REMAINING_BYTES, data);
             msg.scheduleSend(BedrockProtocol.class);
         });
     }
 
+    /**
+     * 回应 ModUIClient 握手：一个 type=0 的空负载。客户端收到后才会
+     * {@code UIManager.setConnected(true)} 并开始请求 HUD。
+     *
+     * @return 仅在 PLAY 状态实际发出时返回 true
+     */
+    static boolean sendConfirm(final com.viaversion.viaversion.api.connection.UserConnection user) {
+        // minecraft:register 在 CONFIGURATION 阶段也会到达；客户端只在 PLAY 注册接收器，
+        // 在错误的状态发 CONFIRM 会让客户端因未知负载断线。
+        if (user.getProtocolInfo().getClientState() != State.PLAY) {
+            return false;
+        }
+        final ModUiLifecycleStorage storage = storage(user);
+        if (storage.confirmSent) {
+            return false;
+        }
+        storage.confirmSent = true;
+        final PacketWrapper confirm = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
+        confirm.write(Types.STRING, DATA_CHANNEL);
+        confirm.write(Types.INT, CONFIRM_PAYLOAD_TYPE);
+        confirm.write(Types.REMAINING_BYTES, new byte[0]);
+        confirm.scheduleSend(BedrockProtocol.class);
+        scheduleBootstrapFallback(user);
+        return true;
+    }
+
     @Override
     public void onChannelRegistered(final com.viaversion.viaversion.api.connection.UserConnection user, final java.util.Set<String> channels) {
-        // ModUIClient 只注册 "moduiclient:confirm"（minecraft:register）。Fabric 的
-        // 负载注册随后使 "moduiclient:data" 可用，因此把 confirm 当作能力信号，
-        // 用一个空的 CONFIRM 负载回应握手 —— 没有它客户端的
-        // UIManager.setConnected(true) 不会执行。
-        if (!channels.contains(CONFIRM_CHANNEL) || user.get(ChannelStorage.class).hasChannel(DATA_CHANNEL)) {
+        // 客户端用 minecraft:register 宣告 "moduiclient:confirm"（能力）与
+        // "moduiclient:data"（业务）。两个包都认，先到的那个就把 CONFIRM 回过去。
+        if (!channels.contains(CONFIRM_CHANNEL) && !channels.contains(DATA_CHANNEL)) {
             return;
         }
 
-        final PacketWrapper confirm = PacketWrapper.create(ClientboundPackets26_1.CUSTOM_PAYLOAD, user);
-        confirm.write(Types.STRING, DATA_CHANNEL);
-        confirm.write(Types.INT, 0); // PayloadType.CONFIRM
-        confirm.write(Types.REMAINING_BYTES, new byte[0]);
-        confirm.scheduleSend(BedrockProtocol.class);
-        ViaBedrock.getPlatform().getLogger().info("[PY_RPC] ModUIClient confirm channel seen; sent CONFIRM handshake");
+        if (sendConfirm(user)) {
+            ViaBedrock.getPlatform().getLogger().info("[PY_RPC] ModUIClient confirm channel seen; sent CONFIRM handshake");
+        }
     }
 
     @Override
@@ -348,10 +594,21 @@ public class PyRpcDispatcherModule implements FeatureModule {
 
         try {
             final int payloadType = wrapper.read(Types.INT); // PayloadType 序号
-            if (payloadType != 1) { // PY_RPC_DATA；CONFIRM/ENTITY_MAPPING 属客户端内部使用
+            if (payloadType == CONFIRM_PAYLOAD_TYPE) {
+                // 客户端主动问候：握手不再依赖 minecraft:register 的到达顺序。
+                // 同时补上能力标记，否则 S2C 转发门槛仍会把 HUD 响应丢掉。
+                final ChannelStorage channels = wrapper.user().get(ChannelStorage.class);
+                if (channels != null) {
+                    channels.addChannels(java.util.List.of(CONFIRM_CHANNEL, DATA_CHANNEL));
+                }
+                sendConfirm(wrapper.user());
+                return true;
+            }
+            if (payloadType != PY_RPC_DATA_PAYLOAD_TYPE) {
                 return true;
             }
             final byte[] msgpackData = wrapper.read(Types.REMAINING_BYTES);
+            logPyRpc("C2S", wrapper.user(), msgpackData, MSG_ID);
             final PacketWrapper pyRpc = PacketWrapper.create(ServerboundBedrockPackets.PY_RPC, wrapper.user());
             pyRpc.write(BedrockTypes.BYTE_ARRAY, msgpackData); // 负载在前，msgId 在后 —— 见 sendPyRpc
             pyRpc.write(BedrockTypes.INT_LE, MSG_ID);

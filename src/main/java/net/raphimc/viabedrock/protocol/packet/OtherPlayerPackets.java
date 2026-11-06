@@ -37,6 +37,8 @@ import net.raphimc.viabedrock.api.util.StringUtil;
 import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.GameType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerPositionModeComponent_PositionMode;
 import net.raphimc.viabedrock.protocol.data.enums.java.Relative;
@@ -80,6 +82,7 @@ public class OtherPlayerPackets {
                     .resolve("minecraft:player", wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // 实体属性
             final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // 能力
             final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // 实体链接
+            EntityPacketLayout.skipPassengerOfBlockArguments(wrapper); // 2225 起的方块乘客参数
 
             final PlayerEntity entity = entityTracker.addEntity(new PlayerEntity(wrapper.user(), entityRuntimeId, entityTracker.getNextJavaEntityId(), uuid, abilities));
             entity.setPosition(position.add(0F, entity.eyeOffset(), 0F));
@@ -155,7 +158,13 @@ public class OtherPlayerPackets {
             final PlayerPositionModeComponent_PositionMode mode = PlayerPositionModeComponent_PositionMode.getByValue(wrapper.read(Types.BYTE), PlayerPositionModeComponent_PositionMode.OnlyHeadRot); // 模式
             final boolean onGround = wrapper.read(Types.BOOLEAN); // 是否在地面
             wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 所骑乘实体的运行时 ID
-            if (mode == PlayerPositionModeComponent_PositionMode.Teleport) {
+            if (BedrockWire.applies(BedrockDeviation.MOVE_PLAYER_TELEPORT_FLAG)) {
+                // 2168 起传送原因/物品由外层 bool 决定，不再只看模式
+                if (wrapper.read(Types.BOOLEAN)) {
+                    wrapper.read(BedrockTypes.INT_LE); // 传送原因
+                    wrapper.read(BedrockTypes.INT_LE); // 实体类型
+                }
+            } else if (mode == PlayerPositionModeComponent_PositionMode.Teleport) {
                 wrapper.read(BedrockTypes.INT_LE); // 传送原因
                 wrapper.read(BedrockTypes.INT_LE); // 实体类型
             }
@@ -229,7 +238,9 @@ public class OtherPlayerPackets {
             final SkinData skin = wrapper.read(BedrockTypes.SKIN); // 皮肤
             wrapper.read(BedrockTypes.STRING); // 新皮肤名称
             wrapper.read(BedrockTypes.STRING); // 旧皮肤名称
-            wrapper.read(Types.BOOLEAN); // 可信皮肤
+            if (!BedrockWire.applies(BedrockDeviation.PLAYER_SKIN_NO_TRUSTED)) {
+                wrapper.read(Types.BOOLEAN); // 可信皮肤（2168 起并入皮肤块尾部）
+            }
 
             // 与 PLAYER_LIST 的重映射保持一致：本地玩家的基岩 UUID 与其 javaUuid 不同，因此
             // 以基岩 UUID 寻址的运行时皮肤更新必须重映射到 javaUuid。否则

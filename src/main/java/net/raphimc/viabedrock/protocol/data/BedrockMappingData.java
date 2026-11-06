@@ -75,6 +75,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
 public class BedrockMappingData extends MappingDataBase {
@@ -170,15 +171,47 @@ public class BedrockMappingData extends MappingDataBase {
     private Map<SharedTypes_Legacy_ActorDamageCause, String> bedrockToJavaDamageCauses;
     private Map<Enchant_Type, String> bedrockToJavaEnchantments;
 
+    /**
+     * {@code BedrockProtocol.MAPPINGS} 是进程级单例，但 ViaVersion 会给每个已注册档案各提交一次
+     * {@code loadMappingData()}。并发重复加载同一个对象会互相踩：{@code FileSystemAlreadyExistsException}
+     * 让资源包表为空，接着 vanilla_resource_packs 校验抛异常，整个映射加载失败。这里只放行第一次；
+     * 首次失败会被锁存并原样重抛，避免后面的实例在半填满的单例上重跑。只锁 {@link RuntimeException}：
+     * {@link Error}（OOM、链接错误）重试也没意义，但不该用同一个实例反复毒化同 JVM 的后续加载。
+     */
+    private static final Object LOAD_LOCK = new Object();
+    private static boolean loaded;
+    private static RuntimeException failure;
+
     public BedrockMappingData() {
         super(BedrockProtocolVersion.bedrockLatest.getName(), ProtocolConstants.JAVA_VERSION.getName());
     }
 
     @Override
     public void load() {
+        synchronized (LOAD_LOCK) {
+            if (failure != null) {
+                throw failure;
+            }
+            if (loaded) {
+                return;
+            }
+            try {
+                this.doLoad();
+                loaded = true;
+            } catch (final RuntimeException e) {
+                failure = e;
+                throw e;
+            }
+        }
+    }
+
+    private void doLoad() {
         if (Via.getManager().isDebug()) {
             this.getLogger().info("Loading " + this.unmappedVersion + " -> " + this.mappedVersion + " mappings...");
         }
+
+        final int bedrockProtocol = BedrockWire.current();
+        BedrockDataTables.validate(bedrockProtocol);
 
         final JsonObject javaViaMappingJson = this.readJson("java/via_mappings.json");
 
@@ -251,7 +284,7 @@ public class BedrockMappingData extends MappingDataBase {
             }
             this.vanillaBlockStateCount = this.javaBlockStates.size();
             this.neighborRewriter = new NeighborAwareBlockRewriter(this.javaBlockStates);
-            final ListTag<CompoundTag> bedrockBlockStatesTag = this.readNBT("bedrock/block_palette.nbt").getListTag("blocks", CompoundTag.class);
+            final ListTag<CompoundTag> bedrockBlockStatesTag = this.readNBT(BedrockDataTables.blockPalette(bedrockProtocol)).getListTag("blocks", CompoundTag.class);
             this.bedrockBlockStates = new LinkedHashSet<>(bedrockBlockStatesTag.size());
             bedrockBlockStatesByIdentifier = HashMultimap.create(bedrockBlockStatesTag.size(), 32);
             for (CompoundTag tag : bedrockBlockStatesTag) {
@@ -272,6 +305,7 @@ public class BedrockMappingData extends MappingDataBase {
 
             final var shared = net.easecation.blockstates.SharedBlockStates.instance();
             this.bedrockToJavaBlockStates = new HashMap<>();
+            final List<String> statesMissingFromPalette = new ArrayList<>();
             for (var source : shared.states()) {
                 final var target = shared.base(source);
                 if (target == null) continue; // 显式未映射，保留原有运行时 placeholder 策略。
@@ -283,7 +317,10 @@ public class BedrockMappingData extends MappingDataBase {
                 }
                 final BlockState bedrockBlockState = new BlockState(source.name().split(":", 2)[0], source.name().split(":", 2)[1], properties);
                 if (!this.bedrockBlockStates.contains(bedrockBlockState)) {
-                    throw new RuntimeException("Unknown bedrock block state: " + bedrockBlockState.toBlockStateString());
+                    // MOT 的 runtime_block_states 转储缺少少数状态（教育版/编辑器方块、部分 frame/vault 变体）。
+                    // 缺条目只影响该状态的 Java 映射，未知状态本就走 placeholder 路径，因此跳过而不是拒绝启动。
+                    statesMissingFromPalette.add(bedrockBlockState.toBlockStateString());
+                    continue;
                 }
                 final String[] targetName = target.name().split(":", 2);
                 final BlockState javaBlockState = new BlockState(targetName[0], targetName[1], target.properties());
@@ -301,6 +338,11 @@ public class BedrockMappingData extends MappingDataBase {
                 }
             }
 
+            if (!statesMissingFromPalette.isEmpty()) {
+                this.getLogger().warning("Protocol " + bedrockProtocol + ": " + statesMissingFromPalette.size()
+                        + " shared block state(s) have no entry in the palette, first: "
+                        + statesMissingFromPalette.stream().limit(5).collect(Collectors.joining(", ")));
+            }
             this.getLogger().info("共享方块状态 shared-block-states generator=" + shared.generatorVersion());
             ExperimentalFeatures.dispatchMappingsLoad(this, MappingLoadPhase.AFTER_BLOCK_STATES);
 
@@ -413,7 +455,7 @@ public class BedrockMappingData extends MappingDataBase {
         }
 
         { // 生物群系
-            this.bedrockBiomeDefinitions = this.readNBT("bedrock/biome_definitions.nbt");
+            this.bedrockBiomeDefinitions = this.readNBT(BedrockDataTables.biomeDefinitions(bedrockProtocol));
 
             final JsonObject bedrockBiomesJson = this.readJson("bedrock/biomes.json", JsonObject.class);
             this.bedrockBiomes = HashBiMap.create(bedrockBiomesJson.size());
@@ -511,7 +553,7 @@ public class BedrockMappingData extends MappingDataBase {
                 }
             }
 
-            final JsonArray bedrockItemsJson = this.readJson("bedrock/runtime_item_states.json", JsonArray.class);
+            final JsonArray bedrockItemsJson = this.readJson(BedrockDataTables.itemStates(bedrockProtocol), JsonArray.class);
             final Set<String> bedrockItems = new HashSet<>(bedrockItemsJson.size());
             this.bedrockBlockItems = new HashSet<>();
             this.bedrockMetaItems = new HashSet<>();

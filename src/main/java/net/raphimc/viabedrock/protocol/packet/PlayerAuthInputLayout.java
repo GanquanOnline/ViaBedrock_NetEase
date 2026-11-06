@@ -19,6 +19,8 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import net.raphimc.viabedrock.ViaBedrock;
 import net.raphimc.viabedrock.api.util.EnumUtil;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerAuthInputPacket_InputData;
 
 import java.math.BigInteger;
@@ -52,7 +54,10 @@ public final class PlayerAuthInputLayout {
     public static final int TWO_EXTRA_FLAGS_PROTOCOL = 819;
     public static final int ONE_EXTRA_FLAG_PROTOCOL = 686;
     public static final int CAMERA_DEPARTED_PROTOCOL = 422;
+    public static final int NET_EASE_TAIL_PROTOCOL = 766;
     public static final int NUKKIT_FLAG_BIT_LIMIT = 64;
+    /** 可选段多出的恒 true 外层 bool 在 2192 消失，之后只剩内层存在性 */
+    public static final int OPTIONAL_SECTION_OUTER_BOOL_END = 2192;
 
     private PlayerAuthInputLayout() {
     }
@@ -78,8 +83,57 @@ public final class PlayerAuthInputLayout {
         return emulateNetEase && protocol >= CAMERA_DEPARTED_PROTOCOL;
     }
 
+    /**
+     * 网易 {@code v1_21_50} 起在 {@code rawMoveVector} 之后追加固定尾部块。
+     * <p>
+     * MOT 的 {@code PlayerAuthInputPacket.decode()} 会无条件读这 12 字节，缺了就读越界，
+     * 整个批次解包失败，最终以 {@code Sent malformed packet} 断连。
+     */
+    public static boolean usesNetEaseTail() {
+        return usesNetEaseTail(emulateNetEase(), netEaseProtocol());
+    }
+
+    public static boolean usesNetEaseTail(final boolean emulateNetEase, final int protocol) {
+        return emulateNetEase && protocol >= NET_EASE_TAIL_PROTOCOL;
+    }
+
+    /** @return true 表示输入标志不再是 64 位掩码，而是无符号 varint 计数的条目列表 */
+    public static boolean usesInputDataList(final int protocol) {
+        return BedrockWire.applies(protocol, BedrockDeviation.PLAYER_AUTH_INPUT_INPUT_LIST);
+    }
+
+    /** @return true 表示可选段前多一个恒 true 的外层 bool */
+    public static boolean usesOptionalSectionOuterBool(final int protocol) {
+        return BedrockWire.applies(protocol, BedrockDeviation.PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS)
+                && protocol < OPTIONAL_SECTION_OUTER_BOOL_END;
+    }
+
+    /**
+     * @return true 表示方块动作条目恒带位置与朝向，不按动作类型省略
+     * <p>
+     * MOT 只看 {@code protocol >= v1_26_40} 本身，与可选段双 bool 无关；两者区间相同，共用一个偏差。
+     */
+    public static boolean usesUnconditionalBlockActions(final int protocol) {
+        return BedrockWire.applies(protocol, BedrockDeviation.PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS);
+    }
+
+    /** @return 按当前生效的官方协议号判定，见 {@link #usesInputDataList(int)} */
+    public static boolean usesInputDataList() {
+        return usesInputDataList(BedrockWire.current());
+    }
+
+    /** @return 按当前生效的官方协议号判定，见 {@link #usesOptionalSectionOuterBool(int)} */
+    public static boolean usesOptionalSectionOuterBool() {
+        return usesOptionalSectionOuterBool(BedrockWire.current());
+    }
+
+    /** @return 按当前生效的官方协议号判定，见 {@link #usesUnconditionalBlockActions(int)} */
+    public static boolean usesUnconditionalBlockActions() {
+        return usesUnconditionalBlockActions(BedrockWire.current());
+    }
+
     public static int extraInputFlags(final boolean emulateNetEase, final int protocol) {
-        if (!emulateNetEase) {
+        if (!emulateNetEase || usesInputDataList(protocol)) {
             return 0;
         }
         if (protocol >= TWO_EXTRA_FLAGS_PROTOCOL) {

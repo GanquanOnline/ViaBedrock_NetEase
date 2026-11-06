@@ -21,6 +21,10 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
@@ -32,14 +36,16 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * 多读一个布尔值，会以 {@code UPDATE_MOB_EFFECT} 为由中止 Java 连接。
  * {@code ANIMATE} 在 897 增加了可选的 {@code swingSource}，{@code ENTITY_EVENT}
  * 在 974 增加了可选的 {@code fireAtPosition}。
+ * <p>
+ * 谓词里的 {@code protocol <= 0} 表示“未配置”，一律按最新布局处理：新式字段（ambient、
+ * swingSource 等）的谓词返回 true，旧式字段（{@code rowingTime}）的谓词返回 false。
+ * 无参重载只会拿到 {@code BedrockWire.effectiveProtocol()}，它不会返回非正数。
  */
 public final class EntityPacketLayout {
 
     public static final int AMBIENT_PROTOCOL = 897;
     public static final int SWING_SOURCE_PROTOCOL = 897;
     public static final int ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL = 974;
-    /** 网易 898 在 ANIMATE 载荷之后追加攻击者的 {@code attackId} varlong。 */
-    public static final int NETEASE_ATTACK_ID_PROTOCOL = 898;
     /**
      * MOT 的 {@code AnimatePacket.Action.ROW_RIGHT}/{@code ROW_LEFT}。官方 ViaBedrock 枚举
      * 止于 {@code MagicCriticalHit(5)}；860 仍然使用这些划船 ID，外加一个
@@ -53,35 +59,55 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesAmbient() {
-        return usesAmbient(emulateNetEase(), netEaseProtocol());
+        return usesAmbient(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesAmbient(final int protocol) {
+        return protocol <= 0 || protocol >= AMBIENT_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesAmbient(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= AMBIENT_PROTOCOL;
+        return usesAmbient(protocol);
     }
 
     public static boolean usesSwingSource() {
-        return usesSwingSource(emulateNetEase(), netEaseProtocol());
+        return usesSwingSource(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesSwingSource(final int protocol) {
+        return protocol <= 0 || protocol >= SWING_SOURCE_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesSwingSource(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= SWING_SOURCE_PROTOCOL;
+        return usesSwingSource(protocol);
     }
 
     public static boolean usesEntityEventFireAtPosition() {
-        return usesEntityEventFireAtPosition(emulateNetEase(), netEaseProtocol());
+        return usesEntityEventFireAtPosition(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesEntityEventFireAtPosition(final int protocol) {
+        return protocol >= ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易两档协议号也在 974 之下）。 */
     public static boolean usesEntityEventFireAtPosition(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL;
+        return usesEntityEventFireAtPosition(protocol);
     }
 
     public static boolean usesRowingTime() {
-        return usesRowingTime(emulateNetEase(), netEaseProtocol());
+        return usesRowingTime(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesRowingTime(final int protocol) {
+        return protocol > 0 && protocol < ROWING_TIME_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesRowingTime(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < ROWING_TIME_PROTOCOL;
+        return usesRowingTime(protocol);
     }
 
     public static boolean isRowAction(final int action) {
@@ -99,8 +125,13 @@ public final class EntityPacketLayout {
         return usesSwingSource();
     }
 
+    public static boolean usesByteAnimateAction(final int protocol) {
+        return usesSwingSource(protocol);
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesByteAnimateAction(final boolean emulateNetEase, final int protocol) {
-        return usesSwingSource(emulateNetEase, protocol);
+        return usesSwingSource(protocol);
     }
 
     public static int readAnimateAction(final PacketWrapper wrapper) {
@@ -145,7 +176,7 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesNetEaseAttackId(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= NETEASE_ATTACK_ID_PROTOCOL;
+        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.ENTITY_ATTACK_ID);
     }
 
     public static void skipNetEaseAttackId(final PacketWrapper wrapper) {
@@ -175,6 +206,35 @@ public final class EntityPacketLayout {
         if (usesSwingSource()) {
             wrapper.write(BedrockTypes.OPTIONAL_STRING, swingSource);
         }
+    }
+
+    /** 2225 起 ANIMATE 尾部追加一个裸单字节的代表手，没有存在性 bool。 */
+    public static void skipAnimateHand(final PacketWrapper wrapper) {
+        if (BedrockWire.applies(BedrockDeviation.ANIMATE_HAND_BYTE)) {
+            wrapper.read(Types.UNSIGNED_BYTE);
+        }
+    }
+
+    public static void writeAnimateHand(final PacketWrapper wrapper, final int hand) {
+        if (BedrockWire.applies(BedrockDeviation.ANIMATE_HAND_BYTE)) {
+            wrapper.write(Types.BYTE, (byte) hand);
+        }
+    }
+
+    /**
+     * 2225 起 ADD_ENTITY/ADD_PLAYER 在实体链接之后追加可选的“方块乘客”参数
+     * （存在性 bool + 方块位置 + 偏移 + 旋转 + 旋转上限 + 姿态）。
+     * Java 侧没有对应语义，只需把字节消费掉。
+     */
+    public static void skipPassengerOfBlockArguments(final PacketWrapper wrapper) {
+        if (!BedrockWire.applies(BedrockDeviation.PASSENGER_OF_BLOCK_ARGUMENTS) || !wrapper.read(Types.BOOLEAN)) {
+            return;
+        }
+        wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 方块位置
+        wrapper.read(BedrockTypes.POSITION_3F); // 偏移
+        wrapper.read(BedrockTypes.FLOAT_LE); // 旋转
+        wrapper.read(BedrockTypes.FLOAT_LE); // 旋转上限
+        wrapper.read(Types.BYTE); // 姿态
     }
 
     public static void skipEntityEventFireAtPosition(final PacketWrapper wrapper) {

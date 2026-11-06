@@ -2,6 +2,13 @@
 
 Protocol truth: `decompiled/nukkit-mot` encode/decode, then `decompiled/nukkitmaster` for PyRpc / ModUI. Do not treat international Bedrock wiki or Geyser palettes as MOT 860.
 
+## 2026-11-05 — NetEase deviations become one range table; unknown protocols stop falling back
+
+- **Goal:** Every NetEase layout gate was a bare `protocol >= N` constant in its own file (10 of them), and `netease.protocol-version` with an unknown value was silently rewritten to the newest profile. Adding a NetEase version meant re-deriving 10 thresholds by hand, and a 3.11 server would have been driven with 898 layouts without a log line saying so.
+- **Change:** `NetEaseDeviation` declares each NetEase-only wire difference as a protocol range `[introducedAt, removedAt)` plus a `PERMANENT` / `CATCH_UP` kind; `NetEaseWire` derives the active set for any protocol and flags `inferred` when the number is not a known profile. All ten gates (CONTAINER_OPEN trailer + extended trailer, COMMAND unlimit, ANIMATE attackId, PLAYER_LIST trailer, RESOURCE_PACK_STACK behaviour stack, 860 palette overlay, three TEXT tails) now ask the table. An unknown `netease.protocol-version` keeps its configured value and logs the derived deviation list; the login game-version still resolves to the newest profile. New `layout-report` switch makes `PacketLeftoverLayout` record unread bytes per packet instead of discarding them silently.
+- **Refs:** `NetEaseDeviation`, `NetEaseWire`, `NetEaseLayoutReport`, `NetEaseProtocolProfile.supportedList()`, MOT `GameVersion` buckets (860 = `V1_21_124_NETEASE`, 898 = `V1_21_130_NETEASE`).
+- **Risk:** `NetEaseLayoutReport` keeps a static per-packet-id map; only the first leftover per id logs, later ones are counted. 860 and 898 behaviour is pinned by `NetEaseLayoutBoundaryTest` and `NetEaseDeviationTest`, so a version that moves a boundary must edit the table rather than a layout file.
+
 ## 2026-08-30 — Local MOT spectator stays Java ADVENTURE; VBU forces noclip
 
 - **Goal:** #1-16 still needs MOT spectator noclip, but mapping the local player to Java `SPECTATOR` locks the backpack HUD. Remote spectators must stay Java `SPECTATOR` so vanilla clients keep hiding them.

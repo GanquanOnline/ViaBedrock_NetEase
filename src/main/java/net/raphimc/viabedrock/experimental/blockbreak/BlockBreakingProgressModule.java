@@ -242,19 +242,21 @@ public final class BlockBreakingProgressModule implements FeatureModule {
     }
 
     private void handleSwing(final PacketWrapper wrapper) {
-        final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)];
-        wrapper.cancel();
-
         final UserConnection user = wrapper.user();
         final GameSessionStorage gameSession = user.get(GameSessionStorage.class);
         final ClientPlayerEntity clientPlayer = user.get(EntityTracker.class).getClientPlayer();
+        // 放置/使用/交互的挥手由 ClientPlayerPackets 的 SWING 处理器翻译成带来源的 ANIMATE；
+        // 这里既不能吞掉包装，也不能先读手位，否则那个处理器拿不到输入缓冲。
+        if (clientPlayer.swingSourceTracker().hasAnyPendingUse()) {
+            return;
+        }
+        final InteractionHand hand = InteractionHand.values()[wrapper.read(Types.VAR_INT)];
+        wrapper.cancel();
         final ActorSwingSource swingSource = clientPlayer.swingSourceTracker().consume(hand);
         if (hand != InteractionHand.MAIN_HAND || clientPlayer.checkCancelSwingPacket()) {
             return;
         }
 
-        // 放置/使用/吃弓等动作的挥手不是攻击：既不触发攻击未命中音，也不打断挖矿状态机。
-        // 挥手动画的 ANIMATE 由 ClientPlayerPackets 的 SWING 处理器发送，这里只补 auth-input 标志。
         if (swingSource != ActorSwingSource.Attack) {
             return;
         }

@@ -41,9 +41,11 @@ class InventorySlotLayoutTest {
     private static final FullContainerName EMPTY_CONTAINER = new FullContainerName(ContainerEnumName.AnvilInputContainer, null);
 
     @Test
-    void netease860UsesRequiredContainerFields() {
+    void protocolBelow974UsesRequiredContainerFields() {
         assertTrue(InventorySlotLayout.usesRequiredContainerFields(true, 860));
-        assertFalse(InventorySlotLayout.usesRequiredContainerFields(false, 860));
+        assertTrue(InventorySlotLayout.usesRequiredContainerFields(false, 860));
+        assertTrue(InventorySlotLayout.usesRequiredContainerFields(false, 973));
+        assertFalse(InventorySlotLayout.usesRequiredContainerFields(false, 974));
         assertFalse(InventorySlotLayout.usesRequiredContainerFields(true, 974));
         assertFalse(InventorySlotLayout.usesRequiredContainerFields(true, 975));
     }

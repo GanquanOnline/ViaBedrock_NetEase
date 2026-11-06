@@ -188,6 +188,15 @@ public interface ViaBedrockConfig extends Config {
     }
 
     /**
+     * @return 当前生效的官方基岩协议号，写入 REQUEST_NETWORK_SETTINGS 与 LOGIN，并按它选择布局。
+     * 返回 0 表示该实现没有配置值，调用方沿用 Java 握手的协议号（上游行为）；配置文件里的
+     * {@code bedrock.protocol-version: 0} 是“自动”，实现端会先解析成最新档案再返回，不会返回 0。
+     */
+    default int getBedrockProtocolVersion() {
+        return 0;
+    }
+
+    /**
      * @return 写入 REQUEST_NETWORK_SETTINGS 和 LOGIN 的基岩协议版本。
      * 0 表示保留 Java 握手的协议号（上游行为）。
      */
@@ -206,6 +215,14 @@ public interface ViaBedrockConfig extends Config {
      */
     default int getNetEaseRakNetProtocolVersion() {
         return 0;
+    }
+
+    /**
+     * @return 如果为 true，则在丢弃基岩包未读字节时按包统计并记录日志。
+     * 用于升级网易协议时定位读不干净的布局。
+     */
+    default boolean shouldReportBedrockLayoutLeftovers() {
+        return false;
     }
 
     /**

@@ -179,6 +179,12 @@ public class ResourcePackLoadStateTracker extends StoredObject {
         }
         if (this.remainingResourcePackCount.decrementAndGet() == 0) {
             ViaBedrock.getPlatform().getLogger().log(Level.INFO, "All resource packs have been loaded");
+            // 包已由缓存或 HTTP 全部拿到，并行的协议下载是多余的：继续跑下去会在
+            // 资源包栈完成后仍向服务端发分块请求，服务端据此判定资源包出错并踢人。
+            final ResourcePackDownloadTracker connectionTracker = this.user().get(ResourcePackDownloadTracker.class);
+            if (connectionTracker != null) {
+                connectionTracker.cancelPending("Resource pack already loaded from another source");
+            }
             this.loadFuture.complete(null);
         }
     }

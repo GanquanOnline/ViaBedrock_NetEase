@@ -45,4 +45,17 @@ class ContainerSlotTypeLayoutTest {
         assertNull(ContainerSlotTypeLayout.fromWire(17, true));
         assertEquals(ContainerEnumName.RecipeItemsContainer, ContainerSlotTypeLayout.fromWire(17, false));
     }
+
+    /**
+     * 2225 才把 67~70 定义成保留槽位，之前这些 id 在官方 id 空间里非法。当前生成的枚举本来
+     * 就没有这四个值，所以读写两侧一律按未知处理。重新生成枚举时如果补上了
+     * ReservedContainerA~D，这个钉子会失败，提醒按协议号把它挡在 2225 之前。
+     * 网易 860 的 id 平移不参与：那一侧 67 会先减 1 变成标准的 66。
+     */
+    @Test
+    void reservedContainerIdsStayUnknown() {
+        for (int wireId = 67; wireId <= 70; wireId++) {
+            assertNull(ContainerSlotTypeLayout.fromWire(wireId, false));
+        }
+    }
 }

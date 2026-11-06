@@ -20,6 +20,7 @@ package net.raphimc.viabedrock.protocol.packet;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -41,19 +42,29 @@ public final class LevelSoundEventLayout {
     }
 
     public static boolean usesEntityUniqueId() {
-        return usesEntityUniqueId(emulateNetEase(), netEaseProtocol());
+        return usesEntityUniqueId(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesEntityUniqueId(final int protocol) {
+        return protocol >= ENTITY_UNIQUE_ID_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesEntityUniqueId(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= ENTITY_UNIQUE_ID_PROTOCOL;
+        return usesEntityUniqueId(protocol);
     }
 
     public static boolean usesFireAtPosition() {
-        return usesFireAtPosition(emulateNetEase(), netEaseProtocol());
+        return usesFireAtPosition(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesFireAtPosition(final int protocol) {
+        return protocol >= FIRE_AT_POSITION_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesFireAtPosition(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= FIRE_AT_POSITION_PROTOCOL;
+        return usesFireAtPosition(protocol);
     }
 
     public static void skipTrailer(final PacketWrapper wrapper) {

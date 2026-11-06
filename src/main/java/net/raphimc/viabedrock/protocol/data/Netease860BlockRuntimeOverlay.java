@@ -38,18 +38,12 @@ import java.util.List;
 public final class Netease860BlockRuntimeOverlay {
 
     /**
-     * MOT 的 {@code GlobalBlockPalette.NETEASE_PALETTE_THRESHOLDS} 把网易 898 映射到标准
-     * V1_21_111 调色板，而不是 {@code runtime_block_states_netease_860.dat}，因此该
-     * 顺序覆盖层只描述协议 860。
-     */
-    public static final int SEQUENTIAL_OVERLAY_END_PROTOCOL = 898;
-
-    /**
      * 该覆盖层替换原版的顺序 id 顺序，因此只在服务端下发顺序 id 且仍
-     * 提供网易 860 调色板时生效。
+     * 提供网易 860 调色板时生效。MOT 从 898 起改用标准 V1_21_111 调色板。
      */
     public static boolean applies(final boolean emulateNetEase, final int protocol, final boolean hashedRuntimeBlockIds) {
-        return emulateNetEase && !hashedRuntimeBlockIds && protocol > 0 && protocol < SEQUENTIAL_OVERLAY_END_PROTOCOL;
+        return !hashedRuntimeBlockIds
+                && NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.SEQUENTIAL_BLOCK_PALETTE_OVERLAY);
     }
 
     public record ExtraState(String name, int networkId, int runtimeId) {

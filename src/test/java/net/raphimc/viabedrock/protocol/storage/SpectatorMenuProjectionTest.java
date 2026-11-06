@@ -17,6 +17,7 @@ import net.raphimc.viabedrock.protocol.data.enums.java.generated.GameMode;
 import net.raphimc.viabedrock.protocol.packet.SpectatorCameraPackets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -31,6 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpectatorMenuProjectionTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     private static final UUID OWN_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID TARGET_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");

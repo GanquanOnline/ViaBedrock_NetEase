@@ -21,6 +21,16 @@ public final class JavaSwingSourceTracker {
         this.pendingSource = source;
     }
 
+    /** 仍有未消费的使用动作；此时不能读走包装里的手位，否则后续处理器无法再读。 */
+    public boolean hasAnyPendingUse() {
+        return this.pendingSource != null;
+    }
+
+    /** 仍未消费的使用动作是否属于该手；用于判定这次挥手要不要交给攻击路径。 */
+    public boolean hasPendingUse(final InteractionHand hand) {
+        return hand == this.pendingHand && this.pendingSource != null;
+    }
+
     public ActorSwingSource consume(final InteractionHand hand) {
         if (hand != this.pendingHand || this.pendingSource == null) {
             return ActorSwingSource.Attack;

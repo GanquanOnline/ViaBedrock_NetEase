@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandRegistry_HardNonTerminal;
 import net.raphimc.viabedrock.protocol.model.CommandData;
 import net.raphimc.viabedrock.protocol.packet.CommandPacketLayout;
@@ -41,19 +42,17 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         super(CommandData[].class);
     }
 
-    private static boolean isNetEaseLegacyProtocol() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient()
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() > 0
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() < 898;
+    private static boolean usesLegacyCommandLayout() {
+        return !CommandPacketLayout.usesStringLayout(BedrockWire.effectiveProtocol());
     }
 
     @Override
     public CommandData[] read(ByteBuf buffer) {
         final int startReaderIndex = buffer.readerIndex();
-        final boolean netEaseLegacy = isNetEaseLegacyProtocol();
+        final boolean legacyLayout = usesLegacyCommandLayout();
         final int originalWriterIndex = buffer.writerIndex();
         try {
-            return readClassic(buffer, netEaseLegacy);
+            return readClassic(buffer, legacyLayout);
         } catch (RuntimeException | Error first) {
             ViaBedrock.getPlatform().getLogger().warning(
                     "Failed to parse AVAILABLE_COMMANDS data after consuming "
@@ -63,7 +62,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
         }
     }
 
-    public static CommandData[] readClassic(ByteBuf buffer, final boolean netEaseLegacy) {
+    public static CommandData[] readClassic(ByteBuf buffer, final boolean legacyLayout) {
         final String[] enumLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 枚举字面量
         final String[] subCommandLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 子命令字面量
         final String[] postFixLiterals = BedrockTypes.STRING_ARRAY.read(buffer); // 后缀字面量
@@ -75,7 +74,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
             final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 值数量
             final Set<String> values = new HashSet<>(Math.max(16, Math.min(count, 1024)));
             for (int j = 0; j < count; j++) {
-                final int index = CommandPacketLayout.readEnumValueIndex(buffer, enumLiterals.length, !netEaseLegacy);
+                final int index = CommandPacketLayout.readEnumValueIndex(buffer, enumLiterals.length, !legacyLayout);
                 if (index >= 0 && index < enumLiterals.length) {
                     values.add(enumLiterals[index]);
                 } else {
@@ -100,8 +99,8 @@ public class CommandDataArrayType extends Type<CommandData[]> {
             final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 值数量
             final Map<String, Integer> values = new HashMap<>(Math.max(16, Math.min(count, 1024)));
             for (int j = 0; j < count; j++) {
-                final int index = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // 值
-                final int type = CommandPacketLayout.readSubCommandValueIndex(buffer, !netEaseLegacy); // 类型
+                final int index = CommandPacketLayout.readSubCommandValueIndex(buffer, !legacyLayout); // 值
+                final int type = CommandPacketLayout.readSubCommandValueIndex(buffer, !legacyLayout); // 类型
                 if (index >= 0 && index < subCommandLiterals.length) {
                     values.put(subCommandLiterals[index], type);
                 }
@@ -124,7 +123,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
             final String name = BedrockTypes.STRING.read(buffer); // 名称
             final String description = BedrockTypes.STRING.read(buffer); // 描述
             final int flags = buffer.readUnsignedShortLE(); // 标志
-            final byte permission = (byte) CommandPacketLayout.readPermission(buffer, !netEaseLegacy).getValue(); // 权限
+            final byte permission = (byte) CommandPacketLayout.readPermission(buffer, !legacyLayout).getValue(); // 权限
             final int aliasIndex = buffer.readIntLE(); // 别名
             final boolean validAliasPointer = aliasIndex >= 0 && aliasIndex < enumPalette.length;
             final CommandData.EnumData alias;
@@ -136,7 +135,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
 
             final int subCommandCount = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
             for (int j = 0; j < subCommandCount; j++) {
-                CommandPacketLayout.readSubCommandOffset(buffer, !netEaseLegacy); // 子命令索引
+                CommandPacketLayout.readSubCommandOffset(buffer, !legacyLayout); // 子命令索引
             }
 
             final CommandData.OverloadData[] overloads = new CommandData.OverloadData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
@@ -218,7 +217,7 @@ public class CommandDataArrayType extends Type<CommandData[]> {
             return commands;
         }
         final int enumFlagsCount = BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // 枚举标志数量
-        if (netEaseLegacy) {
+        if (legacyLayout) {
             // MOT 总是写入 count 0，且从不发出约束记录。线上网易
             // 860 在该空 count 之后仍会追加 3 个残留字节。这些字节
             // 不是完整的官方 {int32, int32, byte[]} 记录；把它当作一条记录读取

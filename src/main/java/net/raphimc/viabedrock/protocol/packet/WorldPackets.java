@@ -50,6 +50,8 @@ import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.experimental.block.CustomBlockDisplayTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockPlacementAckTracker;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerActionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ServerboundLoadingScreenPacketType;
@@ -81,6 +83,12 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 public class WorldPackets {
+
+    /** 子区块高度图长度：256 个方块（每个 4 位）。 */
+    private static final int HEIGHT_MAP_LENGTH = 256;
+
+    /** 2192 起高度图每段长度，与 MOT 的 {@code putHeightMapData} 一致。 */
+    private static final int HEIGHT_MAP_SEGMENT_LENGTH = 16;
 
     private static PacketHandler updateBlockHandler(final boolean synced) {
         return wrapper -> {
@@ -295,14 +303,20 @@ public class WorldPackets {
                 return;
             }
             final int sectionCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 子区块数量
-            if (sectionCount < -2) { // 基岩客户端会忽略这个数据包
+            final boolean chunkV2168 = BedrockWire.applies(BedrockDeviation.LEVEL_CHUNK_PACKET_V2168);
+            if (!chunkV2168 && sectionCount < -2) { // 基岩客户端会忽略这个数据包
                 return;
             }
 
             final int startY = chunkTracker.getMinY() >> 4;
             final int endY = chunkTracker.getMaxY() >> 4;
             int requestSectionCount = 0;
-            if (sectionCount == -2) {
+            if (chunkV2168) {
+                // 2168 去掉了 -1/-2 哨兵值，改成显式的“请求子区块 + 上限”
+                if (wrapper.read(Types.BOOLEAN)) {
+                    requestSectionCount = wrapper.read(BedrockTypes.VAR_INT) + 1; // 上限
+                }
+            } else if (sectionCount == -2) {
                 requestSectionCount = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE) + 1; // 数量
             } else if (sectionCount == -1) {
                 requestSectionCount = endY - startY;
@@ -383,7 +397,27 @@ public class WorldPackets {
                 }
             };
 
-            if (wrapper.read(Types.BOOLEAN)) { // 是否启用缓存
+            final boolean cachingEnabled = wrapper.read(Types.BOOLEAN); // 是否启用缓存
+            if (chunkV2168) {
+                // 2168 起 blob 列表始终带计数，缓存开关只决定数据要不要和缓存拼接
+                final Long[] blobs = wrapper.read(BedrockTypes.LONG_ARRAY); // blob ID 列表
+                final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // 数据
+                if (!cachingEnabled) {
+                    readChunkTail(wrapper);
+                    dataConsumer.accept(data);
+                    return;
+                }
+                final int expectedLength = sectionCount + 1;
+                if (blobs.length != expectedLength) { // 基岩客户端会把随机的内存内容写入请求，极可能导致崩溃
+                    throw new IllegalStateException("Invalid blob count: " + blobs.length + " (expected " + expectedLength + ")");
+                }
+                wrapper.user().get(BlobCache.class).getBlob(blobs).thenAccept(blob -> {
+                    final byte[] combinedData = new byte[data.length + blob.length];
+                    System.arraycopy(blob, 0, combinedData, 0, blob.length);
+                    System.arraycopy(data, 0, combinedData, blob.length, data.length);
+                    dataConsumer.accept(combinedData);
+                });
+            } else if (cachingEnabled) {
                 final Long[] blobs = wrapper.read(BedrockTypes.LONG_ARRAY); // blob ID 列表
                 final int expectedLength = sectionCount < 0 ? 1 : sectionCount + 1;
                 if (blobs.length != expectedLength) { // 基岩客户端会把随机的内存内容写入请求，极可能导致崩溃
@@ -399,30 +433,46 @@ public class WorldPackets {
             } else {
                 dataConsumer.accept(wrapper.read(BedrockTypes.BYTE_ARRAY)); // 数据
             }
+            readChunkTail(wrapper);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SUB_CHUNK, null, wrapper -> {
             wrapper.cancel();
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
 
             final boolean cachingEnabled = wrapper.read(Types.BOOLEAN); // 是否启用缓存
+            final boolean subChunkV2168 = BedrockWire.applies(BedrockDeviation.SUB_CHUNK_PACKET_V2168);
+            final boolean segmentedHeightMap = BedrockWire.applies(BedrockDeviation.SUB_CHUNK_HEIGHTMAP_SEGMENTS);
             final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 维度
             if (dimension != chunkTracker.getDimension()) {
                 return;
             }
-            final BlockPosition center = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 中心坐标（有符号）
-            final long count = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 数量
+            final BlockPosition center;
+            final long count;
+            if (subChunkV2168) {
+                // 2168 起基准原点是三个小端 int32，计数是无符号 varint
+                center = new BlockPosition(wrapper.read(BedrockTypes.INT_LE), wrapper.read(BedrockTypes.INT_LE), wrapper.read(BedrockTypes.INT_LE)); // 中心坐标
+                count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 数量
+            } else {
+                center = wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 中心坐标（有符号）
+                count = wrapper.read(BedrockTypes.UNSIGNED_INT_LE); // 数量
+            }
 
             for (long i = 0; i < count; i++) {
                 final BlockPosition offset = wrapper.read(BedrockTypes.SUB_CHUNK_OFFSET); // 偏移
                 final SubChunkPacket_SubChunkRequestResult result = SubChunkPacket_SubChunkRequestResult.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_SubChunkRequestResult.Undefined); // 结果
-                final byte[] data = result != SubChunkPacket_SubChunkRequestResult.SuccessAllAir || !cachingEnabled ? wrapper.read(BedrockTypes.BYTE_ARRAY) : new byte[0]; // 数据
+                final boolean hasData = subChunkV2168
+                        ? wrapper.read(Types.BOOLEAN)
+                        : result != SubChunkPacket_SubChunkRequestResult.SuccessAllAir || !cachingEnabled;
+                final byte[] data = hasData ? wrapper.read(BedrockTypes.BYTE_ARRAY) : new byte[0]; // 数据
                 final SubChunkPacket_HeightMapDataType heightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 高度图结果
-                if (heightmapResult == SubChunkPacket_HeightMapDataType.HasData) {
-                    wrapper.read(new ByteArrayType(256)); // 高度图数据
+                final boolean hasHeightmap = subChunkV2168 ? wrapper.read(Types.BOOLEAN) : heightmapResult == SubChunkPacket_HeightMapDataType.HasData;
+                if (hasHeightmap) {
+                    readHeightMap(wrapper, segmentedHeightMap); // 高度图数据
                 }
                 final SubChunkPacket_HeightMapDataType renderHeightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 渲染高度图结果
-                if (renderHeightmapResult == SubChunkPacket_HeightMapDataType.HasData) {
-                    wrapper.read(new ByteArrayType(256)); // 渲染高度图数据
+                final boolean hasRenderHeightmap = subChunkV2168 ? wrapper.read(Types.BOOLEAN) : renderHeightmapResult == SubChunkPacket_HeightMapDataType.HasData;
+                if (hasRenderHeightmap) {
+                    readHeightMap(wrapper, segmentedHeightMap); // 渲染高度图数据
                 }
 
                 final BlockPosition absolute = new BlockPosition(center.x() + offset.x(), center.y() + offset.y(), center.z() + offset.z());
@@ -479,7 +529,8 @@ public class WorldPackets {
                     }
                 };
 
-                if (cachingEnabled) {
+                final boolean hasBlobId = subChunkV2168 ? wrapper.read(Types.BOOLEAN) : cachingEnabled;
+                if (hasBlobId) {
                     final long hash = wrapper.read(BedrockTypes.LONG_LE); // blob 标识
                     if (waitingForBlob) {
                         final CompletableFuture<byte[]> blobFuture;
@@ -750,6 +801,32 @@ public class WorldPackets {
             wrapper.write(BedrockTypes.BLOCK_POSITION, position); // 坐标
             wrapper.write(BedrockTypes.NETWORK_TAG, signTag.copy()); // 方块实体标签
         });
+    }
+
+    /**
+     * 读 LEVEL_CHUNK 在区块数据之后的尾部。2225 起追加一个“仅生物群系更新”标志，
+     * 无存在性 bool、无长度字段；本仓库不用该语义，读完即丢。
+     */
+    static void readChunkTail(final PacketWrapper wrapper) {
+        if (BedrockWire.applies(BedrockDeviation.LEVEL_CHUNK_CLIENT_BIOME_UPDATE)) {
+            wrapper.read(Types.BOOLEAN);
+        }
+    }
+
+    /**
+     * 读子区块高度图。2192 起改成分段：{@code HEIGHT_MAP_LENGTH / 16} 段，
+     * 每段前置无符号 varint 段长（恒为 16）；此前是一整块定长数据。
+     * 高度图内容在本仓库不用，读完即丢。
+     */
+    static void readHeightMap(final PacketWrapper wrapper, final boolean segmented) {
+        if (!segmented) {
+            wrapper.read(new ByteArrayType(HEIGHT_MAP_LENGTH));
+            return;
+        }
+        for (int offset = 0; offset < HEIGHT_MAP_LENGTH; offset += HEIGHT_MAP_SEGMENT_LENGTH) {
+            final long length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
+            wrapper.read(new ByteArrayType(Math.max(0, (int) length)));
+        }
     }
 
     static boolean shouldRetryFailedSubChunk(final SubChunkPacket_SubChunkRequestResult result) {

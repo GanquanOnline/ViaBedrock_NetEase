@@ -39,10 +39,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CommandPacketLayoutTest {
 
     @Test
-    void netease860UsesIntegerCommandLayout() {
+    void pre897UsesIntegerCommandLayout() {
         assertFalse(CommandPacketLayout.usesStringLayout(true, 860));
-        assertTrue(CommandPacketLayout.usesStringLayout(false, 860));
+        assertFalse(CommandPacketLayout.usesStringLayout(false, 860));
+        assertFalse(CommandPacketLayout.usesStringLayout(false, 896));
+        assertTrue(CommandPacketLayout.usesStringLayout(false, 897));
         assertTrue(CommandPacketLayout.usesStringLayout(true, 897));
+        assertTrue(CommandPacketLayout.usesStringLayout(0));
     }
 
     @Test

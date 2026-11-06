@@ -12,6 +12,7 @@ package net.raphimc.viabedrock.protocol.storage;
 import com.viaversion.viaversion.connection.UserConnectionImpl;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -24,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ResourcePackAnnouncementFingerprintTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     private static final ResourcePack.Key FIRST_KEY = new ResourcePack.Key(
             UUID.fromString("10203040-5060-7080-90a0-b0c0d0e0f000"), "1.0.0");

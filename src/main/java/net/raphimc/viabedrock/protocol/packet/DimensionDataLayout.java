@@ -19,7 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import io.netty.buffer.ByteBuf;
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
@@ -39,11 +39,16 @@ public final class DimensionDataLayout {
     }
 
     public static boolean usesDimensionType() {
-        return usesDimensionType(emulateNetEase(), netEaseProtocol());
+        return usesDimensionType(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesDimensionType(final int protocol) {
+        return protocol >= DIMENSION_TYPE_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesDimensionType(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= DIMENSION_TYPE_PROTOCOL;
+        return usesDimensionType(protocol);
     }
 
     public static void skipDimensionType(final PacketWrapper wrapper) {
@@ -68,13 +73,5 @@ public final class DimensionDataLayout {
         if (usesDimensionType(emulateNetEase, protocol)) {
             BedrockTypes.VAR_INT.write(buffer, dimensionType);
         }
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
     }
 }

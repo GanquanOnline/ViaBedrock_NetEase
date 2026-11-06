@@ -27,10 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DisconnectPacketLayoutTest {
 
     @Test
-    void netease860UsesBooleanHideScreen() {
+    void hideScreenIsBooleanBelow974OnBothAxes() {
         assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(true, 860));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 860));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 897));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 898));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 924));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 944));
+        assertFalse(DisconnectPacketLayout.usesUnsignedHideScreen(false, 973));
         assertTrue(DisconnectPacketLayout.usesUnsignedHideScreen(true, 974));
-        assertTrue(DisconnectPacketLayout.usesUnsignedHideScreen(false, 860));
+        assertTrue(DisconnectPacketLayout.usesUnsignedHideScreen(false, 974));
         assertTrue(DisconnectPacketLayout.usesUnsignedHideScreen(false, 975));
     }
 

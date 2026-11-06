@@ -29,6 +29,9 @@ import net.raphimc.viabedrock.api.util.EnumUtil;
 import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.experimental.rewriter.EntityMetadataRewriter;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.LevelSoundEventNames;
 import net.raphimc.viabedrock.protocol.packet.LevelSoundEventLayout;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ActorDataIDs;
@@ -160,7 +163,15 @@ public class Entity {
 
     public void playSound(final SharedTypes_Legacy_LevelSoundEvent soundEvent) {
         final PacketWrapper levelSoundEvent = PacketWrapper.create(ClientboundBedrockPackets.LEVEL_SOUND_EVENT, this.user);
-        levelSoundEvent.write(BedrockTypes.UNSIGNED_VAR_INT, soundEvent.getValue()); // 事件
+        if (BedrockWire.applies(BedrockDeviation.LEVEL_SOUND_EVENT_NAME)) {
+            final String soundName = LevelSoundEventNames.name(soundEvent.getValue());
+            if (soundName == null) {
+                return;
+            }
+            levelSoundEvent.write(BedrockTypes.STRING, soundName); // 事件名
+        } else {
+            levelSoundEvent.write(BedrockTypes.UNSIGNED_VAR_INT, soundEvent.getValue()); // 事件
+        }
         levelSoundEvent.write(BedrockTypes.POSITION_3F, this.position); // 位置
         levelSoundEvent.write(BedrockTypes.VAR_INT, 0); // 数据
         levelSoundEvent.write(BedrockTypes.STRING, this.type); // 实体标识符

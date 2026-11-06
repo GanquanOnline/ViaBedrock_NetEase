@@ -236,6 +236,26 @@ public class ResourcePackDownloadTracker implements StorableObject {
         this.abort(download, cancellation);
     }
 
+    /**
+     * 取消全部在途传输。资源包已由其它来源（缓存或 HTTP）全部载入时使用，
+     * 否则它们会在资源包栈完成后继续向服务端发分块请求，被服务端判为资源包出错。
+     */
+    public void cancelPending(final String reason) {
+        final ArrayList<Download> pending;
+        synchronized (this.lifecycleLock) {
+            if (this.downloads.isEmpty()) {
+                return;
+            }
+            pending = new ArrayList<>(this.downloads.values());
+            this.downloads.clear();
+            this.transferMetadata.clear();
+        }
+        final CancellationException cancellation = new CancellationException(reason);
+        for (Download download : pending) {
+            this.abort(download, cancellation);
+        }
+    }
+
     @Override
     public void onRemove() {
         if (!this.closed.compareAndSet(false, true)) {

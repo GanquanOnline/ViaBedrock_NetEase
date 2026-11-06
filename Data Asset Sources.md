@@ -23,6 +23,34 @@ Hashed `network_id` values match Nukkit-MOT `runtime_block_states_netease_860.da
 ### data/bedrock/netease_860_block_runtime_ids.json
 Generated from Nukkit-MOT jar resource `runtime_block_states_netease_860.dat` (local dump: `decompiled/jars/Nukkit-MOT-SNAPSHOT.jar`). Maps hashed `network_id` → MOT sequential `runtimeId`, and adds MOT-only `minecraft:micro_block`.
 
+### data/versions/<protocol>/block_palette.nbt
+### data/versions/<protocol>/runtime_item_states.json
+### data/versions/<protocol>/biome_definitions.nbt (975 only)
+Generated from the Nukkit-MOT jar (`decompiled/nukkit/jars/Nukkit-MOT-SNAPSHOT.jar`) with
+
+```
+./gradlew importBedrockDataTables --args="import <motJar> src/main/resources/assets/viabedrock/data/versions <protocol>... --base src/main/resources/assets/viabedrock/data/bedrock/block_palette.nbt"
+```
+
+- `versions/975/` is a byte-for-byte copy of the shared tables above and stays the golden reference.
+- MOT's dumps are **subsets**: measured against the shared 975 palette, `runtime_block_states_*` adds 0 new
+  states for 1001/2168, omits 387 states (education/editor blocks plus some stem, frame, jigsaw, vault and
+  trial_spawner variants), and `runtime_item_states_*` lacks the `minecraft:item.*` aliases the Java side
+  mapping needs. The importer therefore uses the shared tables as a base and only appends what MOT adds,
+  with `--base` naming that base palette (the item file is read from the same directory).
+- `network_id`, `name_hash` and `version` are recomputed from each MOT block state with `BlockStateHasher`
+  and `FNV1`, not taken from MOT's sequential `runtimeId`; `BedrockDataTableContentTest` re-derives them
+  for every shipped entry and checks that every shared block state has a palette entry, which is the lookup
+  `BedrockMappingData` performs at startup.
+- `block_id` keeps MOT's numeric block id on MOT-sourced entries. ViaBedrock never reads that field (only
+  `network_id` is used in `BlockStateRewriter`), so base entries keep Geyser's legacy id and `verify` reports
+  those differences separately from wire-field mismatches.
+- MOT only ships `biome_definitions_<protocol>.dat` for old protocols, so 1001/2168 have no biome file and
+  fall back to `data/bedrock/biome_definitions.nbt` (see `BedrockDataTables`).
+- Per-version item ids do differ: 975 has 1941 items, 1001 1943 and 2168 1986 after the merge.
+- `verify` against the shared 975 palette reports 16512 generated states vs 16899 golden states, **0**
+  wire-field mismatches, and the 387 golden-only states listed above.
+
 ### data/bedrock/block_sounds.json
 This file has been generated using `BedrockSoundListGenerator` using data from the official bedrock client's assets folder.
 

@@ -31,11 +31,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DimensionDataLayoutTest {
 
     @Test
-    void netease860OmitsDimensionType() {
+    void dimensionTypeStartsAt975() {
         assertFalse(DimensionDataLayout.usesDimensionType(true, 860));
         assertFalse(DimensionDataLayout.usesDimensionType(true, 974));
         assertTrue(DimensionDataLayout.usesDimensionType(true, 975));
-        assertTrue(DimensionDataLayout.usesDimensionType(false, 860));
+        assertFalse(DimensionDataLayout.usesDimensionType(false, 860));
+        assertFalse(DimensionDataLayout.usesDimensionType(false, 974));
         assertTrue(DimensionDataLayout.usesDimensionType(false, 975));
     }
 

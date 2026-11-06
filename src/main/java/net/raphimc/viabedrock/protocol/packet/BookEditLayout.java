@@ -21,7 +21,7 @@ import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.ListTag;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.BookEditAction;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -32,11 +32,11 @@ import java.util.List;
 /**
  * 基岩 BOOK_EDIT（数据包 0x61 / 97）的线格式布局辅助。
  * <p>
- * MOT {@code BookEditPacket} 在协议 924 开始分叉：
+ * MOT {@code BookEditPacket} 在协议 924 开始分叉（只看协议号，没有网易条件）：
  * <ul>
- * <li>网易 860 和官方 &lt;924：{@code byte action, byte inventorySlot}，
+ * <li>860 和 924 之前：{@code byte action, byte inventorySlot}，
  * 然后页码以 byte 形式给出。</li>
- * <li>官方 924+：{@code varint inventorySlot, unsigned-varint action}，
+ * <li>924 起（含将来的网易 924+）：{@code varint inventorySlot, unsigned-varint action}，
  * 然后页码以 varint 形式给出。</li>
  * </ul>
  * Java 1.21.11 的 {@code EDIT_BOOK} 会发送整个页面列表外加可选的
@@ -57,11 +57,16 @@ public final class BookEditLayout {
     }
 
     public static boolean usesVarIntLayout() {
-        return usesVarIntLayout(emulateNetEase(), netEaseProtocol());
+        return usesVarIntLayout(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesVarIntLayout(final int protocol) {
+        return protocol <= 0 || protocol >= VARINT_LAYOUT_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesVarIntLayout(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= VARINT_LAYOUT_PROTOCOL;
+        return usesVarIntLayout(protocol);
     }
 
     public static void writeHeader(final ByteBuf buffer, final BookEditAction action, final int inventorySlot,
@@ -217,14 +222,6 @@ public final class BookEditLayout {
         final byte[] bytes = new byte[buffer.readableBytes()];
         buffer.readBytes(bytes);
         return bytes;
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig() != null && ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig() != null ? ViaBedrock.getConfig().getNetEaseProtocolVersion() : 0;
     }
 
     public record Header(BookEditAction action, int inventorySlot) {

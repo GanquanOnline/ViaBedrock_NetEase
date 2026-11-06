@@ -42,6 +42,8 @@ import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.experimental.tablist.PlayerIdentity;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.*;
 import net.raphimc.viabedrock.protocol.data.enums.java.ObjectiveAction;
 import net.raphimc.viabedrock.protocol.data.enums.java.generated.BossEventOperationType;
@@ -68,14 +70,22 @@ public class HudPackets {
             final ScoreboardTracker scoreboardTracker = wrapper.user().get(ScoreboardTracker.class);
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final byte rawAction = wrapper.read(Types.BYTE); // 动作
+            final boolean varintEntryFlags = PlayerListLayout.usesVarintEntryFlags(BedrockWire.current());
+            final byte rawAction;
+            final int length;
+            if (varintEntryFlags) {
+                length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+                rawAction = length > 0 ? PlayerListLayout.readEntryAction(wrapper) : (byte) 0; // 空列表按添加处理
+            } else {
+                rawAction = wrapper.read(Types.BYTE); // 动作
+                length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+            }
             final PlayerListPacketType action = PlayerListPacketType.getByValue(rawAction);
             if (action == null) { // 动作无效时基岩客户端会崩溃
                 throw new IllegalStateException("Unknown PlayerListPacketType: " + rawAction);
             }
             switch (action) {
                 case Add -> {
-                    final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                     final UUID[] uuids = new UUID[length];
                     final long[] entityUniqueIds = new long[length];
                     final String[] names = new String[length];
@@ -83,6 +93,9 @@ public class HudPackets {
                     wrapper.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_LISTED, PlayerInfoUpdateAction.UPDATE_LATENCY, PlayerInfoUpdateAction.UPDATE_DISPLAY_NAME)); // 动作列表
                     wrapper.write(Types.VAR_INT, length); // 长度
                     for (int i = 0; i < length; i++) {
+                        if (varintEntryFlags && i > 0 && !readMatchingEntryAction(wrapper, rawAction)) {
+                            return;
+                        }
                         uuids[i] = wrapper.read(BedrockTypes.UUID); // uuid
                         entityUniqueIds[i] = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
 
@@ -100,6 +113,9 @@ public class HudPackets {
                         wrapper.write(Types.STRING, StringUtil.encodeUUID(uuids[i])); // 用户名
                         names[i] = TextUtil.toSingleLine(wrapper.read(BedrockTypes.STRING)); // 用户名
                         final String xuid = wrapper.read(BedrockTypes.STRING); // XUID
+                        if (BedrockWire.applies(BedrockDeviation.PLAYER_LIST_PLAY_FAB_ID)) {
+                            wrapper.read(BedrockTypes.STRING); // playFabId（2225 起从皮肤块搬到条目）
+                        }
                         final String platformOnlineId = wrapper.read(BedrockTypes.STRING); // 平台在线 ID
                         final int deviceOs = wrapper.read(BedrockTypes.INT_LE); // 设备 OS
                         final SkinData skin = wrapper.read(BedrockTypes.SKIN); // 皮肤
@@ -143,11 +159,13 @@ public class HudPackets {
 
                         Via.getManager().getProviders().get(SkinProvider.class).setSkin(wrapper.user(), uuids[i], skin);
                     }
-                    try {
-                        for (int i = 0; i < length; i++) {
-                            wrapper.read(Types.BOOLEAN); // 受信任皮肤
+                    if (!varintEntryFlags) {
+                        try {
+                            for (int i = 0; i < length; i++) {
+                                wrapper.read(Types.BOOLEAN); // 受信任皮肤
+                            }
+                        } catch (InformativeException ignored) { // 基岩客户端会静默忽略读取错误
                         }
-                    } catch (InformativeException ignored) { // 基岩客户端会静默忽略读取错误
                     }
                     try {
                         PlayerListLayout.skipNetEaseAddTrailer(wrapper, length);
@@ -187,7 +205,18 @@ public class HudPackets {
                 }
                 case Remove -> {
                     wrapper.setPacketType(ClientboundPackets26_1.PLAYER_INFO_REMOVE);
-                    final UUID[] uuids = wrapper.read(BedrockTypes.UUID_ARRAY); // UUID 列表
+                    final UUID[] uuids;
+                    if (varintEntryFlags) {
+                        uuids = new UUID[length];
+                        for (int i = 0; i < length; i++) {
+                            if (i > 0 && !readMatchingEntryAction(wrapper, rawAction)) {
+                                return;
+                            }
+                            uuids[i] = wrapper.read(BedrockTypes.UUID); // uuid
+                        }
+                    } else {
+                        uuids = wrapper.read(BedrockTypes.UUID_ARRAY); // UUID 列表
+                    }
                     wrapper.write(Types.UUID_ARRAY, uuids); // UUID 列表
 
                     final List<String> names = new ArrayList<>();
@@ -309,36 +338,10 @@ public class HudPackets {
             wrapper.cancel();
             final ScoreboardTracker scoreboardTracker = wrapper.user().get(ScoreboardTracker.class);
 
-            final byte rawAction = wrapper.read(Types.BYTE); // 动作
-            final ScorePacketType action = ScorePacketType.getByValue(rawAction);
-            if (action == null) {
-                ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown ScorePacketType: " + rawAction);
-                return;
-            }
-            final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 数量
-            for (int i = 0; i < count; i++) {
-                final long scoreboardId = wrapper.read(BedrockTypes.VAR_LONG); // 计分板 ID
-                final String objectiveName = wrapper.read(BedrockTypes.STRING); // 目标名称
-                final int score = wrapper.read(BedrockTypes.INT_LE); // 分数
-
-                final ScoreboardEntry entry;
-                switch (action) {
-                    case Change -> {
-                        final byte rawType = wrapper.read(Types.BYTE); // 类型
-                        final IdentityDefinition_Type type = IdentityDefinition_Type.getByValue(rawType, IdentityDefinition_Type.Invalid);
-                        Long entityUniqueId = null;
-                        String fakePlayerName = null;
-                        switch (type) {
-                            case Player, Entity -> entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
-                            case FakePlayer -> fakePlayerName = wrapper.read(BedrockTypes.STRING); // 假玩家名称
-                            case Invalid -> throw new IllegalStateException("Invalid IdentityDefinition_Type: " + rawType); // 类型无效时基岩客户端会断开连接
-                            default -> throw new IllegalStateException("Unhandled IdentityDefinition_Type: " + rawType);
-                        }
-                        entry = new ScoreboardEntry(score, type, entityUniqueId, fakePlayerName);
-                    }
-                    case Remove -> entry = null;
-                    default -> throw new IllegalStateException("Unhandled ScorePacketType: " + action);
-                }
+            for (final SetScoreLayout.Entry decoded : SetScoreLayout.read(wrapper, BedrockWire.current())) {
+                final long scoreboardId = decoded.scoreboardId(); // 计分板 ID
+                final String objectiveName = decoded.objectiveName(); // 目标名称
+                final ScoreboardEntry entry = decoded.entry(); // null 表示移除
 
                 final ScoreboardObjective objective = scoreboardTracker.getObjective(objectiveName);
                 final Pair<ScoreboardObjective, ScoreboardEntry> existingEntry = scoreboardTracker.getEntry(scoreboardId);
@@ -414,8 +417,29 @@ public class HudPackets {
         });
         protocol.registerClientbound(ClientboundBedrockPackets.BOSS_EVENT, ClientboundPackets26_1.BOSS_EVENT, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+            final boolean unifiedLayout = BedrockWire.applies(BedrockDeviation.BOSS_EVENT_UNIFIED_LAYOUT);
             final long bossEntityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // Boss 实体唯一 id
-            final int rawUpdateType = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 更新类型
+            final int rawUpdateType;
+            final String unifiedTitle;
+            final float unifiedProgress;
+            final int unifiedColor;
+            if (unifiedLayout) {
+                // 1001 起所有更新类型共用定长布局：颜色/叠加层变单字节，暗化屏幕消失
+                if (BedrockWire.applies(BedrockDeviation.BOSS_EVENT_PLAYER_EID)) {
+                    wrapper.read(BedrockTypes.VAR_LONG); // 玩家唯一 id，Java 侧没有对应语义；2192 起移除
+                }
+                rawUpdateType = wrapper.read(Types.BYTE) & 0xFF;
+                unifiedTitle = wrapper.read(BedrockTypes.STRING);
+                wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                unifiedProgress = wrapper.read(BedrockTypes.FLOAT_LE);
+                unifiedColor = wrapper.read(Types.BYTE) & 0xFF;
+                wrapper.read(Types.BYTE); // 叠加层 | 在基岩版中不起作用
+            } else {
+                rawUpdateType = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 更新类型
+                unifiedTitle = null;
+                unifiedProgress = 0F;
+                unifiedColor = 0;
+            }
             final BossEventUpdateType updateType = BossEventUpdateType.getByValue(rawUpdateType);
             if (updateType == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown BossEventUpdateType: " + rawUpdateType);
@@ -428,12 +452,18 @@ public class HudPackets {
             switch (updateType) {
                 case Add -> {
                     final UUID uuid = bossBars.resolveOrCreateJavaUuid(bossEntityUniqueId, entity != null ? entity.javaUuid() : null);
-                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
-                    wrapper.read(BedrockTypes.STRING); // 已过滤名称
-                    final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
-                    wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(unifiedLayout ? unifiedTitle : wrapper.read(BedrockTypes.STRING))));
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    }
+                    final float progress = unifiedLayout ? unifiedProgress : wrapper.read(BedrockTypes.FLOAT_LE);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
+                    }
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final BossBarStorage.BossBar bar = bossBars.add(uuid, name, progress, color);
                     if (entity != null) entity.setHasBossBar(true);
                     if (!bossBars.markAddSent(uuid)) {
@@ -457,7 +487,7 @@ public class HudPackets {
                     wrapper.write(Types.VAR_INT, BossEventOperationType.REMOVE.ordinal()); // 操作
                 }
                 case Update_Percent -> {
-                    final float progress = wrapper.read(BedrockTypes.FLOAT_LE);
+                    final float progress = unifiedLayout ? unifiedProgress : wrapper.read(BedrockTypes.FLOAT_LE);
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -475,8 +505,10 @@ public class HudPackets {
                     wrapper.write(Types.FLOAT, progress); // 进度
                 }
                 case Update_Name -> {
-                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(wrapper.read(BedrockTypes.STRING))));
-                    wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    final var name = TextUtil.stringToNbt(TextUtil.toSingleLine(wrapper.user().get(ResourcePackStorage.class).getTexts().translate(unifiedLayout ? unifiedTitle : wrapper.read(BedrockTypes.STRING))));
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.STRING); // 已过滤名称
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -494,9 +526,13 @@ public class HudPackets {
                     wrapper.write(Types.TAG, name); // 名称
                 }
                 case Update_Properties -> {
-                    wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 暗化屏幕 | 在基岩版中不起作用
+                    }
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -515,8 +551,10 @@ public class HudPackets {
                     wrapper.write(Types.VAR_INT, 0); // 叠加层
                 }
                 case Update_Style -> {
-                    final int color = MathUtil.getOrFallback(wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
-                    wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    final int color = MathUtil.getOrFallback(unifiedLayout ? unifiedColor : wrapper.read(BedrockTypes.UNSIGNED_VAR_INT), 0, 5, 0);
+                    if (!unifiedLayout) {
+                        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 叠加层 | 在基岩版中不起作用
+                    }
                     final UUID uuid = bossBars.getJavaUuid(bossEntityUniqueId);
                     if (uuid == null) {
                         wrapper.cancel();
@@ -631,6 +669,21 @@ public class HudPackets {
         wrapper.write(Types.VAR_INT, bar.color()); // 颜色
         wrapper.write(Types.VAR_INT, 0); // 叠加层
         wrapper.write(Types.UNSIGNED_BYTE, (short) 0); // 标志
+    }
+
+    /**
+     * 2168 起 PLAYER_LIST 在每条之前重复一次动作标志。与包头不一致时丢弃整包，
+     * 避免 java 侧按错误动作写出条目。
+     */
+    private static boolean readMatchingEntryAction(final PacketWrapper wrapper, final byte expected) {
+        final byte entryAction = PlayerListLayout.readEntryAction(wrapper);
+        if (entryAction != expected) {
+            ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
+                    "Mixed PLAYER_LIST entry actions: " + entryAction + " != " + expected);
+            wrapper.cancel();
+            return false;
+        }
+        return true;
     }
 
     /**

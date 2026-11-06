@@ -21,6 +21,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InteractPacket_Action;
 import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -29,7 +30,7 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * 基岩 INTERACT（数据包 0x21）的线上布局辅助工具。
  * <p>
  * 官方基岩 / Nukkit-MOT 协议 897+ 会给可选的 Vector3f 加一个
- * boolean 前缀。网易 860 仍使用 897 之前的布局：mouseover（动作 4）以及自
+ * boolean 前缀。官方 860..896 与网易 860 仍使用 897 之前的布局：mouseover（动作 4）以及自
  * 协议 388 起的 stop-riding（动作 3）总是携带 Vector3f，没有存在标志。
  * 在官方 975 的 INTERACT 中写入缺少该 boolean 的 Vector3f 会留下多余数据；
  * 而在网易 860 上省略它会让 Nukkit 多读下一个数据包。
@@ -42,11 +43,16 @@ public final class InteractPacketLayout {
     }
 
     public static boolean usesOptionalPosition() {
-        return usesOptionalPosition(emulateNetEase(), netEaseProtocol());
+        return usesOptionalPosition(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesOptionalPosition(final int protocol) {
+        return protocol <= 0 || protocol >= OPTIONAL_POSITION_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesOptionalPosition(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= OPTIONAL_POSITION_PROTOCOL;
+        return usesOptionalPosition(protocol);
     }
 
     public static boolean hasPosition(final InteractPacket_Action action) {

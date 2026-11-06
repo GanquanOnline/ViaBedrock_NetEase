@@ -24,6 +24,7 @@ import net.easecation.bedrockmotion.model.AnimationEventListener;
 import net.easecation.bedrockmotion.mocha.LayeredScope;
 import net.easecation.bedrockmotion.mocha.MoLangEngine;
 import net.easecation.bedrockmotion.pack.PackManager;
+import net.easecation.bedrockmotion.pack.definitions.AnimationControllerDefinitions;
 import net.easecation.bedrockmotion.pack.definitions.AnimationDefinitions;
 import net.easecation.bedrockmotion.render.RenderControllerEvaluator;
 import net.raphimc.viabedrock.ViaBedrock;
@@ -126,16 +127,15 @@ public class ServerEntityTicker implements AnimationEventListener {
         final AnimationDefinitions animDefs = packManager.getAnimationDefinitions();
         final Map<String, String> entityAnimations = entityData.getAnimations();
 
+        final AnimationControllerDefinitions controllerDefs = packManager.getAnimationControllerDefinitions();
+
         for (Map.Entry<String, String> entry : entityAnimations.entrySet()) {
             final String animId = entry.getValue();
             // 检查这是否是动画控制器
-            final AnimationController controller = packManager.getAnimationControllerDefinitions()
-                    .getControllers().get(animId);
+            final AnimationController controller = controllerDefs.getControllers().get(animId);
             if (controller != null) {
-                // TODO 升级 BedrockMotion 影子包后改回五参构造，把共享 controller 定义传给动画运行时。
-                // 当前 mavenLocal 的 1.0.0 只有四参构造，与上游 d471d365 不兼容。
                 final AnimationControllerInstance instance = new AnimationControllerInstance(
-                        controller, entityAnimations, animDefs, this);
+                        controller, entityAnimations, animDefs, controllerDefs, this);
                 controllerInstances.add(instance);
             }
         }

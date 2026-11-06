@@ -30,6 +30,8 @@ import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.provider.BlobCacheProvider;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -58,13 +60,25 @@ public class BlobCache extends StoredObject {
         final LongList ackedSubSet = this.acked.subList(0, Math.min(1024, this.acked.size()));
 
         final PacketWrapper clientCacheBlobStatus = PacketWrapper.create(ServerboundBedrockPackets.CLIENT_CACHE_BLOB_STATUS, this.user());
-        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, missingSubSet.size()); // 缺失 blob 数量
-        clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, ackedSubSet.size()); // 已确认 blob 数量
-        for (long hash : missingSubSet) {
-            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 缺失 blob 哈希
-        }
-        for (long hash : ackedSubSet) {
-            clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 已确认 blob 哈希
+        if (BedrockWire.applies(BedrockDeviation.BLOB_STATUS_INTERLEAVED_HASHES)) {
+            // 1001 起每个数组自带计数头，不再共用前缀
+            clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, missingSubSet.size());
+            for (long hash : missingSubSet) {
+                clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash);
+            }
+            clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, ackedSubSet.size());
+            for (long hash : ackedSubSet) {
+                clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash);
+            }
+        } else {
+            clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, missingSubSet.size()); // 缺失 blob 数量
+            clientCacheBlobStatus.write(BedrockTypes.UNSIGNED_VAR_INT, ackedSubSet.size()); // 已确认 blob 数量
+            for (long hash : missingSubSet) {
+                clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 缺失 blob 哈希
+            }
+            for (long hash : ackedSubSet) {
+                clientCacheBlobStatus.write(BedrockTypes.LONG_LE, hash); // 已确认 blob 哈希
+            }
         }
         clientCacheBlobStatus.sendToServer(BedrockProtocol.class);
 

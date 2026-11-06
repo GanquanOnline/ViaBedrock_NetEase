@@ -39,6 +39,8 @@ import net.raphimc.viabedrock.experimental.resourcepack.cache.ResourcePackArchiv
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PackType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ResourcePackResponse;
@@ -88,7 +90,10 @@ public class ResourcePackPackets {
                     final boolean forceDisableVibrantVisuals = wrapper.read(Types.BOOLEAN);
                     final UUID worldTemplateId = wrapper.read(BedrockTypes.UUID);
                     final String worldTemplateVersion = wrapper.read(BedrockTypes.STRING);
-                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE)]; // 资源包数量
+                    final int resourcePackCount = BedrockWire.applies(BedrockDeviation.RESOURCE_PACK_VARINT_COUNTS)
+                            ? wrapper.read(BedrockTypes.UNSIGNED_VAR_INT) // 资源包数量
+                            : wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 资源包数量
+                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[resourcePackCount];
                     for (int i = 0; i < infos.length; i++) {
                         final UUID id = wrapper.read(BedrockTypes.UUID); // 包 ID
                         final String version = wrapper.read(BedrockTypes.STRING); // 包版本
@@ -182,9 +187,13 @@ public class ResourcePackPackets {
             }
 
             final boolean resourcePackRequired = wrapper.read(Types.BOOLEAN);
-            if (ViaBedrock.getConfig().shouldEmulateNetEaseClient()) {
-                // 网易 / 协议 860 仍然先序列化行为包栈。
-                skipPackStackEntries(wrapper);
+            if (ResourcePackStackLayout.sendsNetEaseBehaviourPackStack()) {
+                // 网易 860 仍然先序列化行为包栈；网易 898 起服务端已移除这一段。
+                final int skippedBehaviourPacks = ResourcePackStackLayout.skipBehaviourPackStack(wrapper);
+                if (skippedBehaviourPacks > 0) {
+                    ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                            "Skipped " + skippedBehaviourPacks + " NetEase behaviour pack stack entries");
+                }
             }
             final ResourcePack.Key[] keys = new ResourcePack.Key[wrapper.read(BedrockTypes.UNSIGNED_VAR_INT)]; // 资源包数量
             final String[] subpacks = new String[keys.length];
@@ -609,19 +618,6 @@ public class ResourcePackPackets {
         return type == PackType.Resources || type == PackType.Behavior;
     }
 
-    private static void skipPackStackEntries(final PacketWrapper wrapper) {
-        final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
-        for (int i = 0; i < count; i++) {
-            wrapper.read(BedrockTypes.STRING); // ID
-            wrapper.read(BedrockTypes.STRING); // 版本
-            wrapper.read(BedrockTypes.STRING); // 子包名称
-        }
-        if (count > 0) {
-            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
-                    "Skipped " + count + " NetEase behaviour pack stack entries");
-        }
-    }
-
     static <T> CompletableFuture<T> detachedCancellation(final CompletionStage<T> source,
                                                          final CompletionStage<?> cancellation,
                                                          final Consumer<T> lateValueCleanup) {
@@ -651,6 +647,8 @@ public class ResourcePackPackets {
 
     private static void failPackDelivery(final ResourcePackLoadStateTracker loadStateTracker,
                                          final Throwable error) {
+        ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
+                "Resource pack delivery failed (token=" + loadStateTracker.httpToken() + ")", error);
         if (ViaBedrock.getResourcePackServer() != null && loadStateTracker.httpToken() != null) {
             ViaBedrock.getResourcePackServer().failConnection(loadStateTracker.httpToken(), error);
         } else if (ViaBedrock.getRemotePackServiceClient() != null) {
@@ -759,10 +757,7 @@ public class ResourcePackPackets {
                 try {
                     final PacketWrapper resourcePackClientResponse = PacketWrapper.create(
                             ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, liveUser);
-                    resourcePackClientResponse.write(Types.BYTE,
-                            (byte) ResourcePackResponse.DownloadingFinished.getValue()); // 状态
-                    resourcePackClientResponse.write(
-                            BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+                    writeResourcePackResponseStatus(resourcePackClientResponse, ResourcePackResponse.DownloadingFinished);
                     resourcePackClientResponse.sendToServer(BedrockProtocol.class);
                 } catch (Throwable sendError) {
                     BedrockProtocol.kickForIllegalState(liveUser,
@@ -815,6 +810,12 @@ public class ResourcePackPackets {
             if (chunk < 0L) {
                 return;
             }
+            if (chunk == 0L) {
+                ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                        "Resource pack download started: key=" + key + ", chunks=" + download.chunkCount());
+            }
+            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                    "Resource pack chunk request: key=" + key + ", chunk=" + chunk + "/" + download.chunkCount());
             final PacketWrapper request = PacketWrapper.create(
                     ServerboundBedrockPackets.RESOURCE_PACK_CHUNK_REQUEST, user);
             request.write(BedrockTypes.STRING, key); // 资源名称
@@ -1257,12 +1258,28 @@ public class ResourcePackPackets {
         return user != null && user.getChannel().isActive();
     }
 
+    /** 2168 起状态是“无符号 varint（状态 - 1）+ 状态名”，下载列表只在 Downloading 状态下出现。 */
+    private static final String[] RESOURCE_PACK_STATUS_NAMES = {
+            "cancel", "downloading", "downloadingfinished", "resourcepackstackfinished"};
+
+    private static void writeResourcePackResponseStatus(final PacketWrapper wrapper, final ResourcePackResponse status) {
+        if (BedrockWire.applies(BedrockDeviation.RESOURCE_PACK_STATUS_VARINT)) {
+            final int index = Math.max(0, Math.min(status.getValue() - 1, RESOURCE_PACK_STATUS_NAMES.length - 1));
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, index); // 状态
+            wrapper.write(BedrockTypes.STRING, RESOURCE_PACK_STATUS_NAMES[index]); // 状态名
+            return;
+        }
+        wrapper.write(Types.BYTE, (byte) status.getValue()); // 状态
+        wrapper.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+    }
+
     private static void sendResourcePackStackFinished(final UserConnection user) {
         try {
             final PacketWrapper resourcePackClientResponse = PacketWrapper.create(ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, user);
-            resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.ResourcePackStackFinished.getValue()); // 状态
-            resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+            writeResourcePackResponseStatus(resourcePackClientResponse, ResourcePackResponse.ResourcePackStackFinished);
             resourcePackClientResponse.sendToServer(BedrockProtocol.class);
+            ViaBedrock.getPlatform().getLogger().log(Level.INFO,
+                    "Sent ResourcePackStackFinished (client declares all resource packs loaded)");
         } catch (Throwable e) {
             ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Failed to send ResourcePackStackFinished to Bedrock server", e);
         }

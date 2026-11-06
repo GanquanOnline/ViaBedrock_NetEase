@@ -50,6 +50,8 @@ import net.raphimc.viabedrock.protocol.data.generated.java.Attributes;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.storage.EntityTracker;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
+import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -66,6 +68,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EntityDeathPacketsTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     @BeforeAll
     static void initializeProtocolTypes() {
@@ -147,9 +154,11 @@ class EntityDeathPacketsTest {
         private final Field managerField = Via.class.getDeclaredField("manager");
         private final Field fieldsField = BedrockMappingData.class.getDeclaredField("javaEntityDataFields");
         private final Field attributesField = BedrockMappingData.class.getDeclaredField("javaEntityAttributes");
+        private final Field configField = ViaBedrock.class.getDeclaredField("config");
         private final Object previousManager;
         private final Object previousFields;
         private final Object previousAttributes;
+        private final Object previousConfig;
         private PacketHandler deathHandler;
         private Entity entity;
 
@@ -157,9 +166,11 @@ class EntityDeathPacketsTest {
             this.managerField.setAccessible(true);
             this.fieldsField.setAccessible(true);
             this.attributesField.setAccessible(true);
+            this.configField.setAccessible(true);
             this.previousManager = this.managerField.get(null);
             this.previousFields = this.fieldsField.get(BedrockProtocol.MAPPINGS);
             this.previousAttributes = this.attributesField.get(BedrockProtocol.MAPPINGS);
+            this.previousConfig = this.configField.get(null);
             // 仅替换传输与映射输入，执行真实注册的实体事件处理器和血量发包路径。
             final ProtocolManager protocolManager = (ProtocolManager) Proxy.newProxyInstance(
                     ProtocolManager.class.getClassLoader(), new Class[]{ProtocolManager.class}, (proxy, method, args) -> {
@@ -181,6 +192,13 @@ class EntityDeathPacketsTest {
                         throw new UnsupportedOperationException(method.getName());
                     });
             this.managerField.set(null, manager);
+            // 死亡路径会查询网易开关，这里固定走官方路径。
+            this.configField.set(null, Proxy.newProxyInstance(ViaBedrockConfig.class.getClassLoader(), new Class[]{ViaBedrockConfig.class}, (proxy, method, args) -> {
+                if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
+                if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                if (method.getName().equals("getBedrockProtocolVersion")) return 975;
+                throw new UnsupportedOperationException(method.getName());
+            }));
             this.fieldsField.set(BedrockProtocol.MAPPINGS,
                     Map.of(EntityTypes1_21_11.ZOMBIE, List.of(EntityDataFields.HEALTH)));
             this.attributesField.set(BedrockProtocol.MAPPINGS, HashBiMap.create(Map.of(Attributes.MAX_HEALTH, 1)));
@@ -219,6 +237,7 @@ class EntityDeathPacketsTest {
         @Override
         public void close() throws Exception {
             this.managerField.set(null, this.previousManager);
+            this.configField.set(null, this.previousConfig);
             this.fieldsField.set(BedrockProtocol.MAPPINGS, this.previousFields);
             this.attributesField.set(BedrockProtocol.MAPPINGS, this.previousAttributes);
             this.inputs.forEach(ByteBuf::release);

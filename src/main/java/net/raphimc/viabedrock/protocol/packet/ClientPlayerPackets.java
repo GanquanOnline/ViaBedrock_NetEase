@@ -255,12 +255,11 @@ public class ClientPlayerPackets {
                 return;
             }
             final boolean wasLocked = clientPlayer.isInputMovementLocked();
-            clientPlayer.setInputLocks(locks.lockComponentData());
+            // 先落移动锁再落位集：synchronizeInputLocks 读 NOAI，顺序反了 v1 会把旧锁位写进载荷。
             clientPlayer.setInputMovementLocked(locks.movementLocked());
-            if (locks.movementLocked()) {
-                if (locks.serverPosition() != null) {
-                    clientPlayer.setPosition(locks.serverPosition());
-                }
+            clientPlayer.setInputLocks(locks.lockComponentData());
+            if (locks.movementLocked() && locks.serverPosition() != null) {
+                clientPlayer.setPosition(locks.serverPosition());
                 if (!wasLocked) {
                     clientPlayer.beginPositionSync(Relative.ROTATION);
                 }
@@ -676,6 +675,7 @@ public class ClientPlayerPackets {
             final InventoryContainer inventoryContainer = wrapper.user().get(InventoryTracker.class).getInventoryContainer();
             EntityInteractionPacketSender.write(wrapper, entity.runtimeId(),
                     ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue(),
+                    InteractionHand.MAIN_HAND.ordinal(),
                     (int) inventoryContainer.getSelectedHotbarSlot(), inventoryContainer.getSelectedHotbarItem(),
                     clientPlayer.position(), clickPosition);
 
@@ -742,6 +742,7 @@ public class ClientPlayerPackets {
             // TODO: 基岩客户端在悬停实体变化时发送 INTERACT 包。可能被反作弊使用
             EntityInteractionPacketSender.write(wrapper, entity.runtimeId(),
                     ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
+                    hand.ordinal(),
                     handContext.entityTransactionHotbarSlot(wrapper.user().get(InventoryTracker.class)
                             .getInventoryContainer().getSelectedHotbarSlot()),
                     handContext.item(), clientPlayer.position(), clickPosition);
@@ -796,12 +797,13 @@ public class ClientPlayerPackets {
         });
         protocol.registerServerbound(ServerboundPackets26_1.CLIENT_TICK_END, ServerboundBedrockPackets.PLAYER_AUTH_INPUT, wrapper -> {
             final ClientPlayerEntity clientPlayer = wrapper.user().get(EntityTracker.class).getClientPlayer();
-            final Position3f prevPosition = clientPlayer.prevPosition();
-            final boolean prevOnGround = clientPlayer.prevOnGround();
+            final Position3f prevPosition = clientPlayer.prevPosition();            final boolean prevOnGround = clientPlayer.prevOnGround();
             final Set<InputFlag> prevInputFlags = clientPlayer.prevInputFlags();
             clientPlayer.tick();
             clientPlayer.deferredEntityActions().discardExpired(clientPlayer.age());
             final boolean immobile = clientPlayer.isInputMovementLocked() || clientPlayer.hasEntityFlag(ActorFlags.NOAI);
+            // 输入锁只禁输入；服务端推来的位移仍要如实上报，否则后端看不到位移。
+            final boolean noAi = clientPlayer.hasEntityFlag(ActorFlags.NOAI);
 
             // MOT 的 PlayerJumpEvent 只有 START_JUMPING。在按住 JUMP 的每个着地刻
             // 都发出它，会让 GanAC 的 AirJump 在 MOT 已经离地之后又看到一次跳跃。
@@ -890,7 +892,7 @@ public class ClientPlayerPackets {
 
             final Position3f positionDelta = clientPlayer.position().subtract(prevPosition);
             final Position3f velocity;
-            if (immobile) {
+            if (noAi) {
                 velocity = Position3f.ZERO;
             } else if (!clientPlayer.isInitiallySpawned() || clientPlayer.dimensionChangeInfo() != null || clientPlayer.abilities().getBooleanValue(AbilitiesIndex.Flying)) {
                 velocity = positionDelta;
@@ -920,7 +922,6 @@ public class ClientPlayerPackets {
             if (immobile) {
                 removeImmobileMovementInput(clientPlayer.authInputData());
                 authInputContext.setPosition(clientPlayer.position());
-                authInputContext.setDelta(Position3f.ZERO);
             }
 
             // MOT 的 EnumMap 先迭代 START 再迭代 ABORT。在生成位掩码之前先合并，
@@ -939,10 +940,25 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.POSITION_3F, authInputContext.position()); // 位置
             wrapper.write(BedrockTypes.POSITION_2F, immobile ? new Position2f(0F, 0F) : MathUtil.calculateMovementDirections(clientPlayer.authInputData(), clientPlayer.isSneaking())); // 移动向量
             wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().z())); // 头部偏航角
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // 输入标志
+            if (PlayerAuthInputLayout.usesInputDataList()) {
+                // 2168 起输入标志不再是 64 位掩码，而是“条目数 + 每条序号”；2168~2169 前面还多一个恒 true 外层
+                if (PlayerAuthInputLayout.usesOptionalSectionOuterBool()) {
+                    wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+                }
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, clientPlayer.authInputData().size()); // 输入标志数量
+                for (PlayerAuthInputPacket_InputData inputData : clientPlayer.authInputData()) {
+                    wrapper.write(BedrockTypes.VAR_INT, inputData.getValue()); // 输入标志（zigzag varint，与 MOT getVarInt 同形）
+                }
+            } else {
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // 输入标志
+            }
             wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, InputMode.Mouse.getValue()); // 输入模式
             wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, ClientPlayMode.Screen.getValue()); // 游玩模式
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式
+            if (PlayerAuthInputLayout.usesInputDataList()) {
+                wrapper.write(BedrockTypes.VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式（有符号 varint）
+            } else {
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式
+            }
             wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // 交互俯仰角
             wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // 交互偏航角
             wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, (long) clientPlayer.age()); // 刻
@@ -950,28 +966,71 @@ public class ClientPlayerPackets {
             if (PlayerAuthInputLayout.usesCameraDeparted()) {
                 wrapper.write(Types.BOOLEAN, false); // 相机已离开（网易 >= 422）
             }
-            if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformItemInteraction)) {
-                final BedrockInventoryTransaction itemInteraction = clientPlayer.authInputItemInteraction();
-                if (itemInteraction != null) {
-                    wrapper.write(wrapper.user().get(InventoryTransactionRewriter.class).getItemInteractionDataType(), itemInteraction);
-                }
+            // 2168 起每个可选段前有一对 bool：恒 true 的外层加内层存在性；pre-2168 由输入标志隐式决定
+            final boolean optionalSectionOuterBool = PlayerAuthInputLayout.usesOptionalSectionOuterBool();
+            final boolean optionalSectionFlags = PlayerAuthInputLayout.usesInputDataList();
+            final BedrockInventoryTransaction itemInteraction = clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformItemInteraction)
+                    ? clientPlayer.authInputItemInteraction() : null;
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
             }
-            if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformBlockActions)) {
-                wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // 玩家方块动作数量
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, itemInteraction != null); // 物品交互存在性
+            }
+            if (itemInteraction != null) {
+                wrapper.write(wrapper.user().get(InventoryTransactionRewriter.class).getItemInteractionDataType(), itemInteraction);
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                // 物品堆请求走独立包，内嵌段恒为空
+                wrapper.write(Types.BOOLEAN, false); // 物品堆请求存在性
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, !blockActions.isEmpty()); // 方块动作存在性
+            }
+            if (!blockActions.isEmpty()) {
+                if (PlayerAuthInputLayout.usesUnconditionalBlockActions()) {
+                    wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, blockActions.size()); // 玩家方块动作数量
+                } else {
+                    wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // 玩家方块动作数量
+                }
                 for (ClientPlayerEntity.AuthInputBlockAction blockAction : blockActions) {
                     wrapper.write(BedrockTypes.VAR_INT, blockAction.action().getValue()); // 动作
-                    switch (blockAction.action()) {
-                        // StopDestroyBlock 没有附加数据，尽管基岩协议文档声称它有
-                        case StartDestroyBlock, AbortDestroyBlock, CrackBlock, PredictDestroyBlock, ContinueDestroyBlock -> {
-                            wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // 有符号位置
-                            wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // 朝向
-                        }
+                    // 2168 起位置与朝向恒在；pre-2168 只有会改变世界的动作带
+                    // StopDestroyBlock 没有附加数据，尽管基岩协议文档声称它有
+                    final boolean hasBody = PlayerAuthInputLayout.usesUnconditionalBlockActions()
+                            || switch (blockAction.action()) {
+                        case StartDestroyBlock, AbortDestroyBlock, CrackBlock, PredictDestroyBlock, ContinueDestroyBlock -> true;
+                        default -> false;
+                    };
+                    if (hasBody) {
+                        wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // 有符号位置
+                        wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // 朝向
                     }
                 }
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, authInputContext.hasPredictedVehicle()); // 载具旋转存在性
             }
             if (authInputContext.hasPredictedVehicle()) {
                 wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehiclePitch()); // 载具俯仰角
                 wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehicleYaw()); // 载具偏航角
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, authInputContext.hasPredictedVehicle()); // 预测载具存在性
+            }
+            if (authInputContext.hasPredictedVehicle()) {
                 wrapper.write(BedrockTypes.VAR_LONG, authInputContext.predictedVehicleUniqueId()); // 预测载具实体唯一 ID
             }
             final Position2f analogMoveVector = immobile
@@ -983,6 +1042,14 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.POSITION_2F, analogMoveVector); // 模拟移动向量
             wrapper.write(BedrockTypes.POSITION_3F, MathUtil.calculateCameraOrientation(clientPlayer.rotation().y(), clientPlayer.rotation().x())); // 相机朝向
             wrapper.write(BedrockTypes.POSITION_2F, rawMoveVector); // 原始移动向量
+            if (PlayerAuthInputLayout.usesNetEaseTail()) {
+                // 网易 v1_21_50 起的固定尾部块，字段本身不被 MOT 使用，但少写会解码越界
+                wrapper.write(Types.BOOLEAN, false); // 第三人称视角
+                wrapper.write(BedrockTypes.POSITION_2F, new Position2f(clientPlayer.rotation().x(), MathUtil.wrapDegrees(clientPlayer.rotation().y()))); // 玩家到相机的旋转
+                wrapper.write(Types.BOOLEAN, false); // 位置增量待同步
+                wrapper.write(Types.BOOLEAN, clientPlayer.isOnGround()); // 着地
+                wrapper.write(Types.BYTE, (byte) 0); // 重置位置
+            }
 
             // 当前 AuthInput 的所有字段已构建完成，且已越过未出生/死亡的取消分支。
             // 在这里立即推进 tick-end 序号并释放就绪 ACK，不等待额外 movement 或其他包。
@@ -1054,6 +1121,7 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
             wrapper.write(BedrockTypes.FLOAT_LE, 0F); // 数据
             EntityPacketLayout.writeAnimateTrailer(wrapper, swingSource.name().toLowerCase(Locale.ROOT)); // 挥手来源（897+）
+            EntityPacketLayout.writeAnimateHand(wrapper, hand.ordinal()); // 代表手（2225+）
 
             if (swingSource != ActorSwingSource.Attack) {
                 return;

@@ -20,6 +20,7 @@ package net.raphimc.viabedrock.protocol.packet;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.FullContainerName;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
@@ -31,8 +32,8 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * INVENTORY_SLOT 在 974 增加了可选 boolean 分支，但 Nukkit-MOT 从未把
  * 该分支加到内容数据包上。官方 975 和网易 860 仍然都写入：
  * {@code containerId, items, required full container name, required storage item}。
- * 物品在协议 1001 之前仍使用旧的槽位编解码器，所以官方 975 必须
- * 继续使用 {@code itemArrayType()} 而非网络物品堆描述符。
+ * 物品在协议 1001 之前使用旧的槽位编解码器，1001 起改用网络物品堆描述符，
+ * 所以编码器必须由协议号决定（{@link ItemRewriter#itemType(int)}）。
  * 把任一种包按可选容器字段来读取，会漏掉真正的物品载荷，
  * 使背包取出看起来是空的。
  */
@@ -50,10 +51,15 @@ public final class InventoryContentLayout {
     }
 
     public static DecodedInventoryContent read(final PacketWrapper wrapper, final ItemRewriter itemRewriter) {
+        return read(wrapper, itemRewriter, BedrockWire.current());
+    }
+
+    public static DecodedInventoryContent read(final PacketWrapper wrapper, final ItemRewriter itemRewriter,
+                                                final int protocol) {
         final int containerId = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
-        final BedrockItem[] items = wrapper.read(itemRewriter.itemArrayType());
+        final BedrockItem[] items = wrapper.read(itemRewriter.itemArrayType(protocol));
         final FullContainerName containerName = wrapper.read(BedrockTypes.FULL_CONTAINER_NAME);
-        final BedrockItem storageItem = wrapper.read(itemRewriter.itemType());
+        final BedrockItem storageItem = wrapper.read(itemRewriter.itemType(protocol));
         return new DecodedInventoryContent(containerId, items, containerName, storageItem);
     }
 

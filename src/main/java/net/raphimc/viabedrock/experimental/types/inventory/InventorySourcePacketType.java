@@ -20,9 +20,11 @@ package net.raphimc.viabedrock.experimental.types.inventory;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.experimental.model.inventory.InventorySource;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySource_InventorySourceFlags;
+import net.raphimc.viabedrock.protocol.packet.InventoryTransactionLayout;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 public class InventorySourcePacketType extends Type<InventorySource> {
@@ -33,10 +35,59 @@ public class InventorySourcePacketType extends Type<InventorySource> {
 
     @Override
     public InventorySource read(ByteBuf buffer) {
-        int rawTypeId = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
-        InventorySourceType type = InventorySourceType.getByValue(rawTypeId);
+        return read(buffer, InventoryTransactionLayout.SourceShape.of(BedrockWire.current()));
+    }
+
+    /**
+     * 动作来源在线上有三种形状（见 {@link InventoryTransactionLayout.SourceShape}）。
+     * <p>
+     * 1001~2191 是两组“外层存在性 + 内层存在性”的 bool 对：第一组内层为 true 时有符号单字节
+     * windowId，第二组内层为 true 时是无符号 varint 旗标。外层两个 bool 跟 MOT 写侧一样固定为
+     * true，但读侧仍要把它读掉。
+     * <p>
+     * 2192 起外层 bool 消失，只剩内层存在性 bool。
+     */
+    public static InventorySource read(ByteBuf buffer, final InventoryTransactionLayout.SourceShape shape) {
+        final int rawTypeId = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+        final InventorySourceType type = InventorySourceType.getByValue(rawTypeId);
         if (type == null) {
             throw new IllegalStateException("Invalid inventory source type id: " + rawTypeId);
+        }
+
+        if (shape == InventoryTransactionLayout.SourceShape.PRESENCE_BOOL) {
+            final int containerId = buffer.readBoolean()
+                    ? buffer.readByte() : ContainerID.CONTAINER_ID_NONE.getValue();
+            final InventorySource_InventorySourceFlags boolFlags;
+            if (buffer.readBoolean()) {
+                final int rawSourceFlagId = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+                boolFlags = InventorySource_InventorySourceFlags.getByValue(rawSourceFlagId);
+                if (boolFlags == null) {
+                    throw new IllegalStateException("Invalid inventory source flag id: " + rawSourceFlagId);
+                }
+            } else {
+                boolFlags = InventorySource_InventorySourceFlags.NoFlag;
+            }
+            return new InventorySource(type, containerId, boolFlags);
+        }
+
+        if (shape == InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS) {
+            final boolean hasContainerOuter = buffer.readBoolean();
+            final boolean hasContainerInner = buffer.readBoolean();
+            final int containerId = hasContainerOuter && hasContainerInner
+                    ? buffer.readByte() : ContainerID.CONTAINER_ID_NONE.getValue();
+            final boolean hasWorldOuter = buffer.readBoolean();
+            final boolean hasWorldInner = buffer.readBoolean();
+            final InventorySource_InventorySourceFlags flags;
+            if (hasWorldOuter && hasWorldInner) {
+                final int rawSourceFlagId = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+                flags = InventorySource_InventorySourceFlags.getByValue(rawSourceFlagId);
+                if (flags == null) {
+                    throw new IllegalStateException("Invalid inventory source flag id: " + rawSourceFlagId);
+                }
+            } else {
+                flags = InventorySource_InventorySourceFlags.NoFlag;
+            }
+            return new InventorySource(type, containerId, flags);
         }
 
         switch (type) {
@@ -60,7 +111,48 @@ public class InventorySourcePacketType extends Type<InventorySource> {
 
     @Override
     public void write(ByteBuf buffer, InventorySource value) {
+        write(buffer, value, InventoryTransactionLayout.SourceShape.of(BedrockWire.current()));
+    }
+
+    public static void write(ByteBuf buffer, final InventorySource value,
+                             final InventoryTransactionLayout.SourceShape shape) {
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.type().getValue());
+
+        if (shape == InventoryTransactionLayout.SourceShape.PRESENCE_BOOL) {
+            switch (value.type()) {
+                case ContainerInventory, NonImplementedFeatureTODO -> {
+                    buffer.writeBoolean(true);
+                    buffer.writeByte(value.containerId());
+                }
+                default -> buffer.writeBoolean(false);
+            }
+            if (value.type() == InventorySourceType.WorldInteraction) {
+                buffer.writeBoolean(true);
+                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.flags().getValue());
+            } else {
+                buffer.writeBoolean(false);
+            }
+            return;
+        }
+
+        if (shape == InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS) {
+            buffer.writeBoolean(true);
+            switch (value.type()) {
+                case ContainerInventory, NonImplementedFeatureTODO -> {
+                    buffer.writeBoolean(true);
+                    buffer.writeByte(value.containerId());
+                }
+                default -> buffer.writeBoolean(false);
+            }
+            buffer.writeBoolean(true);
+            if (value.type() == InventorySourceType.WorldInteraction) {
+                buffer.writeBoolean(true);
+                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.flags().getValue());
+            } else {
+                buffer.writeBoolean(false);
+            }
+            return;
+        }
 
         switch (value.type()) {
             case ContainerInventory, NonImplementedFeatureTODO -> BedrockTypes.VAR_INT.write(buffer, value.containerId());

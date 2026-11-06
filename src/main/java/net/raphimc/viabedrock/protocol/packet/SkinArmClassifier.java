@@ -278,7 +278,9 @@ public final class SkinArmClassifier {
                 skin.skinColor(),
                 skin.personaPieces(),
                 skin.tintColors(),
-                skin.overridingPlayerAppearance()
+                skin.overridingPlayerAppearance(),
+                skin.trusted(),
+                skin.profileHash()
         );
     }
 

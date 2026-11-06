@@ -40,6 +40,7 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.*;
 import net.raphimc.viabedrock.protocol.model.CommandData;
@@ -259,7 +260,7 @@ public class ChatPackets {
         }
 
         final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        final int protocol = BedrockWire.effectiveProtocol();
         final TextPacketLayout.DecodedText decoded = TextPacketLayout.readPacket(input, emulateNetEase, protocol);
         wrapper.clearInputBuffer();
         final Function<String, String> translator = wrapper.user().get(ResourcePackStorage.class).getTexts().lookup();
@@ -353,7 +354,7 @@ public class ChatPackets {
 
     static void writeServerboundChatParameters(final PacketWrapper wrapper) {
         final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        final int protocol = BedrockWire.effectiveProtocol();
         if (TextPacketLayout.usesInlineNetEaseChatParameters(emulateNetEase, protocol)) {
             wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, 0); // 网易聊天参数列表（897..923）
         }
@@ -363,7 +364,7 @@ public class ChatPackets {
         wrapper.write(BedrockTypes.STRING, wrapper.user().get(AuthData.class).getXuid());
         wrapper.write(BedrockTypes.STRING, "");
         final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-        final int protocol = ViaBedrock.getConfig().getNetEaseProtocolVersion();
+        final int protocol = BedrockWire.effectiveProtocol();
         if (TextPacketLayout.usesRequiredFilteredString(emulateNetEase, protocol)) {
             wrapper.write(BedrockTypes.STRING, "");
         } else {

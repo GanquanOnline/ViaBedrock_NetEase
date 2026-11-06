@@ -159,7 +159,7 @@ class ViaBedrockConfigTest {
     }
 
     @Test
-    void unsupportedNetEaseProtocolFallsBackToNewestProfile(@TempDir final Path tempDir) throws Exception {
+    void unsupportedNetEaseProtocolKeepsConfiguredVersion(@TempDir final Path tempDir) throws Exception {
         final Path configFile = tempDir.resolve("viabedrock.yml");
         Files.writeString(configFile, """
                 netease:
@@ -173,9 +173,40 @@ class ViaBedrockConfigTest {
         config.reload();
 
         assertTrue(config.shouldEmulateNetEaseClient());
-        assertEquals(898, config.getNetEaseProtocolVersion());
+        assertEquals(999, config.getNetEaseProtocolVersion());
         assertEquals(8, config.getNetEaseRakNetProtocolVersion());
         assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
+    }
+
+    @Test
+    void negativeNetEaseProtocolFallsBackToNewest(@TempDir final Path tempDir) throws Exception {
+        final Path configFile = tempDir.resolve("viabedrock.yml");
+        Files.writeString(configFile, """
+                netease:
+                  enabled: true
+                  protocol-version: -3
+                """);
+
+        final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
+        config.reload();
+
+        assertEquals(898, config.getNetEaseProtocolVersion());
+        assertEquals("1.21.130_NetEase", config.getNetEaseGameVersion());
+    }
+
+    @Test
+    void layoutReportFlagIsReadFromTopLevel(@TempDir final Path tempDir) throws Exception {
+        final Path configFile = tempDir.resolve("viabedrock.yml");
+        Files.writeString(configFile, """
+                layout-report: true
+                netease:
+                  enabled: true
+                """);
+
+        final ViaBedrockConfig config = new ViaBedrockConfig(configFile.toFile(), Logger.getAnonymousLogger());
+        config.reload();
+
+        assertTrue(config.shouldReportBedrockLayoutLeftovers());
     }
 
 }

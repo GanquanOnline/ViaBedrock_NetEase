@@ -46,6 +46,7 @@ import net.raphimc.viabedrock.experimental.rewriter.InventoryTransactionRewriter
 import net.raphimc.viabedrock.experimental.storage.CreativeContentCache;
 import net.raphimc.viabedrock.experimental.storage.RecipeRegistry;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.packet.CreativeContentLayout;
 import net.raphimc.viabedrock.protocol.packet.ItemStackRequestLayout;
 import net.raphimc.viabedrock.protocol.packet.ItemStackResponseLayout;
@@ -706,7 +707,7 @@ public class ClientAuthInventoryModule implements FeatureModule {
         protocol.registerClientbound(ClientboundBedrockPackets.CREATIVE_CONTENT, null, wrapper -> {
             wrapper.cancel();
             final boolean emulateNetEase = ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-            final int protocolVersion = emulateNetEase ? ViaBedrock.getConfig().getNetEaseProtocolVersion() : net.raphimc.viabedrock.protocol.data.ProtocolConstants.BEDROCK_PROTOCOL_VERSION;
+            final int protocolVersion = emulateNetEase ? ViaBedrock.getConfig().getNetEaseProtocolVersion() : BedrockWire.current();
             final List<CreativeContentCache.Entry> entries = CreativeContentLayout.read(
                     wrapper, CreativeContentLayout.itemType(), emulateNetEase, protocolVersion);
             wrapper.user().get(CreativeContentCache.class).replace(entries);

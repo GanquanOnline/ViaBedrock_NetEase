@@ -22,6 +22,8 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
 import com.viaversion.viaversion.libs.fastutil.ints.IntSortedSet;
 import io.netty.buffer.ByteBuf;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.rewriter.BlockItemMappingLayout;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -47,7 +49,10 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
         item.setAmount(buffer.readUnsignedShortLE());
         item.setData(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
         if (buffer.readBoolean()) {
-            BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // net id 变体
+            // 2168 前 net id 前面还有一个恒为 0 的变体编号；2168 起只剩布尔值 + VarInt。
+            if (!BedrockWire.applies(BedrockDeviation.ITEM_DESCRIPTOR_V2168)) {
+                BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // net id 变体
+            }
             item.setNetId(BedrockTypes.VAR_INT.read(buffer));
         }
         item.setBlockRuntimeId(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
@@ -60,25 +65,29 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
             item.setBlockRuntimeId(0);
         }
 
-        final ByteBuf userData = buffer.readSlice(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
-        try {
-            final short marker = userData.readShortLE();
-            if (marker == -1) {
-                final byte version = userData.readByte();
-                if (version != 1) {
-                    return item;
+        final int userDataLength = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+        // 2168 允许 0 长度的 user data（写出端就写 VarUInt 0），不能当成读越界。
+        if (userDataLength > 0) {
+            final ByteBuf userData = buffer.readSlice(userDataLength);
+            try {
+                final short marker = userData.readShortLE();
+                if (marker == -1) {
+                    final byte version = userData.readByte();
+                    if (version != 1) {
+                        return item;
+                    }
+                    item.setTag((CompoundTag) BedrockTypes.TAG_LE.read(userData));
+                } else if (marker != 0) { // 标记不是 -1 或 0 时基岩客户端会崩溃
+                    throw new IllegalStateException("Expected -1 or 0 marker but got " + marker);
                 }
-                item.setTag((CompoundTag) BedrockTypes.TAG_LE.read(userData));
-            } else if (marker != 0) { // 标记不是 -1 或 0 时基岩客户端会崩溃
-                throw new IllegalStateException("Expected -1 or 0 marker but got " + marker);
+                item.setCanPlace(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
+                item.setCanBreak(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
+                if (item.identifier() == this.blockingId) {
+                    item.setBlockingTicks(userData.readLongLE());
+                }
+            } catch (IndexOutOfBoundsException ignored) {
+                // 基岩客户端会在任意位置停止读取，并加载它已成功读到的内容
             }
-            item.setCanPlace(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
-            item.setCanBreak(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
-            if (item.identifier() == this.blockingId) {
-                item.setBlockingTicks(userData.readLongLE());
-            }
-        } catch (IndexOutOfBoundsException ignored) {
-            // 基岩客户端会在任意位置停止读取，并加载它已成功读到的内容
         }
 
         return item;
@@ -92,7 +101,9 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
         if (this.writeItemNetId) {
             buffer.writeBoolean(value.netId() != null);
             if (value.netId() != null) {
-                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // net id 变体
+                if (!BedrockWire.applies(BedrockDeviation.ITEM_DESCRIPTOR_V2168)) {
+                    BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // net id 变体
+                }
                 BedrockTypes.VAR_INT.write(buffer, value.netId());
             }
         } else {

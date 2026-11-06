@@ -55,6 +55,8 @@ import net.raphimc.viabedrock.platform.ViaBedrockConfig;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.DataValues;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
@@ -129,22 +131,26 @@ public class JoinPackets {
     }
 
     /**
-     * 网易 / Nukkit-MOT 的 START_GAME 仍使用 924 之前的尾部：四个前置 ID（含
+     * 官方基岩 860..923 与 Nukkit-MOT 的 START_GAME 共用 924 之前的尾部：四个前置 ID（含
      * ownerIdentifier）、rewind + 服务端权威方块破坏（没有 movement-mode varint），且没有
-     * 服务器加入信息树。协议 860 还额外有 tickDeathSystemsEnabled
-     * （827..896）；898 已将其移除。加入信息树随协议 924 引入。
+     * 服务器加入信息树。827..896 还额外有 tickDeathSystemsEnabled，897 起移除；
+     * 加入信息树随协议 924 引入。网易 860/898 都低于阈值，所以这条分支只看协议号，
+     * 不再按“是否仿真网易”判断。
      */
     public static final int START_GAME_JOIN_INFORMATION_PROTOCOL = 924;
     public static final int START_GAME_TICK_DEATH_SYSTEMS_PROTOCOL = 827;
     public static final int START_GAME_TICK_DEATH_SYSTEMS_END_PROTOCOL = 897;
 
-    static boolean usesNetEaseStartGameTail() {
-        return usesNetEaseStartGameTail(ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
-                ViaBedrock.getConfig().getNetEaseProtocolVersion());
+    static boolean usesLegacyStartGameTail() {
+        return usesLegacyStartGameTail(BedrockWire.effectiveProtocol());
     }
 
-    static boolean usesNetEaseStartGameTail(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < START_GAME_JOIN_INFORMATION_PROTOCOL;
+    static boolean usesLegacyStartGameTail(final int protocol) {
+        return protocol > 0 && protocol < START_GAME_JOIN_INFORMATION_PROTOCOL;
+    }
+
+    static boolean usesStartGameTickDeathSystems() {
+        return usesStartGameTickDeathSystems(BedrockWire.effectiveProtocol());
     }
 
     static boolean usesStartGameTickDeathSystems(final int protocol) {
@@ -381,14 +387,13 @@ public class JoinPackets {
                     final String serverEngine;
                     final boolean hashedRuntimeBlockIds;
                     final CompoundTag playerPropertyData;
-                    if (usesNetEaseStartGameTail()) {
-                        final NetEaseLegacyStartGameTail tail = readNetEaseLegacyStartGameTail(wrapper,
-                                usesStartGameTickDeathSystems(ViaBedrock.getConfig().getNetEaseProtocolVersion()));
+                    if (usesLegacyStartGameTail()) {
+                        final LegacyStartGameTail tail = readLegacyStartGameTail(wrapper, usesStartGameTickDeathSystems());
                         if (tail.leftoverBytes() != 0) {
                             ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
-                                    "NetEase START_GAME had " + tail.leftoverBytes()
+                                    "Legacy START_GAME had " + tail.leftoverBytes()
                                             + " leftover bytes after the protocol "
-                                            + ViaBedrock.getConfig().getNetEaseProtocolVersion() + " layout");
+                                            + BedrockWire.effectiveProtocol() + " layout");
                         }
                         gameLevelName = tail.gameLevelName();
                         rewindHistorySize = tail.rewindHistorySize();
@@ -418,6 +423,9 @@ public class JoinPackets {
                         wrapper.read(Types.BOOLEAN); // 客户端侧生成
                         hashedRuntimeBlockIds = wrapper.read(Types.BOOLEAN); // 使用哈希方块运行时 ID
                         wrapper.read(Types.BOOLEAN); // 服务端权威音效
+                        if (BedrockWire.applies(BedrockDeviation.START_GAME_LOGGING_CHAT)) {
+                            wrapper.read(Types.BOOLEAN); // 记录聊天
+                        }
                         if (wrapper.read(Types.BOOLEAN)) { // 是否含服务器加入信息
                             if (wrapper.read(Types.BOOLEAN)) { // 是否含 gathering 加入信息
                                 wrapper.read(BedrockTypes.UUID); // 体验 id
@@ -540,11 +548,28 @@ public class JoinPackets {
                     final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数
                     for (int i = 0; i < count; i++) {
                         final String dimensionIdentifier = wrapper.read(BedrockTypes.STRING); // 维度标识符
-                        final int maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最大高度
-                        final int minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                        final int maximumHeight;
+                        final int minimumHeight;
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_BOUNDED_HEIGHTS)) {
+                            minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                            maximumHeight = minimumHeight + wrapper.read(BedrockTypes.VAR_INT); // 最大减最小的增量
+                        } else {
+                            maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最大高度
+                            minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                        }
                         wrapper.read(BedrockTypes.VAR_INT); // 生成器类型
                         // 官方 975+ 会追加维度类型。网易 860 每个条目仍使用四个字段。
                         DimensionDataLayout.skipDimensionType(wrapper);
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_PACK_ID)) {
+                            wrapper.read(BedrockTypes.UUID); // 维度包 id
+                        }
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_DEFAULT_BIOME)) {
+                            wrapper.read(BedrockTypes.STRING); // 默认生物群系
+                        }
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_CLOUD_FIELDS)) {
+                            wrapper.read(BedrockTypes.VAR_INT); // 云层高度
+                            wrapper.read(Types.BOOLEAN); // 是否渲染云
+                        }
                         if (dimensionIdentifier.equals(Dimension.OVERWORLD.getKey())) { // 基岩客户端目前只支持主世界
                             gameSession.putBedrockDimensionDefinition(dimensionIdentifier, new IntIntImmutablePair(minimumHeight, maximumHeight));
                         }
@@ -899,8 +924,15 @@ public class JoinPackets {
         final Editor_WorldType editorWorldType = Editor_WorldType.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 世界编辑器类型
         wrapper.read(Types.BOOLEAN); // 在世界编辑器中创建
         wrapper.read(Types.BOOLEAN); // 从世界编辑器导出
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_EDITOR_LEVEL_MIGRATION)) {
+            wrapper.read(Types.BYTE); // 编辑器等级迁移版本
+        }
         final int currentTime = wrapper.read(BedrockTypes.VAR_INT); // 昼夜循环停止时间
-        wrapper.read(BedrockTypes.VAR_INT); // 教育版优惠
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_BYTE_FIELDS)) {
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 教育版优惠
+        } else {
+            wrapper.read(BedrockTypes.VAR_INT); // 教育版优惠
+        }
         wrapper.read(Types.BOOLEAN); // 教育版功能已启用
         wrapper.read(BedrockTypes.STRING); // 教育版产品 id
         final float rainLevel = wrapper.read(BedrockTypes.FLOAT_LE); // 降雨强度
@@ -917,7 +949,9 @@ public class JoinPackets {
         wrapper.read(Types.BOOLEAN); // 之前已切换的实验
         wrapper.read(Types.BOOLEAN); // 奖励箱已启用
         wrapper.read(Types.BOOLEAN); // 已启用初始地图
-        final int playerPermission = wrapper.read(BedrockTypes.VAR_INT); // 玩家权限
+        final int playerPermission = BedrockWire.applies(BedrockDeviation.START_GAME_BYTE_FIELDS)
+                ? wrapper.read(Types.BYTE) // 玩家权限
+                : wrapper.read(BedrockTypes.VAR_INT); // 玩家权限
         final int chunkTickRange = wrapper.read(BedrockTypes.INT_LE); // 服务端区块刻范围
         wrapper.read(Types.BOOLEAN); // 行为包已锁定
         wrapper.read(Types.BOOLEAN); // 资源包已锁定
@@ -937,6 +971,10 @@ public class JoinPackets {
         wrapper.read(Types.BOOLEAN); // 启用实验性玩法
         final ChatRestrictionLevel chatRestrictionLevel = ChatRestrictionLevel.getByValue(wrapper.read(Types.BYTE), ChatRestrictionLevel.Disabled); // 聊天限制等级
         wrapper.read(Types.BOOLEAN); // 禁用玩家交互
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_EDITOR_FIELDS)) {
+            wrapper.read(BedrockTypes.VAR_INT); // 服务端编辑器连接策略
+            wrapper.read(Types.BOOLEAN); // 编辑器世界里允许匿名方块掉落
+        }
         return new StartGameSharedPrefix(
                 entityUniqueId,
                 entityRuntimeId,
@@ -962,8 +1000,8 @@ public class JoinPackets {
         );
     }
 
-    static NetEaseLegacyStartGameTail readNetEaseLegacyStartGameTail(final PacketWrapper wrapper, final boolean tickDeathSystems) {
-        // Nukkit-MOT / 网易 860 与 898（924 之前）：
+    static LegacyStartGameTail readLegacyStartGameTail(final PacketWrapper wrapper, final boolean tickDeathSystems) {
+        // 官方 860..923 与 Nukkit-MOT / 网易 860、898（924 之前）：
         // 前置 ID（含 ownerIdentifier），然后是世界方块，
         // 接着是 rewind + 服务端权威方块破坏。没有 movement-mode varint。
         wrapper.read(BedrockTypes.STRING); // 服务器 id
@@ -991,7 +1029,7 @@ public class JoinPackets {
             wrapper.read(Types.BOOLEAN); // 启用刻死亡系统 (827 <= proto < 897)
         }
         wrapper.read(Types.BOOLEAN); // 服务端权威音效
-        return new NetEaseLegacyStartGameTail(
+        return new LegacyStartGameTail(
                 gameLevelName,
                 rewindHistorySize,
                 blockBreakingServerAuthoritative,
@@ -1030,7 +1068,7 @@ public class JoinPackets {
     ) {
     }
 
-    record NetEaseLegacyStartGameTail(
+    record LegacyStartGameTail(
             String gameLevelName,
             int rewindHistorySize,
             boolean blockBreakingServerAuthoritative,

@@ -44,7 +44,10 @@ import net.raphimc.viabedrock.experimental.storage.BlockBreakingProgressTracker;
 import net.raphimc.viabedrock.experimental.storage.BlockPlacementAckTracker;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.LevelSoundEventNames;
 import net.raphimc.viabedrock.protocol.data.enums.Dimension;
 import net.raphimc.viabedrock.protocol.data.enums.Direction;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.LevelEvent;
@@ -92,21 +95,30 @@ public class WorldEffectPackets {
     private static final SoundDefinitions.ConfiguredSound GENERIC_CUSTOM_ENTITY_HURT =
             new SoundDefinitions.ConfiguredSound("game.player.hurt", 1F, 1F, 0.8F, 1.2F);
 
+    /** 974 起 PLAY_SOUND 尾部追加可选的服务器音效句柄 */
+    private static final int PLAY_SOUND_SERVER_HANDLE_PROTOCOL = 974;
+
     public static void register(final BedrockProtocol protocol) {
         protocol.registerClientbound(ClientboundBedrockPackets.PLAY_SOUND, ClientboundPackets26_1.SOUND, wrapper -> {
             final String name = wrapper.read(BedrockTypes.STRING); // 音效名称
             final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // 位置
             final float volume = wrapper.read(BedrockTypes.FLOAT_LE); // 音量
             final float pitch = wrapper.read(BedrockTypes.FLOAT_LE); // 音高
-            // 网易 860 从未增加 v827+ 的服务端音效句柄尾部。读取该可选 long
-            // 只在其不存在时消费存在性布尔值，把该布尔字节留在
-            // 缓冲区里，并在服务端→客户端写入器遇到尾部字节时抛错；具有概率性，
-            // 因为它只在服务端真正播放位置音效时触发。
-            // 官方 974+ 与网易 974+ 会追加可选的服务器音效句柄。
-            // 网易 860 仍在 pitch 之后结束，因此只在该布局上跳过该句柄。
-            if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()
-                    || ViaBedrock.getConfig().getNetEaseProtocolVersion() >= 974) {
+            if (BedrockWire.applies(BedrockDeviation.PLAY_SOUND_V2168)) {
+                wrapper.read(BedrockTypes.VAR_INT); // 循环次数
+            }
+            final boolean playSoundV2192 = BedrockWire.applies(BedrockDeviation.PLAY_SOUND_V2192);
+            if (playSoundV2192) {
+                wrapper.read(Types.BOOLEAN); // 旁路监听距离检查
+            }
+            // 974 起尾部追加可选的服务器音效句柄；974 之前的官方版本与网易 860/898
+            // 在 pitch 之后直接结束。读到不存在的字段会吃掉下一个字节，
+            // 留给服务端→客户端写入器报错。
+            if (BedrockWire.effectiveProtocol() >= PLAY_SOUND_SERVER_HANDLE_PROTOCOL) {
                 wrapper.read(BedrockTypes.OPTIONAL_UNSIGNED_LONG_LE); // 服务器音效句柄
+            }
+            if (playSoundV2192 && wrapper.read(Types.BOOLEAN)) {
+                wrapper.read(BedrockTypes.FLOAT_LE); // 播放位置（秒）
             }
 
             final BedrockMappingData.JavaSound javaSound = BedrockProtocol.MAPPINGS.getBedrockToJavaSounds().get(name);
@@ -222,7 +234,19 @@ public class WorldEffectPackets {
             });
         });
         protocol.registerClientbound(ClientboundBedrockPackets.LEVEL_SOUND_EVENT, ClientboundPackets26_1.SOUND, wrapper -> {
-            final int rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 事件 ID
+            final int rawSoundEvent;
+            if (BedrockWire.applies(BedrockDeviation.LEVEL_SOUND_EVENT_NAME)) {
+                final String soundName = wrapper.read(BedrockTypes.STRING); // 事件名
+                final Integer soundId = LevelSoundEventNames.id(soundName);
+                if (soundId == null) {
+                    ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown level sound event name: " + soundName);
+                    wrapper.cancel();
+                    return;
+                }
+                rawSoundEvent = soundId;
+            } else {
+                rawSoundEvent = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 事件 ID
+            }
             final SharedTypes_Legacy_LevelSoundEvent soundEvent = SharedTypes_Legacy_LevelSoundEvent.getByValue(rawSoundEvent);
             if (soundEvent == null) {
                 ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown SharedTypes_Legacy_LevelSoundEvent: " + rawSoundEvent);

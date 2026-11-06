@@ -37,7 +37,10 @@ public class ProtocolConstants {
     public static final int JAVA_AIR_ID = 0;
 
     public static final String BEDROCK_VERSION_NAME = "1.26.20";
-    public static final int BEDROCK_PROTOCOL_VERSION = 975;
+    /** 未配置 {@code bedrock.protocol-version} 时使用的官方协议号；当前生效值走 {@link BedrockWire#current()}。 */
+    public static final int DEFAULT_BEDROCK_PROTOCOL_VERSION = 975;
+    /** 旧名保留：语义是"未配置时的默认值"，不再是唯一支持的协议号 */
+    public static final int BEDROCK_PROTOCOL_VERSION = DEFAULT_BEDROCK_PROTOCOL_VERSION;
     public static final int BEDROCK_RAKNET_PROTOCOL_VERSION = 11;
     public static final int BEDROCK_RAKNET_DEFAULT_PORT = 19132;
     public static final int BEDROCK_NETHERNET_DEFAULT_PORT = 7551;

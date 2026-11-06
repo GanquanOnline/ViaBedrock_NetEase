@@ -20,7 +20,7 @@ package net.raphimc.viabedrock.protocol.packet;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.FullContainerName;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
@@ -46,11 +46,16 @@ public final class InventorySlotLayout {
     }
 
     public static boolean usesRequiredContainerFields() {
-        return usesRequiredContainerFields(emulateNetEase(), netEaseProtocol());
+        return usesRequiredContainerFields(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesRequiredContainerFields(final int protocol) {
+        return protocol > 0 && protocol < OPTIONAL_CONTAINER_FIELDS_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesRequiredContainerFields(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < OPTIONAL_CONTAINER_FIELDS_PROTOCOL;
+        return usesRequiredContainerFields(protocol);
     }
 
     public static DecodedInventorySlot read(final PacketWrapper wrapper, final ItemRewriter itemRewriter) {
@@ -101,14 +106,6 @@ public final class InventorySlotLayout {
         buffer.writeBoolean(false);
         buffer.writeBoolean(false);
         newItemType.write(buffer, item);
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
     }
 
     public record DecodedInventorySlot(int containerId, int slot, FullContainerName containerName,

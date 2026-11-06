@@ -21,6 +21,9 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandOriginType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandOutputType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.CommandPermissionLevel;
@@ -36,28 +39,28 @@ import java.util.UUID;
  * <p>
  * 官方基岩和 Nukkit-MOT 的协议 897+ 把若干命令字段
  * 从紧凑整数改成字符串（来源类型、权限、输出类型、命令
- * 版本），并加宽了枚举 / 子命令索引。网易 860 仍使用
+ * 版本），并加宽了枚举 / 子命令索引。官方 860..896 与网易 860 仍使用
  * 897 之前的整数布局。把这些载荷按字符串读取会把玩家来源
  * 0 变成一个空的 CommandOriginType，并以 SYSTEM_CHAT 中止 Java 会话。
  */
 public final class CommandPacketLayout {
 
     public static final int STRING_LAYOUT_PROTOCOL = 897;
-    /**
-     * Nukkit-MOT 898 把网易的 {@code unlimit} 标志从包尾移到了
-     * {@code internal} 之后。860 仍在命令版本之后发送它。
-     */
-    public static final int NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL = 898;
 
     private CommandPacketLayout() {
     }
 
     public static boolean usesStringLayout() {
-        return usesStringLayout(emulateNetEase(), netEaseProtocol());
+        return usesStringLayout(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesStringLayout(final int protocol) {
+        return protocol <= 0 || protocol >= STRING_LAYOUT_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesStringLayout(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= STRING_LAYOUT_PROTOCOL;
+        return usesStringLayout(protocol);
     }
 
     public static CommandOriginData readOrigin(final ByteBuf buffer) {
@@ -117,7 +120,7 @@ public final class CommandPacketLayout {
     }
 
     public static void writeNetEaseUnlimit(final PacketWrapper wrapper) {
-        if (emulateNetEase() && netEaseProtocol() >= NETEASE_UNLIMIT_BEFORE_VERSION_PROTOCOL) {
+        if (NetEaseWire.applies(emulateNetEase(), netEaseProtocol(), NetEaseDeviation.COMMAND_UNLIMIT_AFTER_VERSION)) {
             wrapper.write(Types.BOOLEAN, false); // unlimit
         }
     }

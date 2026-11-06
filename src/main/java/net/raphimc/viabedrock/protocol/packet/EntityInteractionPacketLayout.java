@@ -31,8 +31,16 @@ public final class EntityInteractionPacketLayout {
     private EntityInteractionPacketLayout() {
     }
 
-    public static byte[] encode(final Type<BedrockItem> itemType, final long entityRuntimeId, final int actionType,
-                                final int hotbarSlot, final BedrockItem itemInHand, final Position3f playerPosition,
+    /**
+     * 写一个独立的 INVENTORY_TRANSACTION 包（类型 3）的载荷。
+     * <p>
+     * 1001 起实体交互事务与其它事务用同一个外壳：legacy 槽位存在性 bool、动作数前的恒 true
+     * bool、有符号 varint 的 actionType、网络物品堆描述符。2225 起 hotbarSlot 之后多一个手持字节。
+     * 旧形状（{@code protocol < 1001}）下这些分支全不生效，输出跟之前一致。
+     */
+    public static byte[] encode(final Type<BedrockItem> itemType, final int protocol, final long entityRuntimeId,
+                                final int actionType, final int hand, final int hotbarSlot,
+                                final BedrockItem itemInHand, final Position3f playerPosition,
                                 final Position3f clickPosition) {
         final int interact = ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue();
         final int attack = ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue();
@@ -43,11 +51,23 @@ public final class EntityInteractionPacketLayout {
         final ByteBuf buffer = Unpooled.buffer();
         try {
             BedrockTypes.VAR_INT.write(buffer, 0); // 旧版请求 ID
+            if (InventoryTransactionLayout.usesLegacySlotFlag(protocol)) {
+                buffer.writeBoolean(false); // legacy 槽位不存在
+            }
+            if (InventoryTransactionLayout.usesConstantBooleans(protocol)) {
+                buffer.writeBoolean(true);
+            }
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, ComplexInventoryTransaction_Type.ItemUseOnEntityTransaction.getValue());
+            if (InventoryTransactionLayout.usesConstantBooleans(protocol)) {
+                buffer.writeBoolean(true);
+            }
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // 动作数量
             BedrockTypes.UNSIGNED_VAR_LONG.write(buffer, entityRuntimeId);
-            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, actionType);
+            InventoryTransactionLayout.writeActionType(buffer, actionType, protocol);
             BedrockTypes.VAR_INT.write(buffer, hotbarSlot);
+            if (InventoryTransactionLayout.usesUseItemOnEntityHand(protocol)) {
+                buffer.writeByte(hand);
+            }
             itemType.write(buffer, itemInHand);
             BedrockTypes.POSITION_3F.write(buffer, playerPosition);
             BedrockTypes.POSITION_3F.write(buffer, clickPosition);

@@ -410,8 +410,9 @@ public class ClientPlayerEntity extends PlayerEntity {
         return this.authInputData;
     }
 
+    /** 真正的物理定身（NOAI）。输入锁只禁输入，不冻结服务端下发的位移。 */
     private boolean isImmobile() {
-        return this.inputMovementLocked || this.hasEntityFlag(ActorFlags.NOAI);
+        return this.hasEntityFlag(ActorFlags.NOAI);
     }
 
     public boolean isInputMovementLocked() {
@@ -614,7 +615,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     }
 
     public boolean isMovementInputLocked() {
-        return this.isImmobile() || (this.inputLockFlags & (1 << 2)) != 0;
+        return this.isImmobile() || this.inputMovementLocked || (this.inputLockFlags & (1 << 2)) != 0;
     }
 
     /** 元数据完整合批后再观察NOAI，只有本地玩家将其投影为输入与物理锁。 */
@@ -632,7 +633,8 @@ public class ClientPlayerEntity extends PlayerEntity {
     private void synchronizeInputLocks(final boolean force) {
         if (!this.initiallySpawned || this.user.getProtocolInfo().getClientState() != State.PLAY) return;
         final int flags = this.inputLockFlags & ViaBedrockUtilityInterface.INPUT_LOCKS_V3_FLAGS;
-        final boolean immobile = this.isImmobile();
+        // 载荷里的 immobile 只代表 NOAI；移动锁由位集传达，两者不得互相污染。
+        final boolean immobile = this.hasEntityFlag(ActorFlags.NOAI);
         if (!force && flags == this.sentInputLockFlags && immobile == this.sentImmobile) return;
         if (ViaBedrockUtilityInterface.sendInputLocks(this.user, flags, immobile)) {
             this.sentInputLockFlags = flags;
@@ -644,6 +646,7 @@ public class ClientPlayerEntity extends PlayerEntity {
     public void resetInputLocks() {
         this.swingSourceTracker.reset();
         this.inputLockFlags = 0;
+        this.inputMovementLocked = false;
         final EntityData flags = this.entityData.get(ActorDataIDs.RESERVED_0);
         if (flags != null) {
             this.entityData.put(ActorDataIDs.RESERVED_0, new EntityData(flags.id(), flags.dataType(),

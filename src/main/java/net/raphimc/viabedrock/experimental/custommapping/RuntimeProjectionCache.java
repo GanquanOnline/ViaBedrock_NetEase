@@ -5,6 +5,7 @@ import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.Mappings;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import net.raphimc.viabedrock.protocol.model.BlockProperties;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 
 import java.nio.charset.StandardCharsets;
@@ -76,7 +77,7 @@ public final class RuntimeProjectionCache {
         hash = fnv1a(hash, LIGHT_SEMANTIC_ALGORITHM_VERSION);
         hash = fnv1a(hash, net.raphimc.viabedrock.ViaBedrock.getConfig() != null && net.raphimc.viabedrock.ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                 ? net.raphimc.viabedrock.ViaBedrock.getConfig().getNetEaseProtocolVersion()
-                : ProtocolConstants.BEDROCK_PROTOCOL_VERSION);
+                : BedrockWire.current());
         hash = fnv1a(hash, ProtocolConstants.BEDROCK_VERSION_NAME);
         hash = fnv1a(hash, hashedRuntimeBlockIds ? 1 : 0);
         hash = fnv1a(hash, blockProperties.length);

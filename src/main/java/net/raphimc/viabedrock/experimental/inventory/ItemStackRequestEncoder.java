@@ -26,7 +26,7 @@ import net.raphimc.viabedrock.experimental.model.inventory.BedrockRecipe;
 import net.raphimc.viabedrock.experimental.model.inventory.InventoryActionData;
 import net.raphimc.viabedrock.experimental.model.inventory.InventorySource;
 import net.raphimc.viabedrock.experimental.storage.RecipeRegistry;
-import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
@@ -35,6 +35,7 @@ import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextProcessi
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.packet.FilterTextLayout;
 import net.raphimc.viabedrock.protocol.packet.ItemStackRequestLayout;
+import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.storage.InventoryTracker;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
@@ -601,7 +602,7 @@ public final class ItemStackRequestEncoder {
             case CraftRecipe -> ItemStackRequestLayout.writeCraftRecipe(buffer, action.count, Math.max(1, action.timesCrafted), emulateNetEase, protocol);
             case CraftRecipeAuto -> ItemStackRequestLayout.writeCraftRecipeAuto(
                     buffer, action.count, Math.max(1, action.timesCrafted), Math.max(1, action.timesCrafted),
-                    action.ingredients, emulateNetEase, protocol);
+                    action.ingredients, action.ingredientIdentifiers, emulateNetEase, protocol);
             case CraftCreative -> ItemStackRequestLayout.writeCraftCreative(buffer, action.count, 1, emulateNetEase, protocol);
             case CraftRecipeOptional -> ItemStackRequestLayout.writeCraftRecipeOptional(
                     buffer, action.count, action.filterIndex, emulateNetEase, protocol);
@@ -847,8 +848,31 @@ public final class ItemStackRequestEncoder {
                 i++;
             }
         }
-        stackActions.add(Action.craftAuto(matched.recipe.networkId(), matched.timesCrafted, matched.ingredients));
+        final List<BedrockItem> ingredients = matched.ingredients;
+        final boolean typedIngredients = encodeProtocol() >= ItemStackRequestLayout.UNSIGNED_ACTION_TYPE_PROTOCOL;
+        final List<String> identifiers = typedIngredients ? ingredientIdentifiers(tracker, ingredients) : null;
+        if (typedIngredients && identifiers == null) {
+            // 2168 的自动合成必须逐条写出命名空间 id；解析不到就不发，让 Java 侧本地合成。
+            return false;
+        }
+        stackActions.add(Action.craftAuto(matched.recipe.networkId(), matched.timesCrafted, ingredients, identifiers));
         return true;
+    }
+
+    private static List<String> ingredientIdentifiers(final InventoryTracker tracker, final List<BedrockItem> ingredients) {
+        final ItemRewriter rewriter = tracker != null && tracker.user() != null ? tracker.user().get(ItemRewriter.class) : null;
+        if (rewriter == null || ingredients == null) {
+            return null;
+        }
+        final List<String> identifiers = new ArrayList<>(ingredients.size());
+        for (final BedrockItem ingredient : ingredients) {
+            final String identifier = ingredient == null || ingredient.isEmpty() ? null : rewriter.bedrockIdentifier(ingredient);
+            if (identifier == null) {
+                return null;
+            }
+            identifiers.add(identifier);
+        }
+        return identifiers;
     }
 
     private static Integer recipeNetworkId(final InventoryTracker tracker, final BedrockItem output) {
@@ -1226,12 +1250,17 @@ public final class ItemStackRequestEncoder {
         if (emulateNetEase() && netEaseProtocol() > 0) {
             return netEaseProtocol();
         }
-        return ProtocolConstants.BEDROCK_PROTOCOL_VERSION;
+        return BedrockWire.current();
     }
 
     private record Action(ItemStackRequestActionType type, int count, int filterIndex, int timesCrafted,
                           String patternId, ItemStackRequestLayout.SlotInfo source, ItemStackRequestLayout.SlotInfo destination,
-                          List<BedrockItem> ingredients) {
+                          List<BedrockItem> ingredients, List<String> ingredientIdentifiers) {
+        Action(final ItemStackRequestActionType type, final int count, final int filterIndex, final int timesCrafted,
+               final String patternId, final ItemStackRequestLayout.SlotInfo source,
+               final ItemStackRequestLayout.SlotInfo destination, final List<BedrockItem> ingredients) {
+            this(type, count, filterIndex, timesCrafted, patternId, source, destination, ingredients, null);
+        }
         static Action transfer(final ItemStackRequestActionType type, final int count,
                                final ItemStackRequestLayout.SlotInfo source, final ItemStackRequestLayout.SlotInfo destination) {
             return new Action(type, count, 0, 0, null, source, destination, null);
@@ -1253,9 +1282,11 @@ public final class ItemStackRequestEncoder {
             return new Action(ItemStackRequestActionType.CraftRecipe, recipeNetworkId, 0, 0, null, null, null, null);
         }
 
-        static Action craftAuto(final int recipeNetworkId, final int timesCrafted, final List<BedrockItem> ingredients) {
+        static Action craftAuto(final int recipeNetworkId, final int timesCrafted, final List<BedrockItem> ingredients,
+                                final List<String> ingredientIdentifiers) {
             return new Action(ItemStackRequestActionType.CraftRecipeAuto, recipeNetworkId, 0, timesCrafted, null, null, null,
-                    ingredients == null ? List.of() : List.copyOf(ingredients));
+                    ingredients == null ? List.of() : List.copyOf(ingredients),
+                    ingredientIdentifiers == null ? null : List.copyOf(ingredientIdentifiers));
         }
 
         static Action craftOptional(final int recipeNetworkId, final int filteredStringIndex) {

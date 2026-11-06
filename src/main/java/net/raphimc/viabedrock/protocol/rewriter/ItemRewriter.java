@@ -58,7 +58,9 @@ import net.raphimc.viabedrock.experimental.custommapping.CustomMappingAccess;
 import net.raphimc.viabedrock.experimental.custommapping.CustomMappingSyncStorage;
 import net.raphimc.viabedrock.experimental.rewriter.ExperimentalItemRewriter;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockMappingData;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.Enchant_Type;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemVersion;
@@ -84,7 +86,7 @@ public class ItemRewriter extends StoredObject {
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_PLACE_ON = VersionedTypes.V26_1.structuredDataKeys().canPlaceOn;
     private static final StructuredDataKey<AdventureModePredicate> JAVA_CAN_BREAK = VersionedTypes.V26_1.structuredDataKeys().canBreak;
     private static final StructuredDataKey<Item[]> JAVA_CHARGED_PROJECTILES = VersionedTypes.V26_1.structuredDataKeys().chargedProjectiles;
-    private static final int NEW_ITEM_DESCRIPTOR_PROTOCOL = 975;
+    private static final int NEW_ITEM_DESCRIPTOR_PROTOCOL = 974;
     private static final Set<String> DYEABLE_LEATHER_ITEMS = Set.of(
             "minecraft:leather_helmet",
             "minecraft:leather_chestplate",
@@ -176,13 +178,11 @@ public class ItemRewriter extends StoredObject {
         this.itemType = new BedrockItemType(this.items.getOrDefault("minecraft:shield", 0), this.blockItemValidBlockStates, false);
         this.optionalItemType = new OptionalType<>(this.itemType);
         this.itemArrayType = new ArrayType<>(this.itemType, BedrockTypes.UNSIGNED_VAR_INT);
-        // Nukkit-MOT 对 NetworkItemStackDescriptor 切换点以下的每个协议版本
-        // 仍使用 975 之前的物品布局序列化槽位描述符；两个网易配置都
-        // 处于该范围内，因此 898 必须保留旧的描述符而不是 975 的那个。
-        final boolean netEaseLegacyItemLayout = ViaBedrock.getConfig().shouldEmulateNetEaseClient()
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() > 0
-                && ViaBedrock.getConfig().getNetEaseProtocolVersion() < NEW_ITEM_DESCRIPTOR_PROTOCOL;
-        this.newItemType = netEaseLegacyItemLayout
+        // MOT 在 974 才切到 NetworkItemStackDescriptor；974 之前的官方版本
+        // 与网易 860/898 都用旧的槽位布局序列化，必须保留 itemType。
+        final int wireProtocol = BedrockWire.effectiveProtocol();
+        final boolean legacyItemLayout = wireProtocol > 0 && wireProtocol < NEW_ITEM_DESCRIPTOR_PROTOCOL;
+        this.newItemType = legacyItemLayout
                 ? this.itemType
                 : new NetworkItemStackDescriptorType(this.items.getOrDefault("minecraft:shield", 0), this.blockItemValidBlockStates, false);
         this.optionalNewItemType = new OptionalType<>(this.newItemType);
@@ -1277,6 +1277,18 @@ public class ItemRewriter extends StoredObject {
 
     public Type<BedrockItem[]> newItemArrayType() {
         return this.newItemArrayType;
+    }
+
+    /**
+     * 按协议号选物品堆编码。1001 起内容/装备/交易载荷全部改用描述符，
+     * 975 仍走旧槽位编码器，因此选择跟着协议号走而不是跟着调用点。
+     */
+    public Type<BedrockItem> itemType(final int protocolVersion) {
+        return BedrockWire.applies(protocolVersion, BedrockDeviation.ITEM_STACK_DESCRIPTOR) ? this.newItemType : this.itemType;
+    }
+
+    public Type<BedrockItem[]> itemArrayType(final int protocolVersion) {
+        return BedrockWire.applies(protocolVersion, BedrockDeviation.ITEM_STACK_DESCRIPTOR) ? this.newItemArrayType : this.itemArrayType;
     }
 
     private record PotionItemMappings(

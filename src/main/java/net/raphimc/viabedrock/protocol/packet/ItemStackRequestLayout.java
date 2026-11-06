@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.experimental.types.inventory.RecipeIngredientType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemStackRequestActionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextProcessingEventOrigin;
@@ -44,6 +45,8 @@ import java.util.List;
 public final class ItemStackRequestLayout {
 
     public static final int UNSIGNED_ACTION_TYPE_PROTOCOL = 2168;
+    /** 2192（v1_26_60）在 CRAFT_LOOM 之后插入 CRAFT_RESERVED，action id 表需要另一张。 */
+    public static final int CRAFT_RESERVED_PROTOCOL = 2192;
     public static final int OPTIONAL_DYNAMIC_ID_PROTOCOL = 729;
     public static final int FILTER_STRINGS_PROTOCOL = 422;
     public static final int TEXT_ORIGIN_PROTOCOL = 554;
@@ -74,7 +77,7 @@ public final class ItemStackRequestLayout {
     }
 
     public static boolean usesOptionalDynamicId(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= OPTIONAL_DYNAMIC_ID_PROTOCOL;
+        return protocol >= OPTIONAL_DYNAMIC_ID_PROTOCOL;
     }
 
     public static void writeActionType(final ByteBuf buffer, final ItemStackRequestActionType type) {
@@ -84,11 +87,33 @@ public final class ItemStackRequestLayout {
     public static void writeActionType(final ByteBuf buffer, final ItemStackRequestActionType type,
                                        final boolean emulateNetEase, final int protocol) {
         if (usesUnsignedActionType(emulateNetEase, protocol)) {
-            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, type.getValue());
-            buffer.writeByte(0);
+            final int id = typedActionId(type, protocol);
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, id);
+            // 2168 在类型序数后重复一个类型字节。MOT 读取端会消费它（丢弃），
+            // CloudburstMC 的 writeIngredient2/readIngredient2 系列也是同一个值。
+            buffer.writeByte(id);
             return;
         }
         buffer.writeByte(type.getValue());
+    }
+
+    /**
+     * 2168 的 action id 表去掉了 7/8（两个已废弃的物品容器动作），其后的动作整体前移两位。
+     * 与 MOT {@code ItemStackRequestActionType.fromId} 的 2168 分支和 CloudburstMC 的
+     * ITEM_STACK_REQUEST_TYPES 一致。
+     */
+    static int typedActionId(final ItemStackRequestActionType type, final int protocol) {
+        if (protocol >= CRAFT_RESERVED_PROTOCOL) {
+            // 2192 起 CRAFT_RESERVED 占 16，其余后移；本仓还没有 2192 档案，
+            // 不能沿用 2168 的表静默写错字节。
+            throw new UnsupportedOperationException("Action id table for protocol " + protocol + " is not implemented");
+        }
+        final int legacyId = type.getValue();
+        if (legacyId == ItemStackRequestActionType.PlaceInItemContainer_DEPRECATED.getValue()
+                || legacyId == ItemStackRequestActionType.TakeFromItemContainer_DEPRECATED.getValue()) {
+            throw new IllegalStateException("v2168 has no item container stack request action: " + type);
+        }
+        return legacyId <= 6 ? legacyId : legacyId - 2;
     }
 
     public static void writeSlotInfo(final ByteBuf buffer, final ContainerEnumName container, final int slot, final int stackNetworkId) {
@@ -131,14 +156,14 @@ public final class ItemStackRequestLayout {
 
     public static void writeRequestTrailer(final ByteBuf buffer, final boolean emulateNetEase, final int protocol,
                                            final String[] filterStrings, final TextProcessingEventOrigin origin) {
-        if (!emulateNetEase || protocol >= FILTER_STRINGS_PROTOCOL) {
+        if (protocol >= FILTER_STRINGS_PROTOCOL) {
             final String[] strings = filterStrings != null ? filterStrings : new String[0];
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, strings.length);
             for (final String filterString : strings) {
                 BedrockTypes.STRING.write(buffer, filterString != null ? filterString : "");
             }
         }
-        if (!emulateNetEase || protocol >= TEXT_ORIGIN_PROTOCOL) {
+        if (protocol >= TEXT_ORIGIN_PROTOCOL) {
             final TextProcessingEventOrigin resolved = origin != null ? origin : TextProcessingEventOrigin.BlockActorDataText;
             buffer.writeIntLE(resolved.getValue());
         }
@@ -193,7 +218,7 @@ public final class ItemStackRequestLayout {
                                         final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftRecipe, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
@@ -201,21 +226,47 @@ public final class ItemStackRequestLayout {
     public static void writeCraftRecipeAuto(final ByteBuf buffer, final int recipeNetworkId, final int numberOfRequestedCrafts,
                                             final int timesCrafted, final List<BedrockItem> ingredients,
                                             final boolean emulateNetEase, final int protocol) {
+        writeCraftRecipeAuto(buffer, recipeNetworkId, numberOfRequestedCrafts, timesCrafted, ingredients, null, emulateNetEase, protocol);
+    }
+
+    /**
+     * @param ingredientIdentifiers 与 {@code ingredients} 等长的命名空间 id；2168 的 DEFAULT 配料必须写字符串
+     */
+    public static void writeCraftRecipeAuto(final ByteBuf buffer, final int recipeNetworkId, final int numberOfRequestedCrafts,
+                                            final int timesCrafted, final List<BedrockItem> ingredients,
+                                            final List<String> ingredientIdentifiers,
+                                            final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftRecipeAuto, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(numberOfRequestedCrafts);
         }
-        if (!emulateNetEase || protocol >= 448) {
-            buffer.writeByte(timesCrafted);
+        if (protocol >= 448) {
+            // 2168 起不再有独立的 timesCrafted 字节，读取端用 numberOfRequestedCrafts 回填。
+            if (protocol < UNSIGNED_ACTION_TYPE_PROTOCOL) {
+                buffer.writeByte(timesCrafted);
+            }
         }
-        if (!emulateNetEase || protocol >= 557) {
+        if (protocol >= 557) {
             final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
             if (protocol >= UNSIGNED_ACTION_TYPE_PROTOCOL) {
+                // 2168 的计数也改成 VarUInt，每个配料是类型化描述符。
+                // 不能发空数组：MOT 的 CraftRecipeAutoProcessor 会按配料逐条核对 CONSUME，
+                // 空配料列表会让带 CONSUME 的自动合成整请求报错。
                 BedrockTypes.UNSIGNED_VAR_INT.write(buffer, descriptors.size());
-            } else {
-                buffer.writeByte(descriptors.size());
+                for (int i = 0; i < descriptors.size(); i++) {
+                    final String identifier = ingredientIdentifiers != null && i < ingredientIdentifiers.size()
+                            ? ingredientIdentifiers.get(i) : null;
+                    if (identifier == null) {
+                        throw new IllegalStateException("v2168 auto-craft ingredient #" + i + " has no namespaced identifier");
+                    }
+                    final int data = descriptors.get(i).data() & 0xFFFF;
+                    final int aux = data == 0x7FFF || data == 0xFFFF ? 0 : data;
+                    RecipeIngredientType.writeTypedDefault(buffer, identifier, aux, descriptors.get(i).amount());
+                }
+                return;
             }
+            buffer.writeByte(descriptors.size());
             for (final BedrockItem ingredient : descriptors) {
                 writeDefaultIngredientDescriptor(buffer, ingredient, emulateNetEase, protocol);
             }
@@ -242,7 +293,7 @@ public final class ItemStackRequestLayout {
                                           final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftCreative, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, creativeItemNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
@@ -255,7 +306,7 @@ public final class ItemStackRequestLayout {
         } else {
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
         }
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
         BedrockTypes.VAR_INT.write(buffer, repairCost);
@@ -272,20 +323,20 @@ public final class ItemStackRequestLayout {
                                       final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftLoom, emulateNetEase, protocol);
         BedrockTypes.STRING.write(buffer, patternId != null ? patternId : "");
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
 
     public static DecodedRequestTrailer readRequestTrailer(final ByteBuf buffer, final boolean emulateNetEase, final int protocol) {
         final String[] filterStrings;
-        if (!emulateNetEase || protocol >= FILTER_STRINGS_PROTOCOL) {
+        if (protocol >= FILTER_STRINGS_PROTOCOL) {
             filterStrings = BedrockTypes.STRING_ARRAY.read(buffer);
         } else {
             filterStrings = new String[0];
         }
         Integer origin = null;
-        if (!emulateNetEase || protocol >= TEXT_ORIGIN_PROTOCOL) {
+        if (protocol >= TEXT_ORIGIN_PROTOCOL) {
             origin = buffer.readIntLE();
         }
         return new DecodedRequestTrailer(filterStrings, origin);

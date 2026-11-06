@@ -15,6 +15,9 @@ java-custom-payload-bridge:
   max-bytes-per-minute: 262144
 # 控制 blob 缓存（可减少网络流量和加载时间），可选值："disabled"、"memory"、"disk"
 blob-cache: "disk"
+# 为 true 时，解码后仍有剩余字节的基岩包会按包 id 记录一次日志（后续只累加计数）。
+# 用于升级网易协议档位时定位读不干净的布局；日常运行保持关闭。
+layout-report: false
 # 启用后会启动资源包 HTTP 服务器并开启资源包转换
 translate-resource-packs: true
 # 资源包 HTTP 服务器地址
@@ -71,6 +74,15 @@ translate-show-coordinates-game-rule: false
 disable-server-blacklist: false
 # 发送给基岩服务端的语言代码（例如 "en_us"、"zh_cn"）。留空 = "en_us"
 language: ""
+# 官方基岩（国际版）协议号。写入 REQUEST_NETWORK_SETTINGS 与 LOGIN，并按它选择包布局。
+# 975 = 1.26.20（默认，与长期基线一致）；0 = 自动（最新档案）。
+# 非整数（带引号的 "1001"、abc、975.6）和负值会被拒绝，启动直接失败。
+# 配置成未实现的协议号不会静默降级：启动日志会标记 inferred，布局按已实现的偏差区间
+# 推导，服务端可能因为版本不支持而拒绝连接。
+# 该值优先于 ViaProxy 目标版本下拉框（两者不一致时按本项发送）；下拉框里能选的版本
+# 与这里可配的协议号应当保持一致。
+bedrock:
+  protocol-version: 975
 # 网易 / 中国版客户端仿真。
 # enabled: 假装成网易客户端（网易登录字段 + RakNet 传输）。
 # protocol-version 选择 Nukkit-MOT 配置：898 = 1.21.130_NetEase（modpc 3.10），

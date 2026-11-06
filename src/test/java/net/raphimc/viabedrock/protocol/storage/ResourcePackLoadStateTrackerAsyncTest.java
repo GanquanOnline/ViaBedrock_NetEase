@@ -13,6 +13,7 @@ import com.viaversion.viaversion.connection.UserConnectionImpl;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.raphimc.viabedrock.api.resourcepack.ResourcePack;
 import net.raphimc.viabedrock.api.resourcepack.http.RemotePackServiceClient;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,6 +38,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourcePackLoadStateTrackerAsyncTest {
+
+    @BeforeAll
+    static void installViaManager() {
+        net.raphimc.viabedrock.test.ViaTestBootstrap.installDefaultManager();
+    }
 
     @Test
     void claimsEachRemoteLookupCancellationOnlyOnce() {

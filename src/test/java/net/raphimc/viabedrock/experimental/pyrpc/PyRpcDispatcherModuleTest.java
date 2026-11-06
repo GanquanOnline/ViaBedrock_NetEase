@@ -100,4 +100,69 @@ class PyRpcDispatcherModuleTest {
         assertFalse(PyRpcDispatcherModule.isModEventS2C(null));
         assertFalse(PyRpcDispatcherModule.isModEventS2C(new byte[0]));
     }
+
+    private static byte[] modEvent(final byte[] method, final String mod, final String system, final String event) {
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(0x93); // fixarray 3
+        out.writeBytes(method);
+        out.write(0x94); // fixarray 4
+        PyRpcDispatcherModule.writeFixStr(out, mod);
+        PyRpcDispatcherModule.writeFixStr(out, system);
+        PyRpcDispatcherModule.writeFixStr(out, event);
+        out.write(0x80); // fixmap 0
+        out.write(0xc0); // nil
+        return out.toByteArray();
+    }
+
+    private static byte[] msgPackString(final int code, final String value) {
+        final byte[] name = value.getBytes(StandardCharsets.US_ASCII);
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(code);
+        out.write(name.length);
+        out.writeBytes(name);
+        return out.toByteArray();
+    }
+
+    @Test
+    void modEventTripleIsParsedFromFixstr() {
+        final byte[] name = "ModEventS2C".getBytes(StandardCharsets.US_ASCII);
+        final java.io.ByteArrayOutputStream method = new java.io.ByteArrayOutputStream();
+        method.write(0xA0 | name.length);
+        method.writeBytes(name);
+
+        final String[] triple = PyRpcDispatcherModule.readModEventTriple(
+                modEvent(method.toByteArray(), "ECNukkitClientMod", "ECNukkitClientSystem", "ResponseHudNodeDataEvent"));
+
+        assertEquals(4, triple.length);
+        assertEquals("ModEventS2C", triple[0]);
+        assertEquals("ECNukkitClientMod", triple[1]);
+        assertEquals("ECNukkitClientSystem", triple[2]);
+        assertEquals("ResponseHudNodeDataEvent", triple[3]);
+    }
+
+    @Test
+    void modEventTripleIsParsedFromMotBin8() {
+        final String[] triple = PyRpcDispatcherModule.readModEventTriple(
+                modEvent(msgPackString(0xC4, "ModEventS2C"), "m", "s", "RequestControlNodeEvent"));
+
+        assertEquals(4, triple.length);
+        assertEquals("ModEventS2C", triple[0]);
+        assertEquals("RequestControlNodeEvent", triple[3]);
+    }
+
+    @Test
+    void engineCallTripleHasMethodOnly() {
+        final String[] triple = PyRpcDispatcherModule.readModEventTriple(
+                PyRpcDispatcherModule.buildClientLoadAddonsFinished());
+
+        assertEquals(1, triple.length);
+        assertEquals(PyRpcDispatcherModule.CLIENT_LOAD_ADDONS_FINISHED, triple[0]);
+    }
+
+    @Test
+    void unparsableEnvelopeYieldsNull() {
+        assertFalse(PyRpcDispatcherModule.readModEventTriple(null) != null);
+        assertFalse(PyRpcDispatcherModule.readModEventTriple(new byte[0]) != null);
+        assertFalse(PyRpcDispatcherModule.readModEventTriple(new byte[]{(byte) 0x91}) != null);
+    }
 }

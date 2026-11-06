@@ -74,12 +74,26 @@ public enum NetEaseProtocolProfile {
     }
 
     /**
-     * 解析配置的协议。未知值回退到 {@link #newest()}，以免过期
-     * 配置产生半套门控的布局集合。
+     * 解析配置的协议，用于游戏版本字符串和登录链。未知值回退到 {@link #newest()}。
+     * <p>
+     * 线格式不走这里：{@link NetEaseWire} 直接用配置的协议号推导偏差，未知协议号
+     * 不会被降级成最近档案的布局。
      */
     public static NetEaseProtocolProfile resolve(final int configuredProtocolVersion) {
         final NetEaseProtocolProfile configured = byProtocol(configuredProtocolVersion);
         return configured != null ? configured : newest();
+    }
+
+    /** @return 已实现档案的协议号清单，用于启动告警 */
+    public static String supportedList() {
+        final StringBuilder builder = new StringBuilder();
+        for (final NetEaseProtocolProfile profile : values()) {
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            builder.append(profile.protocolVersion);
+        }
+        return builder.append(", ").append(AUTO).append(" = auto = ").append(newest().protocolVersion()).toString();
     }
 
     /**

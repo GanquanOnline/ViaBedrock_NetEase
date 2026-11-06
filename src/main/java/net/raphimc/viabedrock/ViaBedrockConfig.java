@@ -20,7 +20,11 @@ package net.raphimc.viabedrock;
 import com.viaversion.viaversion.util.Config;
 import com.viaversion.viaversion.util.ConfigSection;
 import net.raphimc.viabedrock.platform.ResourcePackDeliveryMode;
+import net.raphimc.viabedrock.protocol.data.BedrockProtocolProfile;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.NetEaseProtocolProfile;
+import net.raphimc.viabedrock.protocol.data.NetEaseWire;
+import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 
 import java.io.File;
 import java.net.URL;
@@ -73,10 +77,12 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
     private boolean disableServerBlacklist;
     private String language;
     private String viaProxyAuthSecret;
+    private int bedrockProtocolVersion = ProtocolConstants.DEFAULT_BEDROCK_PROTOCOL_VERSION;
     private boolean emulateNetEaseClient;
     private int netEaseProtocolVersion;
     private String netEaseGameVersion;
     private int netEaseRakNetProtocolVersion;
+    private boolean reportBedrockLayoutLeftovers;
     private boolean enableServerEntityAnimation;
     private int javaSkinFetchTimeout;
     private boolean sendTabList;
@@ -158,29 +164,53 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
         this.disableServerBlacklist = this.getBoolean("disable-server-blacklist", false);
         this.language = this.getString("language", "");
         this.viaProxyAuthSecret = this.getString("viaproxy-auth-secret", "");
+        final ConfigSection bedrock = this.getSection("bedrock");
+        final int configuredBedrockProtocol = parseBedrockProtocolVersion(bedrock != null ? bedrock.get("protocol-version") : null);
+        if (configuredBedrockProtocol < 0) {
+            // 负值不是协议号，继续跑只会拿错布局，直接拒绝启动
+            throw new IllegalStateException("bedrock.protocol-version " + configuredBedrockProtocol
+                    + " is not a valid protocol number (0 = auto, known profiles: "
+                    + BedrockProtocolProfile.supportedList() + ")");
+        }
+        this.bedrockProtocolVersion = BedrockProtocolProfile.resolveProtocol(configuredBedrockProtocol);
+        if (BedrockWire.inferred(this.bedrockProtocolVersion)) {
+            this.logger.warning("bedrock.protocol-version " + this.bedrockProtocolVersion
+                    + " has no implemented layout data (known profiles: " + BedrockProtocolProfile.supportedList()
+                    + "); deriving the layout from deviation ranges and still sending "
+                    + this.bedrockProtocolVersion + " in the handshake - the server may reject it");
+        }
+        this.logger.info("Bedrock wire: " + BedrockWire.describe(this.bedrockProtocolVersion));
         final ConfigSection netease = this.getSection("netease");
         this.emulateNetEaseClient = getBoolean(netease, "enabled", false);
         final int configuredNetEaseProtocol = getInt(netease, "protocol-version", NetEaseProtocolProfile.newest().protocolVersion());
         final String configuredNetEaseGameVersion = getString(netease, "game-version", "");
         final int configuredNetEaseRakNetProtocol = getInt(netease, "raknet-protocol-version", NetEaseProtocolProfile.NETEASE_RAKNET_PROTOCOL_VERSION);
+        this.reportBedrockLayoutLeftovers = this.getBoolean("layout-report", false);
         if (this.emulateNetEaseClient) {
-            if (!NetEaseProtocolProfile.isSelectable(configuredNetEaseProtocol)) {
-                this.logger.warning("Unsupported netease.protocol-version " + configuredNetEaseProtocol
-                        + "; falling back to " + NetEaseProtocolProfile.newest().protocolVersion()
-                        + " (supported: 860, 898, 0 = auto)");
-            }
             final NetEaseProtocolProfile profile = NetEaseProtocolProfile.resolve(configuredNetEaseProtocol);
+            final boolean knownProtocol = NetEaseProtocolProfile.isSelectable(configuredNetEaseProtocol);
+            if (!knownProtocol && configuredNetEaseProtocol > 0) {
+                // 保留未知协议号：偏差区间能给出确定布局，退回最近档案只会静默用错布局
+                this.logger.warning("netease.protocol-version " + configuredNetEaseProtocol
+                        + " is not a known NetEase profile (" + NetEaseProtocolProfile.supportedList()
+                        + "); deriving the layout from deviation ranges");
+            } else if (configuredNetEaseProtocol < 0) {
+                this.logger.warning("netease.protocol-version " + configuredNetEaseProtocol
+                        + " is not a valid protocol number; using " + NetEaseProtocolProfile.newest().protocolVersion());
+            }
             if (!configuredNetEaseGameVersion.isEmpty() && !profile.gameVersion().equals(configuredNetEaseGameVersion)) {
                 this.logger.warning("netease.game-version " + configuredNetEaseGameVersion
                         + " does not belong to protocol " + profile.protocolVersion()
                         + "; using " + profile.gameVersion());
             }
-            this.netEaseProtocolVersion = profile.protocolVersion();
+            this.netEaseProtocolVersion = !knownProtocol && configuredNetEaseProtocol > 0
+                    ? configuredNetEaseProtocol : profile.protocolVersion();
             this.netEaseGameVersion = profile.gameVersion();
             this.netEaseRakNetProtocolVersion = NetEaseProtocolProfile.resolveRakNetProtocolVersion(configuredNetEaseRakNetProtocol);
             this.logger.info("Emulating NetEase client " + profile.gameVersion()
-                    + " (protocol " + profile.protocolVersion()
+                    + " (protocol " + this.netEaseProtocolVersion
                     + ", RakNet " + this.netEaseRakNetProtocolVersion + ")");
+            this.logger.info("NetEase wire: " + NetEaseWire.of(true, this.netEaseProtocolVersion).describe());
         } else {
             this.netEaseProtocolVersion = configuredNetEaseProtocol;
             this.netEaseGameVersion = configuredNetEaseGameVersion.isEmpty()
@@ -223,6 +253,20 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
 
     private static String getString(final ConfigSection section, final String key, final String def) {
         return section != null ? section.getString(key, def) : def;
+    }
+
+    /** 非整数的 YAML 值会被 ConfigSection.getInt 静默替换成默认值，这里显式拒绝，避免配错却按 975 跑。 */
+    private static int parseBedrockProtocolVersion(final Object rawValue) {
+        if (rawValue == null) {
+            return ProtocolConstants.DEFAULT_BEDROCK_PROTOCOL_VERSION;
+        }
+        if (rawValue instanceof Number number && number.doubleValue() == number.longValue()
+                && number.longValue() >= Integer.MIN_VALUE && number.longValue() <= Integer.MAX_VALUE) {
+            return (int) number.longValue();
+        }
+        throw new IllegalStateException("bedrock.protocol-version " + rawValue
+                + " is not an integer protocol number (0 = auto, known profiles: "
+                + BedrockProtocolProfile.supportedList() + ")");
     }
 
     @Override
@@ -440,6 +484,11 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
     }
 
     @Override
+    public int getBedrockProtocolVersion() {
+        return this.bedrockProtocolVersion;
+    }
+
+    @Override
     public int getNetEaseProtocolVersion() {
         return this.netEaseProtocolVersion;
     }
@@ -452,6 +501,11 @@ public class ViaBedrockConfig extends Config implements net.raphimc.viabedrock.p
     @Override
     public int getNetEaseRakNetProtocolVersion() {
         return this.netEaseRakNetProtocolVersion;
+    }
+
+    @Override
+    public boolean shouldReportBedrockLayoutLeftovers() {
+        return this.reportBedrockLayoutLeftovers;
     }
 
     @Override

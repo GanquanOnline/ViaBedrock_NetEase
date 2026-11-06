@@ -37,7 +37,11 @@ public final class PacketLeftoverLayout {
 
     public static void discardUnreadInput(final PacketWrapper wrapper) {
         if (wrapper instanceof PacketWrapperImpl packetWrapper) {
-            discardUnreadInput(packetWrapper.getInputBuffer());
+            final ByteBuf input = packetWrapper.getInputBuffer();
+            if (input != null && input.isReadable()) {
+                NetEaseLayoutReport.record(wrapper, input.readableBytes());
+            }
+            discardUnreadInput(input);
         }
     }
 
