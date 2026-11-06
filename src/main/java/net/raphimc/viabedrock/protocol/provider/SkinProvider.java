@@ -282,6 +282,11 @@ public class SkinProvider implements Provider {
             claims.put("PlatformOfflineId", "");
             claims.put("PlatformOnlineId", "");
         }
+        { // @since 26.40
+            claims.put("ClientEditorConnectionIntent", 0);
+            claims.put("ClientIsEditorCapable", false);
+            claims.put("ProfileHash", "");
+        }
 
         { // ViaProxy 认证令牌
             // Waterdog 的 HandshakeEntry 会把非空的 ViaProxyAuthToken 视为 Java
