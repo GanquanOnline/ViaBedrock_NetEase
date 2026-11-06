@@ -174,10 +174,12 @@ public class BedrockMappingData extends MappingDataBase {
     /**
      * {@code BedrockProtocol.MAPPINGS} 是进程级单例，但 ViaVersion 会给每个已注册档案各提交一次
      * {@code loadMappingData()}。并发重复加载同一个对象会互相踩：{@code FileSystemAlreadyExistsException}
-     * 让资源包表为空，接着 vanilla_resource_packs 校验抛异常，整个映射加载失败。这里只放行第一次。
+     * 让资源包表为空，接着 vanilla_resource_packs 校验抛异常，整个映射加载失败。这里只放行第一次；
+     * 首次失败会被锁存并原样重抛，避免后面的实例在半填满的单例上重跑。
      */
     private static final Object LOAD_LOCK = new Object();
     private static boolean loaded;
+    private static Throwable failure;
 
     public BedrockMappingData() {
         super(BedrockProtocolVersion.bedrockLatest.getName(), ProtocolConstants.JAVA_VERSION.getName());
@@ -186,11 +188,22 @@ public class BedrockMappingData extends MappingDataBase {
     @Override
     public void load() {
         synchronized (LOAD_LOCK) {
+            if (failure instanceof RuntimeException runtimeFailure) {
+                throw runtimeFailure;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
             if (loaded) {
                 return;
             }
-            this.doLoad();
-            loaded = true;
+            try {
+                this.doLoad();
+                loaded = true;
+            } catch (final RuntimeException | Error e) {
+                failure = e;
+                throw e;
+            }
         }
     }
 

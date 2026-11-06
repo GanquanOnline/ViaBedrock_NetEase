@@ -2,12 +2,20 @@ package net.raphimc.viabedrock.protocol.data;
 
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class BedrockDataTablesTest {
 
-    /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储 */
-    private static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
+    /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储。{@link BedrockDataTableContentTest} 也从这里派生 */
+    static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
             975, 975,
             1001, 1001,
             2168, 2168,
@@ -95,6 +103,38 @@ public class BedrockDataTablesTest {
         assertThrows(IllegalStateException.class, () -> BedrockDataTables.blockPalette(1001, onlyLegacy),
                 "a configured protocol must not silently reuse the 975 palette");
         assertFalse(onlyLegacy.test(BedrockDataTables.blockPalette(975)));
+    }
+
+    @Test
+    void sharedProtocolNamesBothDirectoriesWhenTablesAreMissing() {
+        final IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> BedrockDataTables.blockPalette(2192, path -> false));
+        assertTrue(error.getMessage().contains("versions/2192"), error.getMessage());
+        assertTrue(error.getMessage().contains("versions/2193"), error.getMessage());
+    }
+
+    @Test
+    void sharedProtocolNeverMixesTwoDirectories() {
+        final Predicate<String> onlyPaletteIn2192 = path -> path.endsWith("versions/2192/block_palette.nbt")
+                || path.endsWith("versions/2193/runtime_item_states.json");
+        assertEquals("versions/2192/block_palette.nbt", BedrockDataTables.blockPalette(2192, onlyPaletteIn2192));
+        final IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> BedrockDataTables.itemStates(2192, onlyPaletteIn2192),
+                "目录定在 2192 之后，物品表不能再换成 2193 那份");
+        assertTrue(error.getMessage().contains("versions/2192"), error.getMessage());
+    }
+
+    @Test
+    void versionsDirectoryHasNoOrphanFolders() throws Exception {
+        final URL versions = BedrockDataTablesTest.class.getClassLoader().getResource("assets/viabedrock/data/versions");
+        assertNotNull(versions, "missing assets/viabedrock/data/versions");
+        final Set<String> onDisk = new TreeSet<>();
+        try (Stream<Path> stream = Files.list(Paths.get(versions.toURI()))) {
+            stream.filter(Files::isDirectory).forEach(path -> onDisk.add(path.getFileName().toString()));
+        }
+        final Set<String> expected = new TreeSet<>();
+        SHIPPED_TABLES.values().forEach(directory -> expected.add(String.valueOf(directory)));
+        assertEquals(expected, onDisk, "versions/ 下的目录要与 SHIPPED_TABLES 的值集合一致");
     }
 
 }

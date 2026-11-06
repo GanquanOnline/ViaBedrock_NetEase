@@ -20,9 +20,10 @@ package net.raphimc.viabedrock.protocol.data;
 /**
  * 已实现的官方基岩版协议档案，也就是 {@code bedrock.protocol-version} 可选的取值。
  * <p>
- * 档案只说明"这个协议号的布局数据已经就位"。配置成档案之外的协议号仍然会用它本身
- * 的协议号上线，布局由 {@link BedrockWire} 的偏差区间推导，启动日志会标记为 inferred；
- * 档案列表只用于下拉框、告警文案和启动日志，不参与布局判断。
+ * 档案只说明"这个协议号的布局数据已经就位"。配置成档案之外的协议号时，{@link BedrockWire}
+ * 仍按它本身的协议号推导布局并标记为 inferred，但启动闸门 {@link BedrockDataTables#validate}
+ * 要求该协议号能解析到数据表目录（自己那份，或 {@code BedrockDataTables} 里登记的共用目录），
+ * 所以实际能启动的只有随包发布了数据表的协议号。
  * <p>
  * 接入新的官方版本：先在该版本抓包补齐 {@link BedrockDeviation} 的区间，再用
  * {@code importBedrockDataTables} 生成 {@code data/versions/<protocol>/}，然后把档案行追加到

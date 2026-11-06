@@ -29,8 +29,9 @@ public final class BedrockDataTables {
     private static final String BIOME_DEFINITIONS = "biome_definitions.nbt";
 
     /**
-     * 共用同一份转储的协议号。MOT 把 2192（1.26.50.27）与 2193（1.26.50）都映射到 {@code GameVersion.V1_26_50}，
-     * {@code RuntimeItems} 与 {@code GlobalBlockPalette} 都是这么查的，所以两者共用 {@code versions/2193/}。
+     * 共用同一份转储的协议号。MOT 里 2192（1.26.50.27）与 2193（1.26.50）落到同一份数据：物品表按协议号显式映到
+     * {@code V1_26_50}（{@code RuntimeItems.getMapping}），方块调色板按协议号向下回退到最近有资源的版本
+     * （{@code BlockPalette.findNearestPaletteResource}）。所以两者共用 {@code versions/2193/}。
      */
     private static final Map<Integer, Integer> SHARED_TABLES = Map.of(2192, 2193);
 
@@ -71,33 +72,60 @@ public final class BedrockDataTables {
      * @throws IllegalStateException 版本目录或必需文件缺失
      */
     public static void validate(final int protocol) {
+        final int directory = tableDirectory(protocol, BedrockDataTables::exists);
         final List<String> missing = new ArrayList<>(2);
         for (final String fileName : List.of(BLOCK_PALETTE, ITEM_STATES)) {
-            if (versionFile(protocol, fileName, BedrockDataTables::exists, false) == null) {
+            if (directory == 0 || !exists(DATA_ROOT + VERSIONS + directory + "/" + fileName)) {
                 missing.add(fileName);
             }
         }
         if (!missing.isEmpty()) {
             throw new IllegalStateException("No bedrock data tables for protocol " + protocol
                     + ": missing " + String.join(", ", missing)
-                    + " under " + DATA_ROOT + VERSIONS + protocol
-                    + "/ (run the importBedrockDataTables tool)");
+                    + " under " + versionDirectories(protocol)
+                    + " (run the importBedrockDataTables tool)");
         }
     }
 
     private static String versionFile(final int protocol, final String fileName,
                                       final Predicate<String> exists, final boolean required) {
-        for (final int tableProtocol : tableProtocols(protocol)) {
-            final String path = VERSIONS + tableProtocol + "/" + fileName;
+        final int directory = tableDirectory(protocol, exists);
+        if (directory != 0) {
+            final String path = VERSIONS + directory + "/" + fileName;
             if (exists.test(DATA_ROOT + path)) {
                 return path;
             }
         }
         if (required) {
-            throw new IllegalStateException("No bedrock data table " + DATA_ROOT + VERSIONS + protocol + "/" + fileName
-                    + " for protocol " + protocol + " (run the importBedrockDataTables tool)");
+            throw new IllegalStateException("No bedrock data table " + fileName
+                    + " under " + versionDirectories(protocol) + " for protocol " + protocol
+                    + " (run the importBedrockDataTables tool)");
         }
         return null;
+    }
+
+    /**
+     * 先把版本目录定下来，再从该目录取文件：按文件各自回退会把两个版本的转储混成一套
+     * （调色板来自一个版本、物品表来自另一个）。
+     *
+     * @return 命中的版本目录号；{@code 0} 表示一个都没有
+     */
+    private static int tableDirectory(final int protocol, final Predicate<String> exists) {
+        for (final int candidate : tableProtocols(protocol)) {
+            if (exists.test(DATA_ROOT + VERSIONS + candidate + "/" + BLOCK_PALETTE)) {
+                return candidate;
+            }
+        }
+        return 0;
+    }
+
+    /** @return 该协议号会探测的目录，用于报错，如 {@code assets/.../versions/2192/ or assets/.../versions/2193/} */
+    private static String versionDirectories(final int protocol) {
+        final List<String> paths = new ArrayList<>(2);
+        for (final int candidate : tableProtocols(protocol)) {
+            paths.add(DATA_ROOT + VERSIONS + candidate + "/");
+        }
+        return String.join(" or ", paths);
     }
 
     /** @return 该协议号要查的版本目录，共用表的协议先查自己、再查共用的那个 */

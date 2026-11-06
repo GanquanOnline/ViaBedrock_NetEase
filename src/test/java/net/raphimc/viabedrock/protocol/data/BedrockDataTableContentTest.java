@@ -38,8 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class BedrockDataTableContentTest {
 
-    /** 实际存在的版本目录；2192 复用 2193 的目录，不需要单独列 */
-    private static final List<Integer> SHIPPED_PROTOCOLS = List.of(975, 1001, 2168, 2193, 2225);
+    /** 实际存在的版本目录，从 {@link BedrockDataTablesTest#SHIPPED_TABLES} 派生，避免两处手写清单走偏 */
+    private static final List<Integer> SHIPPED_PROTOCOLS = BedrockDataTablesTest.SHIPPED_TABLES.values()
+            .stream().distinct().sorted().toList();
     private static final int MIN_ITEM_STATES = 1500;
 
     @Test

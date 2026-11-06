@@ -17,12 +17,15 @@
  */
 package net.raphimc.viabedrock.protocol.data;
 
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import net.raphimc.viabedrock.api.BedrockProtocolVersion;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -136,7 +139,21 @@ class BedrockDeviationTest {
         assertEquals("1.26.50.27", BedrockWire.announcedGameVersion(2192));
         assertEquals("1.26.50", BedrockWire.announcedGameVersion(2193));
         assertEquals("1.26.60", BedrockWire.announcedGameVersion(2225));
+        assertEquals("1.26.30", BedrockWire.announcedGameVersion(1024), "未知协议号声明不超过它的最近档案");
+        assertEquals("1.26.60", BedrockWire.announcedGameVersion(9999));
         assertEquals(BedrockWire.announcedGameVersion(975), BedrockWire.announcedGameVersion());
+    }
+
+    @Test
+    void everyProfileIsRegisteredAsABedrockVersion() {
+        for (final BedrockProtocolProfile profile : BedrockProtocolProfile.values()) {
+            final ProtocolVersion version = BedrockProtocolVersion.byProtocol(profile.protocolVersion());
+            assertNotNull(version, "档案 " + profile.gameVersion() + " 没有注册 ProtocolVersion");
+            assertEquals(profile.protocolVersion(), version.getVersion());
+            assertTrue(BedrockProtocolVersion.isBedrock(version),
+                    "档案 " + profile.gameVersion() + " 会被当成 Java 连接处理");
+        }
+        assertTrue(BedrockProtocolVersion.isBedrock(BedrockProtocolVersion.bedrockLatest));
     }
 
     @Test

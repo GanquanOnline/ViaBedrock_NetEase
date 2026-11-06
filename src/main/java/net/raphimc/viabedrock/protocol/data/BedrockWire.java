@@ -48,14 +48,24 @@ public final class BedrockWire {
         return configured > 0 ? configured : ProtocolConstants.DEFAULT_BEDROCK_PROTOCOL_VERSION;
     }
 
-    /** @return 登录声明使用的游戏版本串：已实现档案用自己的版本，未知协议号用最新档案的版本 */
+    /** @return 登录声明使用的游戏版本串：已实现档案用自己的版本，其它协议号取不超过它的最近档案 */
     public static String announcedGameVersion() {
         return announcedGameVersion(current());
     }
 
     public static String announcedGameVersion(final int protocolVersion) {
         final BedrockProtocolProfile profile = BedrockProtocolProfile.byProtocol(protocolVersion);
-        return profile != null ? profile.gameVersion() : BedrockProtocolProfile.newest().gameVersion();
+        if (profile != null) {
+            return profile.gameVersion();
+        }
+        BedrockProtocolProfile nearest = null;
+        for (final BedrockProtocolProfile candidate : BedrockProtocolProfile.values()) {
+            if (candidate.protocolVersion() <= protocolVersion
+                    && (nearest == null || candidate.protocolVersion() > nearest.protocolVersion())) {
+                nearest = candidate;
+            }
+        }
+        return (nearest != null ? nearest : BedrockProtocolProfile.newest()).gameVersion();
     }
 
     public static boolean inferred() {
