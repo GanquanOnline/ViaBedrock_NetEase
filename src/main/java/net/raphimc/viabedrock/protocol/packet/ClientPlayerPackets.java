@@ -1119,6 +1119,7 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId()); // 实体运行时 ID
             wrapper.write(BedrockTypes.FLOAT_LE, 0F); // 数据
             EntityPacketLayout.writeAnimateTrailer(wrapper, swingSource.name().toLowerCase(Locale.ROOT)); // 挥手来源（897+）
+            EntityPacketLayout.writeAnimateHand(wrapper, hand.ordinal()); // 代表手（2225+）
 
             if (swingSource != ActorSwingSource.Attack) {
                 return;

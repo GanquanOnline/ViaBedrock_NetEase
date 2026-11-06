@@ -39,7 +39,8 @@ class Protocol1001LayoutForkTest {
 
     @Test
     void deviationsOfTheFirstForwardWindowArePinned() {
-        assertEquals(11, BedrockWire.deviations(1001).size());
+        assertEquals(12, BedrockWire.deviations(1001).size());
+        assertTrue(BedrockWire.deviations(1001).contains(BedrockDeviation.BOSS_EVENT_PLAYER_EID));
         assertTrue(BedrockWire.deviations(1001).contains(BedrockDeviation.ITEM_STACK_DESCRIPTOR));
         assertTrue(BedrockWire.deviations(1001).contains(BedrockDeviation.INVENTORY_SOURCE_PRESENCE_PAIRS));
         assertTrue(BedrockWire.deviations(1001).contains(BedrockDeviation.START_GAME_EDITOR_FIELDS));

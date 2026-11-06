@@ -34,6 +34,8 @@ import net.raphimc.viabedrock.api.util.TextUtil;
 import net.raphimc.viabedrock.experimental.util.ProtocolUtil;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ScriptModuleDebugUtilities_ScriptDebugShapeType;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import net.raphimc.viabedrock.protocol.model.Position3f;
@@ -147,6 +149,9 @@ public class ScriptDebugTextTracker extends StoredObject {
                     text = wrapper.read(BedrockTypes.STRING); // 文本（非可选）
                     textRotation = wrapper.read(Types.BOOLEAN);
                     backgroundColor = readOptional(wrapper, BedrockTypes.INT_LE);
+                    if (BedrockWire.applies(BedrockDeviation.DEBUG_DRAWER_TEXT_LINE_GAP)) {
+                        wrapper.read(BedrockTypes.FLOAT_LE); // 行间距
+                    }
                     depthTest = wrapper.read(Types.BOOLEAN);
                     wrapper.read(Types.BOOLEAN); // showBackface
                     wrapper.read(Types.BOOLEAN); // showTextBackface

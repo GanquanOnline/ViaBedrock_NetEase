@@ -38,6 +38,8 @@ public final class ItemStackResponseLayout {
     public static final int FILTERED_CUSTOM_NAME_PROTOCOL = 766;
     public static final int DURABILITY_CORRECTION_PROTOCOL = 428;
     public static final int OPTIONAL_CONTAINER_PROTOCOL = 2168;
+    /** 2192 起容器存在性从双 bool 收成单 bool */
+    public static final int SINGLE_CONTAINER_PRESENCE_PROTOCOL = 2192;
     /** filteredCustomName 从固定字符串改成可选字符串的起点 */
     public static final int OPTIONAL_FILTERED_NAME_PROTOCOL = 2168;
     public static final byte RESULT_OK = 0;
@@ -46,7 +48,12 @@ public final class ItemStackResponseLayout {
     }
 
     public static boolean usesOptionalContainerEntries(final boolean emulateNetEase, final int protocol) {
-        return protocol >= OPTIONAL_CONTAINER_PROTOCOL;
+        return protocol >= OPTIONAL_CONTAINER_PROTOCOL && protocol < SINGLE_CONTAINER_PRESENCE_PROTOCOL;
+    }
+
+    /** 2192 起只剩一个存在性 bool，之前的双 bool 对已经收掉 */
+    public static boolean usesSingleContainerPresence(final boolean emulateNetEase, final int protocol) {
+        return protocol >= SINGLE_CONTAINER_PRESENCE_PROTOCOL;
     }
 
     public static boolean usesFullContainerName(final boolean emulateNetEase, final int protocol) {
@@ -142,6 +149,10 @@ public final class ItemStackResponseLayout {
             if (!wrapper.read(Types.BOOLEAN)) {
                 return new DecodedEntry(requestId, result == RESULT_OK, List.of());
             }
+        } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
+            if (!wrapper.read(Types.BOOLEAN)) {
+                return new DecodedEntry(requestId, result == RESULT_OK, List.of());
+            }
         } else if (result != RESULT_OK) {
             return new DecodedEntry(requestId, false, List.of());
         }
@@ -153,6 +164,10 @@ public final class ItemStackResponseLayout {
         final int requestId = BedrockTypes.VAR_INT.read(buffer);
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
             buffer.readBoolean(); // 当前 Nukkit 上总是 true
+            if (!buffer.readBoolean()) {
+                return new DecodedEntry(requestId, result == RESULT_OK, List.of());
+            }
+        } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
             if (!buffer.readBoolean()) {
                 return new DecodedEntry(requestId, result == RESULT_OK, List.of());
             }
@@ -250,6 +265,8 @@ public final class ItemStackResponseLayout {
             if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
                 buffer.readBoolean(); // 当前 Nukkit 上总是 true
                 stackNetworkId = buffer.readBoolean() ? BedrockTypes.VAR_INT.read(buffer) : 0;
+            } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
+                stackNetworkId = buffer.readBoolean() ? BedrockTypes.VAR_INT.read(buffer) : 0;
             } else {
                 stackNetworkId = BedrockTypes.VAR_INT.read(buffer);
             }
@@ -286,6 +303,8 @@ public final class ItemStackResponseLayout {
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
             buffer.writeBoolean(true);
             buffer.writeBoolean(true);
+        } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
+            buffer.writeBoolean(true);
         }
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 1);
         if (usesFullContainerName(emulateNetEase, protocol)) {
@@ -300,6 +319,9 @@ public final class ItemStackResponseLayout {
         buffer.writeByte(count);
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
             buffer.writeBoolean(true);
+            buffer.writeBoolean(true);
+            BedrockTypes.VAR_INT.write(buffer, stackNetworkId);
+        } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
             buffer.writeBoolean(true);
             BedrockTypes.VAR_INT.write(buffer, stackNetworkId);
         } else {
@@ -328,6 +350,8 @@ public final class ItemStackResponseLayout {
         BedrockTypes.VAR_INT.write(buffer, requestId);
         if (usesOptionalContainerEntries(emulateNetEase, protocol)) {
             buffer.writeBoolean(true);
+            buffer.writeBoolean(false);
+        } else if (usesSingleContainerPresence(emulateNetEase, protocol)) {
             buffer.writeBoolean(false);
         }
     }

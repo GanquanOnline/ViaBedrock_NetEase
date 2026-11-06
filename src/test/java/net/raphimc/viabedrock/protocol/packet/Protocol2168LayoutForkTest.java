@@ -86,7 +86,8 @@ class Protocol2168LayoutForkTest {
             BedrockDeviation.MAP_ITEM_DATA_V2168,
             BedrockDeviation.PLAYER_AUTH_INPUT_INPUT_LIST,
             BedrockDeviation.PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS,
-            BedrockDeviation.CRAFTING_DATA_BUCKETS
+            BedrockDeviation.CRAFTING_DATA_BUCKETS,
+            BedrockDeviation.ITEM_STACK_RESPONSE_CONTAINER_PRESENCE_PAIR
     );
 
     @Test
@@ -112,7 +113,7 @@ class Protocol2168LayoutForkTest {
         assertTrue(BedrockWire.deviations(1001).contains(BedrockDeviation.START_GAME_LOGGING_CHAT));
         assertEquals(BedrockWire.deviations(2167).size() + PROTOCOL_2168_DEVIATIONS.size() - 1,
                 BedrockWire.deviations(2168).size(),
-                "2168 新增 19 条，同时 START_GAME 的 loggingChat 在 2168 消失");
+                "2168 新增 20 条，同时 START_GAME 的 loggingChat 在 2168 消失");
     }
 
     @Test

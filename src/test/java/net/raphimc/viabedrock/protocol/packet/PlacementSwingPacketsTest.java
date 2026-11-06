@@ -209,6 +209,7 @@ class PlacementSwingPacketsTest {
                 if (method.getName().equals("getMovementWatchdogMode")) return ViaBedrockConfig.MovementWatchdogMode.OFF;
                 if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
                 if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                if (method.getName().equals("getBedrockProtocolVersion")) return 2168;
                 throw new UnsupportedOperationException(method.getName());
             }));
             this.entitiesField.setAccessible(true);

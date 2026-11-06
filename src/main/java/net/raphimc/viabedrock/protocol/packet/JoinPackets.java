@@ -545,13 +545,27 @@ public class JoinPackets {
                     final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 条目数
                     for (int i = 0; i < count; i++) {
                         final String dimensionIdentifier = wrapper.read(BedrockTypes.STRING); // 维度标识符
-                        final int maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最大高度
-                        final int minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                        final int maximumHeight;
+                        final int minimumHeight;
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_BOUNDED_HEIGHTS)) {
+                            minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                            maximumHeight = minimumHeight + wrapper.read(BedrockTypes.VAR_INT); // 最大减最小的增量
+                        } else {
+                            maximumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最大高度
+                            minimumHeight = wrapper.read(BedrockTypes.VAR_INT); // 最小高度
+                        }
                         wrapper.read(BedrockTypes.VAR_INT); // 生成器类型
                         // 官方 975+ 会追加维度类型。网易 860 每个条目仍使用四个字段。
                         DimensionDataLayout.skipDimensionType(wrapper);
                         if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_PACK_ID)) {
                             wrapper.read(BedrockTypes.UUID); // 维度包 id
+                        }
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_DEFAULT_BIOME)) {
+                            wrapper.read(BedrockTypes.STRING); // 默认生物群系
+                        }
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_CLOUD_FIELDS)) {
+                            wrapper.read(BedrockTypes.VAR_INT); // 云层高度
+                            wrapper.read(Types.BOOLEAN); // 是否渲染云
                         }
                         if (dimensionIdentifier.equals(Dimension.OVERWORLD.getKey())) { // 基岩客户端目前只支持主世界
                             gameSession.putBedrockDimensionDefinition(dimensionIdentifier, new IntIntImmutablePair(minimumHeight, maximumHeight));
@@ -907,6 +921,9 @@ public class JoinPackets {
         final Editor_WorldType editorWorldType = Editor_WorldType.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 世界编辑器类型
         wrapper.read(Types.BOOLEAN); // 在世界编辑器中创建
         wrapper.read(Types.BOOLEAN); // 从世界编辑器导出
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_EDITOR_LEVEL_MIGRATION)) {
+            wrapper.read(Types.BYTE); // 编辑器等级迁移版本
+        }
         final int currentTime = wrapper.read(BedrockTypes.VAR_INT); // 昼夜循环停止时间
         if (BedrockWire.applies(BedrockDeviation.START_GAME_BYTE_FIELDS)) {
             wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 教育版优惠

@@ -113,6 +113,9 @@ public class HudPackets {
                         wrapper.write(Types.STRING, StringUtil.encodeUUID(uuids[i])); // 用户名
                         names[i] = TextUtil.toSingleLine(wrapper.read(BedrockTypes.STRING)); // 用户名
                         final String xuid = wrapper.read(BedrockTypes.STRING); // XUID
+                        if (BedrockWire.applies(BedrockDeviation.PLAYER_LIST_PLAY_FAB_ID)) {
+                            wrapper.read(BedrockTypes.STRING); // playFabId（2225 起从皮肤块搬到条目）
+                        }
                         final String platformOnlineId = wrapper.read(BedrockTypes.STRING); // 平台在线 ID
                         final int deviceOs = wrapper.read(BedrockTypes.INT_LE); // 设备 OS
                         final SkinData skin = wrapper.read(BedrockTypes.SKIN); // 皮肤
@@ -422,7 +425,9 @@ public class HudPackets {
             final int unifiedColor;
             if (unifiedLayout) {
                 // 1001 起所有更新类型共用定长布局：颜色/叠加层变单字节，暗化屏幕消失
-                wrapper.read(BedrockTypes.VAR_LONG); // 玩家唯一 id，Java 侧没有对应语义
+                if (BedrockWire.applies(BedrockDeviation.BOSS_EVENT_PLAYER_EID)) {
+                    wrapper.read(BedrockTypes.VAR_LONG); // 玩家唯一 id，Java 侧没有对应语义；2192 起移除
+                }
                 rawUpdateType = wrapper.read(Types.BYTE) & 0xFF;
                 unifiedTitle = wrapper.read(BedrockTypes.STRING);
                 wrapper.read(BedrockTypes.STRING); // 已过滤名称

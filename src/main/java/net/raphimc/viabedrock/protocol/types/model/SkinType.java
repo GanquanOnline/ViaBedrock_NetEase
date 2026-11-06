@@ -86,7 +86,9 @@ public class SkinType extends Type<SkinData> {
         final boolean stringTrusted = BedrockWire.applies(protocol, BedrockDeviation.SKIN_TRUSTED_STRING);
 
         final String skinId = BedrockTypes.STRING.read(buffer);
-        final String playFabId = BedrockTypes.STRING.read(buffer);
+        // 2225 起 playFabId 从皮肤块搬到 PLAYER_LIST 条目
+        final String playFabId = BedrockWire.applies(protocol, BedrockDeviation.SKIN_PLAY_FAB_ID_REMOVED)
+                ? "" : BedrockTypes.STRING.read(buffer);
         final String skinResourcePatch = BedrockTypes.STRING.read(buffer);
         final BufferedImage skinData = BedrockTypes.IMAGE.read(buffer);
 
@@ -176,7 +178,9 @@ public class SkinType extends Type<SkinData> {
         final boolean stringTrusted = BedrockWire.applies(protocol, BedrockDeviation.SKIN_TRUSTED_STRING);
 
         BedrockTypes.STRING.write(buffer, value.skinId());
-        BedrockTypes.STRING.write(buffer, value.playFabId());
+        if (!BedrockWire.applies(protocol, BedrockDeviation.SKIN_PLAY_FAB_ID_REMOVED)) {
+            BedrockTypes.STRING.write(buffer, value.playFabId());
+        }
         BedrockTypes.STRING.write(buffer, value.skinResourcePatch());
         BedrockTypes.IMAGE.write(buffer, value.skinData());
 

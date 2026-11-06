@@ -82,6 +82,7 @@ public class OtherPlayerPackets {
                     .resolve("minecraft:player", wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // 实体属性
             final PlayerAbilities abilities = wrapper.read(BedrockTypes.PLAYER_ABILITIES); // 能力
             final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // 实体链接
+            EntityPacketLayout.skipPassengerOfBlockArguments(wrapper); // 2225 起的方块乘客参数
 
             final PlayerEntity entity = entityTracker.addEntity(new PlayerEntity(wrapper.user(), entityRuntimeId, entityTracker.getNextJavaEntityId(), uuid, abilities));
             entity.setPosition(position.add(0F, entity.eyeOffset(), 0F));

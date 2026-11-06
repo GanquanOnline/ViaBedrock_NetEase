@@ -84,6 +84,12 @@ import java.util.logging.Level;
 
 public class WorldPackets {
 
+    /** 子区块高度图长度：256 个方块（每个 4 位）。 */
+    private static final int HEIGHT_MAP_LENGTH = 256;
+
+    /** 2192 起高度图每段长度，与 MOT 的 {@code putHeightMapData} 一致。 */
+    private static final int HEIGHT_MAP_SEGMENT_LENGTH = 16;
+
     private static PacketHandler updateBlockHandler(final boolean synced) {
         return wrapper -> {
             final ChunkTracker chunkTracker = wrapper.user().get(ChunkTracker.class);
@@ -397,6 +403,7 @@ public class WorldPackets {
                 final Long[] blobs = wrapper.read(BedrockTypes.LONG_ARRAY); // blob ID 列表
                 final byte[] data = wrapper.read(BedrockTypes.BYTE_ARRAY); // 数据
                 if (!cachingEnabled) {
+                    readChunkTail(wrapper);
                     dataConsumer.accept(data);
                     return;
                 }
@@ -426,6 +433,7 @@ public class WorldPackets {
             } else {
                 dataConsumer.accept(wrapper.read(BedrockTypes.BYTE_ARRAY)); // 数据
             }
+            readChunkTail(wrapper);
         });
         protocol.registerClientbound(ClientboundBedrockPackets.SUB_CHUNK, null, wrapper -> {
             wrapper.cancel();
@@ -433,6 +441,7 @@ public class WorldPackets {
 
             final boolean cachingEnabled = wrapper.read(Types.BOOLEAN); // 是否启用缓存
             final boolean subChunkV2168 = BedrockWire.applies(BedrockDeviation.SUB_CHUNK_PACKET_V2168);
+            final boolean segmentedHeightMap = BedrockWire.applies(BedrockDeviation.SUB_CHUNK_HEIGHTMAP_SEGMENTS);
             final Dimension dimension = Dimension.getByValue(wrapper.read(BedrockTypes.VAR_INT)); // 维度
             if (dimension != chunkTracker.getDimension()) {
                 return;
@@ -458,12 +467,12 @@ public class WorldPackets {
                 final SubChunkPacket_HeightMapDataType heightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 高度图结果
                 final boolean hasHeightmap = subChunkV2168 ? wrapper.read(Types.BOOLEAN) : heightmapResult == SubChunkPacket_HeightMapDataType.HasData;
                 if (hasHeightmap) {
-                    wrapper.read(new ByteArrayType(256)); // 高度图数据
+                    readHeightMap(wrapper, segmentedHeightMap); // 高度图数据
                 }
                 final SubChunkPacket_HeightMapDataType renderHeightmapResult = SubChunkPacket_HeightMapDataType.getByValue(wrapper.read(Types.BYTE), SubChunkPacket_HeightMapDataType.NoData); // 渲染高度图结果
                 final boolean hasRenderHeightmap = subChunkV2168 ? wrapper.read(Types.BOOLEAN) : renderHeightmapResult == SubChunkPacket_HeightMapDataType.HasData;
                 if (hasRenderHeightmap) {
-                    wrapper.read(new ByteArrayType(256)); // 渲染高度图数据
+                    readHeightMap(wrapper, segmentedHeightMap); // 渲染高度图数据
                 }
 
                 final BlockPosition absolute = new BlockPosition(center.x() + offset.x(), center.y() + offset.y(), center.z() + offset.z());
@@ -792,6 +801,32 @@ public class WorldPackets {
             wrapper.write(BedrockTypes.BLOCK_POSITION, position); // 坐标
             wrapper.write(BedrockTypes.NETWORK_TAG, signTag.copy()); // 方块实体标签
         });
+    }
+
+    /**
+     * 读 LEVEL_CHUNK 在区块数据之后的尾部。2225 起追加一个“仅生物群系更新”标志，
+     * 无存在性 bool、无长度字段；本仓库不用该语义，读完即丢。
+     */
+    static void readChunkTail(final PacketWrapper wrapper) {
+        if (BedrockWire.applies(BedrockDeviation.LEVEL_CHUNK_CLIENT_BIOME_UPDATE)) {
+            wrapper.read(Types.BOOLEAN);
+        }
+    }
+
+    /**
+     * 读子区块高度图。2192 起改成分段：{@code HEIGHT_MAP_LENGTH / 16} 段，
+     * 每段前置无符号 varint 段长（恒为 16）；此前是一整块定长数据。
+     * 高度图内容在本仓库不用，读完即丢。
+     */
+    static void readHeightMap(final PacketWrapper wrapper, final boolean segmented) {
+        if (!segmented) {
+            wrapper.read(new ByteArrayType(HEIGHT_MAP_LENGTH));
+            return;
+        }
+        for (int offset = 0; offset < HEIGHT_MAP_LENGTH; offset += HEIGHT_MAP_SEGMENT_LENGTH) {
+            final long length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
+            wrapper.read(new ByteArrayType(Math.max(0, (int) length)));
+        }
     }
 
     static boolean shouldRetryFailedSubChunk(final SubChunkPacket_SubChunkRequestResult result) {

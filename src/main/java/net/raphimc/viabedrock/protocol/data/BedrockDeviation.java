@@ -182,6 +182,64 @@ public enum BedrockDeviation {
     PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS(2168, 0,
             "PLAYER_AUTH_INPUT 的可选段加内层存在性 bool，2168~2169 还多一个恒 true 外层 bool"),
 
+    // ---- 2192 (1.26.50 预览) ----
+
+    /** SUB_CHUNK 的高度图改成 16 字节分段，每段前置无符号 varint 段长。 */
+    SUB_CHUNK_HEIGHTMAP_SEGMENTS(2192, 0,
+            "SUB_CHUNK 的高度图改为按 16 字节分段，每段前置无符号 varint 段长"),
+
+    /** DIMENSION_DATA 的第二个高度字段从绝对最大高度改为“最大减最小”。 */
+    DIMENSION_DATA_BOUNDED_HEIGHTS(2192, 0,
+            "DIMENSION_DATA 的第二个高度改写成最大减最小的增量"),
+
+    /** DIMENSION_DATA 每个维度追加默认生物群系字符串。 */
+    DIMENSION_DATA_DEFAULT_BIOME(2192, 0,
+            "DIMENSION_DATA 的每个维度追加默认生物群系字符串"),
+
+    /** DIMENSION_DATA 每个维度尾部追加云层高度与渲染云开关。 */
+    DIMENSION_DATA_CLOUD_FIELDS(2225, 0,
+            "DIMENSION_DATA 的每个维度尾部追加云层高度与渲染云开关"),
+
+    /** START_GAME 在导出编辑器标志之后插入编辑器等级迁移版本。 */
+    START_GAME_EDITOR_LEVEL_MIGRATION(2225, 0,
+            "START_GAME 在导出编辑器标志后插入编辑器等级迁移版本"),
+
+    /** LEVEL_CHUNK 在区块数据之后追加“仅生物群系更新”标志。 */
+    LEVEL_CHUNK_CLIENT_BIOME_UPDATE(2225, 0,
+            "LEVEL_CHUNK 在区块数据末尾追加仅生物群系更新标志"),
+
+    /** BOSS_EVENT 统一布局里的玩家 id 在 2192 被移除。 */
+    BOSS_EVENT_PLAYER_EID(1001, 2192,
+            "BOSS_EVENT 统一布局里的玩家 id 在 2192 移除"),
+
+    /** PLAY_SOUND 在 2192 追加旁路监听范围标志与可选播放位置。 */
+    PLAY_SOUND_V2192(2192, 0,
+            "PLAY_SOUND 追加旁路监听范围标志与可选播放位置秒数"),
+
+    /** 调试绘制的 TEXT 载荷在 2192 追加行间距。 */
+    DEBUG_DRAWER_TEXT_LINE_GAP(2192, 0,
+            "调试绘制的 TEXT 载荷追加行间距"),
+
+    /** 皮肤块首部的 playFabId 在 2225 被移除，改由 PLAYER_LIST 条目携带。975 仍带它，所以记“移除”。 */
+    SKIN_PLAY_FAB_ID_REMOVED(2225, 0,
+            "皮肤块在 2225 不再携带 playFabId"),
+
+    /** PLAYER_LIST 条目在 2225 的 xuid 之后补上 playFabId。 */
+    PLAYER_LIST_PLAY_FAB_ID(2225, 0,
+            "PLAYER_LIST 条目在 xuid 之后补上 playFabId"),
+
+    /** ITEM_STACK_RESPONSE 的容器存在性双 bool 只在 2168~2191 存在。 */
+    ITEM_STACK_RESPONSE_CONTAINER_PRESENCE_PAIR(2168, 2192,
+            "ITEM_STACK_RESPONSE 的容器存在性双 bool 只在 2168~2191 存在"),
+
+    /** ANIMATE 尾部追加一个字节的代表手。 */
+    ANIMATE_HAND_BYTE(2225, 0,
+            "ANIMATE 尾部追加一个字节的代表手"),
+
+    /** ADD_ENTITY / ADD_PLAYER 在实体链接之后追加可选的方块乘客参数。 */
+    PASSENGER_OF_BLOCK_ARGUMENTS(2225, 0,
+            "ADD_ENTITY 与 ADD_PLAYER 追加可选的方块乘客参数"),
+
     ;
 
     /** 位掩码容量，偏差集用一个 long 存放。 */

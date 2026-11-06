@@ -105,6 +105,7 @@ public class EntityPackets {
             final EntityProperties entityProperties = EntityPropertyStorage.getOrCreate(wrapper.user())
                     .resolve(type, wrapper.read(BedrockTypes.ENTITY_PROPERTIES)); // 实体属性
             final EntityLink[] entityLinks = wrapper.read(BedrockTypes.ENTITY_LINK_ARRAY); // 实体链接
+            EntityPacketLayout.skipPassengerOfBlockArguments(wrapper);
 
             final int javaSpawnData;
             if (type.equals(FISHING_HOOK_IDENTIFIER)) {
@@ -662,6 +663,7 @@ public class EntityPackets {
             // MOT 860 的 AnimatePacket.decode()：protocol < 897 && ROW_LEFT/ROW_RIGHT 总会携带 rowingTime。
             EntityPacketLayout.skipRowingTime(wrapper, rawAction);
             EntityPacketLayout.skipSwingSource(wrapper);
+            EntityPacketLayout.skipAnimateHand(wrapper);
             // MOT 898 的 AnimatePacket.decode()：网易会追加攻击 ID 的 varlong。
             EntityPacketLayout.skipNetEaseAttackId(wrapper);
 

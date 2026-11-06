@@ -104,6 +104,10 @@ public class WorldEffectPackets {
             if (BedrockWire.applies(BedrockDeviation.PLAY_SOUND_V2168)) {
                 wrapper.read(BedrockTypes.VAR_INT); // 循环次数
             }
+            final boolean playSoundV2192 = BedrockWire.applies(BedrockDeviation.PLAY_SOUND_V2192);
+            if (playSoundV2192) {
+                wrapper.read(Types.BOOLEAN); // 旁路监听距离检查
+            }
             // 网易 860 从未增加 v827+ 的服务端音效句柄尾部。读取该可选 long
             // 只在其不存在时消费存在性布尔值，把该布尔字节留在
             // 缓冲区里，并在服务端→客户端写入器遇到尾部字节时抛错；具有概率性，
@@ -113,6 +117,9 @@ public class WorldEffectPackets {
             if (!ViaBedrock.getConfig().shouldEmulateNetEaseClient()
                     || ViaBedrock.getConfig().getNetEaseProtocolVersion() >= 974) {
                 wrapper.read(BedrockTypes.OPTIONAL_UNSIGNED_LONG_LE); // 服务器音效句柄
+            }
+            if (playSoundV2192 && wrapper.read(Types.BOOLEAN)) {
+                wrapper.read(BedrockTypes.FLOAT_LE); // 播放位置（秒）
             }
 
             final BedrockMappingData.JavaSound javaSound = BedrockProtocol.MAPPINGS.getBedrockToJavaSounds().get(name);

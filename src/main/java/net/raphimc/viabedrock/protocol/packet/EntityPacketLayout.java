@@ -21,6 +21,8 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
 import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -175,6 +177,35 @@ public final class EntityPacketLayout {
         if (usesSwingSource()) {
             wrapper.write(BedrockTypes.OPTIONAL_STRING, swingSource);
         }
+    }
+
+    /** 2225 起 ANIMATE 尾部追加一个裸单字节的代表手，没有存在性 bool。 */
+    public static void skipAnimateHand(final PacketWrapper wrapper) {
+        if (BedrockWire.applies(BedrockDeviation.ANIMATE_HAND_BYTE)) {
+            wrapper.read(Types.UNSIGNED_BYTE);
+        }
+    }
+
+    public static void writeAnimateHand(final PacketWrapper wrapper, final int hand) {
+        if (BedrockWire.applies(BedrockDeviation.ANIMATE_HAND_BYTE)) {
+            wrapper.write(Types.BYTE, (byte) hand);
+        }
+    }
+
+    /**
+     * 2225 起 ADD_ENTITY/ADD_PLAYER 在实体链接之后追加可选的“方块乘客”参数
+     * （存在性 bool + 方块位置 + 偏移 + 旋转 + 旋转上限 + 姿态）。
+     * Java 侧没有对应语义，只需把字节消费掉。
+     */
+    public static void skipPassengerOfBlockArguments(final PacketWrapper wrapper) {
+        if (!BedrockWire.applies(BedrockDeviation.PASSENGER_OF_BLOCK_ARGUMENTS) || !wrapper.read(Types.BOOLEAN)) {
+            return;
+        }
+        wrapper.read(BedrockTypes.SIGNED_BLOCK_POSITION); // 方块位置
+        wrapper.read(BedrockTypes.POSITION_3F); // 偏移
+        wrapper.read(BedrockTypes.FLOAT_LE); // 旋转
+        wrapper.read(BedrockTypes.FLOAT_LE); // 旋转上限
+        wrapper.read(Types.BYTE); // 姿态
     }
 
     public static void skipEntityEventFireAtPosition(final PacketWrapper wrapper) {
