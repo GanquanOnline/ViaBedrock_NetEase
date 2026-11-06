@@ -171,12 +171,30 @@ public class BedrockMappingData extends MappingDataBase {
     private Map<SharedTypes_Legacy_ActorDamageCause, String> bedrockToJavaDamageCauses;
     private Map<Enchant_Type, String> bedrockToJavaEnchantments;
 
+    /**
+     * {@code BedrockProtocol.MAPPINGS} 是进程级单例，但 ViaVersion 会给每个已注册档案各提交一次
+     * {@code loadMappingData()}。并发重复加载同一个对象会互相踩：{@code FileSystemAlreadyExistsException}
+     * 让资源包表为空，接着 vanilla_resource_packs 校验抛异常，整个映射加载失败。这里只放行第一次。
+     */
+    private static final Object LOAD_LOCK = new Object();
+    private static boolean loaded;
+
     public BedrockMappingData() {
         super(BedrockProtocolVersion.bedrockLatest.getName(), ProtocolConstants.JAVA_VERSION.getName());
     }
 
     @Override
     public void load() {
+        synchronized (LOAD_LOCK) {
+            if (loaded) {
+                return;
+            }
+            this.doLoad();
+            loaded = true;
+        }
+    }
+
+    private void doLoad() {
         if (Via.getManager().isDebug()) {
             this.getLogger().info("Loading " + this.unmappedVersion + " -> " + this.mappedVersion + " mappings...");
         }
