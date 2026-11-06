@@ -33,11 +33,15 @@ public final class BedrockDataTables {
      * {@code V1_26_50}（{@code RuntimeItems.getMapping}），方块调色板按协议号向下回退到最近有资源的版本
      * （{@code BlockPalette.findNearestPaletteResource}）。所以两者共用 {@code versions/2193/}。
      * <p>
-     * 974 与 944 都共用 975：944 的 MOT 转储是 975 的真子集（方块 15458 ⊂ 16899 状态、物品 1906 ⊂ 2086），
-     * 而 {@code SharedBlockStates} 里的自定义方块（如 {@code minecraft:chiseled_cinnabar}）只在 975 两件里都有；
-     * 单用 944 转储会因调色板缺条目而加载失败，调色板用 975 而物品用 944 则会报 {@code Unknown bedrock item}。
+     * 924、944 与 974 都共用 975：MOT 在 924 的物品表就是 {@code V1_26_0} 的转储（与 898 的字节相同，1905 项
+     * 全在 975 的 1941 项里），方块调色板没有 924 转储、{@code floorEntry(924)} 落到 {@code V1_21_111}(844)，
+     * 而 844 的 15458 个状态是 975 那 16899 个的真子集；944 的转储同样是 975 的真子集
+     * （方块 15458 ⊂ 16899、物品 1906 ⊂ 2086）。另外 {@code SharedBlockStates} 里的自定义方块
+     * （如 {@code minecraft:chiseled_cinnabar}）只在 975 两件里都有；单用 924/944 转储会因调色板缺条目而加载失败，
+     * 调色板用 975 而物品用旧转储则会报 {@code Unknown bedrock item}。线格式上的 id 由服务端给出
+     * （物品走 {@code ITEM_REGISTRY}，方块走 {@code network_id} 哈希），所以超集表不会把 id 错位。
      */
-    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(944, 975, 974, 975, 2192, 2193);
+    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(924, 975, 944, 975, 974, 975, 2192, 2193);
 
     private BedrockDataTables() {
     }

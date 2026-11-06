@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextPacketType;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 import org.junit.jupiter.api.Test;
@@ -35,11 +36,13 @@ class TextPacketLayoutTest {
     private static final String WELCOME = "\u00a7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     @Test
-    void netease860UsesTypeFirstLayout() {
+    void legacyTypeFirstLayoutIsDecidedByProtocolOnly() {
         assertTrue(TextPacketLayout.isLegacyTypeFirstLayout(true, 860));
-        assertTrue(TextPacketLayout.usesRequiredFilteredString(true, 860));
-        assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(false, 860));
+        assertTrue(TextPacketLayout.isLegacyTypeFirstLayout(false, 860), "官方 860 也是 type 在前的旧布局");
+        assertTrue(TextPacketLayout.isLegacyTypeFirstLayout(false, 896));
+        assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(false, 897));
         assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(true, 924));
+        assertTrue(TextPacketLayout.usesRequiredFilteredString(true, 860));
         assertFalse(TextPacketLayout.usesRequiredFilteredString(true, 924));
     }
 
@@ -115,6 +118,23 @@ class TextPacketLayoutTest {
         assertFalse(TextPacketLayout.usesCategoryNameStrings(false, 975));
         assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(true, 898));
         assertFalse(TextPacketLayout.usesRequiredFilteredString(true, 898));
+    }
+
+    @Test
+    void categoryNameStringsSpanTheOfficial897To923Window() {
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(false, 896));
+        assertTrue(TextPacketLayout.usesCategoryNameStrings(false, 897), "官方 897 与 MOT 的 v898 格式是同一条布局");
+        assertTrue(TextPacketLayout.usesCategoryNameStrings(false, 923));
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(false, 924));
+        assertTrue(TextPacketLayout.usesInlineNetEaseChatParameters(false, 897));
+        assertFalse(TextPacketLayout.usesInlineNetEaseChatParameters(false, 924));
+    }
+
+    @Test
+    void defaultWireProtocolReadsTheCategoryLayout() {
+        assertEquals(975, BedrockWire.effectiveProtocol(), "无配置时不能退成网易协议号");
+        assertFalse(TextPacketLayout.isLegacyTypeFirstLayout(), "clientbound TEXT 必须按 897 起的 category 布局读");
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(), "975 没有占位符名称串");
     }
 
     /**

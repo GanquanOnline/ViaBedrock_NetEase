@@ -40,6 +40,21 @@ class OfficialBedrockLayoutForkTest {
         assertTrue(InteractPacketLayout.usesOptionalPosition(false, 860));
     }
 
+    /** 924 的四个边界：BOOK_EDIT、TEXT、START_GAME 尾部与 tickDeathSystems。 */
+    @Test
+    void officialAxisFollowsThe924Forks() {
+        assertFalse(BookEditLayout.usesVarIntLayout(false, 923));
+        assertTrue(BookEditLayout.usesVarIntLayout(false, 924));
+        assertTrue(TextPacketLayout.usesCategoryNameStrings(false, 923));
+        assertFalse(TextPacketLayout.usesCategoryNameStrings(false, 924));
+        assertTrue(JoinPackets.usesLegacyStartGameTail(923));
+        assertFalse(JoinPackets.usesLegacyStartGameTail(924));
+        assertTrue(JoinPackets.usesStartGameTickDeathSystems(860));
+        assertTrue(JoinPackets.usesStartGameTickDeathSystems(896));
+        assertFalse(JoinPackets.usesStartGameTickDeathSystems(897));
+        assertFalse(JoinPackets.usesStartGameTickDeathSystems(924));
+    }
+
     @Test
     void netease860OnlyChangesWhenEmulationIsEnabled() {
         assertTrue(BlockPositionLayout.usesUnsignedY(true, 860));

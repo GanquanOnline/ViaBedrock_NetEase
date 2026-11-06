@@ -29,6 +29,7 @@ public class BedrockDataTablesTest {
 
     /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储。{@link BedrockDataTableContentTest} 也从这里派生 */
     static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
+            924, 975,
             944, 975,
             974, 975,
             975, 975,
@@ -67,6 +68,15 @@ public class BedrockDataTablesTest {
         assertEquals("versions/2193/runtime_item_states.json", BedrockDataTables.itemStates(2192));
         assertEquals("bedrock/biome_definitions.nbt", BedrockDataTables.biomeDefinitions(2192),
                 "共用目录同样没有生物群系转储");
+    }
+
+    @Test
+    void the924WindowSharesThe975Dump() {
+        assertEquals("versions/975/block_palette.nbt", BedrockDataTables.blockPalette(924),
+                "MOT 在 924 没有方块转储，调色板回落到 1.21.111(844)，而 844 是 975 的子集");
+        assertEquals("versions/975/runtime_item_states.json", BedrockDataTables.itemStates(924),
+                "924 的物品表就是 V1_26_0 的转储，名字全在 975 里");
+        BedrockDataTables.validate(924);
     }
 
     @Test

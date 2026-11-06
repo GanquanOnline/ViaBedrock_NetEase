@@ -21,6 +21,7 @@ import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.ListTag;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.BookEditAction;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -35,12 +36,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BookEditLayoutTest {
 
     @Test
-    void netease860UsesByteActionAndSlot() {
+    void byteActionAndSlotIsDecidedByProtocolOnly() {
         assertFalse(BookEditLayout.usesVarIntLayout(true, 860));
         assertFalse(BookEditLayout.usesVarIntLayout(true, 923));
         assertTrue(BookEditLayout.usesVarIntLayout(true, 924));
-        assertTrue(BookEditLayout.usesVarIntLayout(false, 860));
+        assertFalse(BookEditLayout.usesVarIntLayout(false, 860), "官方 860 也是 byte 布局");
+        assertFalse(BookEditLayout.usesVarIntLayout(false, 923));
+        assertTrue(BookEditLayout.usesVarIntLayout(false, 924));
         assertTrue(BookEditLayout.usesVarIntLayout(false, 975));
+    }
+
+    @Test
+    void defaultWireProtocolWritesTheVarIntLayout() {
+        assertEquals(975, BedrockWire.effectiveProtocol(), "无配置时不能退成网易协议号");
+        assertTrue(BookEditLayout.usesVarIntLayout(), "975 必须写 924 起的 varint 布局");
     }
 
     @Test

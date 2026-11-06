@@ -90,6 +90,9 @@ class BedrockDeviationTest {
         assertEquals(944, BedrockProtocolProfile.byProtocol(944).protocolVersion());
         assertEquals("1.26.10", BedrockProtocolProfile.byProtocol(944).gameVersion());
         assertEquals("1.26.10", BedrockProtocolProfile.byProtocol(944).label());
+        assertEquals(924, BedrockProtocolProfile.byProtocol(924).protocolVersion());
+        assertEquals("1.26.0", BedrockProtocolProfile.byProtocol(924).gameVersion());
+        assertEquals("1.26.0", BedrockProtocolProfile.byProtocol(924).label());
         assertEquals(974, BedrockProtocolProfile.byProtocol(974).protocolVersion());
         assertEquals("1.26.20", BedrockProtocolProfile.byProtocol(974).gameVersion(), "974 与 975 声明同一个版本串");
         assertEquals("1.26.20 (974)", BedrockProtocolProfile.byProtocol(974).label(), "下拉框靠标签区分同名档案");
@@ -101,6 +104,7 @@ class BedrockDeviationTest {
         assertEquals("1.26.50", BedrockProtocolProfile.byProtocol(2193).gameVersion());
         assertEquals("1.26.60", BedrockProtocolProfile.byProtocol(2225).gameVersion());
         assertNull(BedrockProtocolProfile.byProtocol(1024));
+        assertTrue(BedrockProtocolProfile.isSupported(924));
         assertTrue(BedrockProtocolProfile.isSupported(974));
         assertTrue(BedrockProtocolProfile.isSupported(975));
         assertTrue(BedrockProtocolProfile.isSupported(1001));
@@ -111,6 +115,7 @@ class BedrockDeviationTest {
         assertTrue(BedrockProtocolProfile.isSelectable(975));
         assertTrue(BedrockProtocolProfile.isSelectable(1001));
         assertFalse(BedrockProtocolProfile.isSelectable(1024));
+        assertTrue(BedrockProtocolProfile.supportedList().contains("924"));
         assertTrue(BedrockProtocolProfile.supportedList().contains("974"));
         assertTrue(BedrockProtocolProfile.supportedList().contains("975"));
         assertTrue(BedrockProtocolProfile.supportedList().contains("1001"));
@@ -120,6 +125,7 @@ class BedrockDeviationTest {
 
     @Test
     void pinsTheDeviationSetSizeOfEveryImplementedProfile() {
+        assertEquals(0, BedrockWire.deviations(924).size(), "924 与 975 共用数据表与偏差集");
         assertEquals(0, BedrockWire.deviations(944).size(), "944 与 975 共用数据表与偏差集");
         assertEquals(0, BedrockWire.deviations(974).size(), "974 与 975 共用数据表与偏差集");
         assertEquals(0, BedrockWire.deviations(975).size());
@@ -143,6 +149,7 @@ class BedrockDeviationTest {
 
     @Test
     void announcedGameVersionFollowsTheProfile() {
+        assertEquals("1.26.0", BedrockWire.announcedGameVersion(924));
         assertEquals("1.26.10", BedrockWire.announcedGameVersion(944));
         assertEquals("1.26.20", BedrockWire.announcedGameVersion(974), "974 声明的版本串与 975 相同");
         assertEquals("1.26.20", BedrockWire.announcedGameVersion(975));
@@ -173,6 +180,16 @@ class BedrockDeviationTest {
         assertEquals(975, BedrockWire.current());
         assertFalse(BedrockWire.inferred());
         assertEquals(BedrockWire.describe(975), BedrockWire.describe());
+    }
+
+    @Test
+    void the924ProfileIsABackwardWindow() {
+        assertFalse(BedrockWire.inferred(924));
+        assertTrue(BedrockWire.describe(924).contains("protocol 924"));
+        assertTrue(BedrockProtocolProfile.byProtocol(924).protocolVersion()
+                < BedrockProtocolProfile.newest().protocolVersion(), "924 是向后窗口，不能顶掉 newest()");
+        assertFalse(BedrockWire.applies(924, BedrockDeviation.START_GAME_EDITOR_FIELDS),
+                "编辑器字段从 1001 才有，924 不能套上");
     }
 
     @Test

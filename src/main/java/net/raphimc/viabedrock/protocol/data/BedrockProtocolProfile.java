@@ -44,6 +44,7 @@ public enum BedrockProtocolProfile {
      * 线上只差 {@code DIMENSION_DATA} 的 {@code dimension type} 字段。为了让 ViaProxy
      * 下拉框能区分，给 974 单独一个展示标签；握手仍发 {@link #gameVersion()}。
      */
+    V1_26_0(924, "1.26.0"),
     V1_26_10(944, "1.26.10"),
     V1_26_20_26(974, "1.26.20", "1.26.20 (974)"),
     V1_26_20(975, "1.26.20"),

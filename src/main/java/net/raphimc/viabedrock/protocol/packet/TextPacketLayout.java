@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
 import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextPacketType;
@@ -30,7 +31,7 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * 官方基岩 1.26 / 协议 924+ 以及 Nukkit-MOT 的 897/924 分支编码为：
  * {@code localize, category(0/1/2), type, payload..., xuid, platformId, optional filtered}。
  * <p>
- * 网易 / Nukkit-MOT 协议 860 仍使用 897 之前的布局：
+ * 官方 860..896 与网易 / Nukkit-MOT 协议 860 仍使用 897 之前的布局：
  * {@code type, localize, payload..., xuid, platformId, filtered string}。
  * 把该包当作 924+ 处理会把 UTF-8 长度当作 type id 消费，随后
  * 在尾部的 xuid/platform/filtered 读取上崩溃（加入欢迎语时被踢）。
@@ -48,11 +49,16 @@ public final class TextPacketLayout {
     }
 
     public static boolean isLegacyTypeFirstLayout() {
-        return isLegacyTypeFirstLayout(emulateNetEase(), netEaseProtocol());
+        return isLegacyTypeFirstLayout(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean isLegacyTypeFirstLayout(final int protocol) {
+        return protocol > 0 && protocol < CATEGORY_LAYOUT_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean isLegacyTypeFirstLayout(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < CATEGORY_LAYOUT_PROTOCOL;
+        return isLegacyTypeFirstLayout(protocol);
     }
 
     public static boolean usesRequiredFilteredString() {
@@ -81,11 +87,16 @@ public final class TextPacketLayout {
     }
 
     public static boolean usesCategoryNameStrings() {
-        return usesCategoryNameStrings(emulateNetEase(), netEaseProtocol());
+        return usesCategoryNameStrings(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesCategoryNameStrings(final int protocol) {
+        return protocol >= CATEGORY_LAYOUT_PROTOCOL && protocol < CATEGORY_NAME_STRINGS_END_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesCategoryNameStrings(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol >= CATEGORY_LAYOUT_PROTOCOL && protocol < CATEGORY_NAME_STRINGS_END_PROTOCOL;
+        return usesCategoryNameStrings(protocol);
     }
 
     /**

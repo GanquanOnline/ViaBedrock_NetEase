@@ -131,22 +131,26 @@ public class JoinPackets {
     }
 
     /**
-     * 网易 / Nukkit-MOT 的 START_GAME 仍使用 924 之前的尾部：四个前置 ID（含
+     * 官方基岩 860..923 与 Nukkit-MOT 的 START_GAME 共用 924 之前的尾部：四个前置 ID（含
      * ownerIdentifier）、rewind + 服务端权威方块破坏（没有 movement-mode varint），且没有
-     * 服务器加入信息树。协议 860 还额外有 tickDeathSystemsEnabled
-     * （827..896）；898 已将其移除。加入信息树随协议 924 引入。
+     * 服务器加入信息树。827..896 还额外有 tickDeathSystemsEnabled，897 起移除；
+     * 加入信息树随协议 924 引入。网易 860/898 都低于阈值，所以这条分支只看协议号，
+     * 不再按“是否仿真网易”判断。
      */
     public static final int START_GAME_JOIN_INFORMATION_PROTOCOL = 924;
     public static final int START_GAME_TICK_DEATH_SYSTEMS_PROTOCOL = 827;
     public static final int START_GAME_TICK_DEATH_SYSTEMS_END_PROTOCOL = 897;
 
-    static boolean usesNetEaseStartGameTail() {
-        return usesNetEaseStartGameTail(ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
-                ViaBedrock.getConfig().getNetEaseProtocolVersion());
+    static boolean usesLegacyStartGameTail() {
+        return usesLegacyStartGameTail(BedrockWire.effectiveProtocol());
     }
 
-    static boolean usesNetEaseStartGameTail(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < START_GAME_JOIN_INFORMATION_PROTOCOL;
+    static boolean usesLegacyStartGameTail(final int protocol) {
+        return protocol > 0 && protocol < START_GAME_JOIN_INFORMATION_PROTOCOL;
+    }
+
+    static boolean usesStartGameTickDeathSystems() {
+        return usesStartGameTickDeathSystems(BedrockWire.effectiveProtocol());
     }
 
     static boolean usesStartGameTickDeathSystems(final int protocol) {
@@ -383,14 +387,13 @@ public class JoinPackets {
                     final String serverEngine;
                     final boolean hashedRuntimeBlockIds;
                     final CompoundTag playerPropertyData;
-                    if (usesNetEaseStartGameTail()) {
-                        final NetEaseLegacyStartGameTail tail = readNetEaseLegacyStartGameTail(wrapper,
-                                usesStartGameTickDeathSystems(ViaBedrock.getConfig().getNetEaseProtocolVersion()));
+                    if (usesLegacyStartGameTail()) {
+                        final LegacyStartGameTail tail = readLegacyStartGameTail(wrapper, usesStartGameTickDeathSystems());
                         if (tail.leftoverBytes() != 0) {
                             ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
-                                    "NetEase START_GAME had " + tail.leftoverBytes()
+                                    "Legacy START_GAME had " + tail.leftoverBytes()
                                             + " leftover bytes after the protocol "
-                                            + ViaBedrock.getConfig().getNetEaseProtocolVersion() + " layout");
+                                            + BedrockWire.effectiveProtocol() + " layout");
                         }
                         gameLevelName = tail.gameLevelName();
                         rewindHistorySize = tail.rewindHistorySize();
@@ -997,8 +1000,8 @@ public class JoinPackets {
         );
     }
 
-    static NetEaseLegacyStartGameTail readNetEaseLegacyStartGameTail(final PacketWrapper wrapper, final boolean tickDeathSystems) {
-        // Nukkit-MOT / 网易 860 与 898（924 之前）：
+    static LegacyStartGameTail readLegacyStartGameTail(final PacketWrapper wrapper, final boolean tickDeathSystems) {
+        // 官方 860..923 与 Nukkit-MOT / 网易 860、898（924 之前）：
         // 前置 ID（含 ownerIdentifier），然后是世界方块，
         // 接着是 rewind + 服务端权威方块破坏。没有 movement-mode varint。
         wrapper.read(BedrockTypes.STRING); // 服务器 id
@@ -1026,7 +1029,7 @@ public class JoinPackets {
             wrapper.read(Types.BOOLEAN); // 启用刻死亡系统 (827 <= proto < 897)
         }
         wrapper.read(Types.BOOLEAN); // 服务端权威音效
-        return new NetEaseLegacyStartGameTail(
+        return new LegacyStartGameTail(
                 gameLevelName,
                 rewindHistorySize,
                 blockBreakingServerAuthoritative,
@@ -1065,7 +1068,7 @@ public class JoinPackets {
     ) {
     }
 
-    record NetEaseLegacyStartGameTail(
+    record LegacyStartGameTail(
             String gameLevelName,
             int rewindHistorySize,
             boolean blockBreakingServerAuthoritative,
