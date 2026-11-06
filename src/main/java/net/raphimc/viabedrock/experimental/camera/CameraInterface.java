@@ -440,7 +440,11 @@ public class CameraInterface {
             if (wrapper.read(Types.BOOLEAN)) {
                 wrapper.read(BedrockTypes.FLOAT_LE); // fov（视野）
                 wrapper.read(BedrockTypes.FLOAT_LE); // ease_time（缓动时间）
-                wrapper.read(Types.BYTE); // ease_type（缓动类型）
+                if (CameraPacketLayout.usesEaseByName(protocol)) {
+                    wrapper.read(BedrockTypes.STRING); // ease_type（缓动类型，944 起是按名字符串）
+                } else {
+                    wrapper.read(Types.BYTE); // ease_type（缓动类型，旧版是枚举序号）
+                }
                 wrapper.read(Types.BOOLEAN); // clear（清除）
             }
         }
@@ -456,17 +460,35 @@ public class CameraInterface {
                 for (int i = 0; i < progressCount; i++) {
                     wrapper.read(BedrockTypes.FLOAT_LE); // value（值）
                     wrapper.read(BedrockTypes.FLOAT_LE); // time（时间）
+                    skipSplineKeyframeEase(wrapper, protocol);
                 }
                 final int rotationCount = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
                 for (int i = 0; i < rotationCount; i++) {
                     wrapper.read(BedrockTypes.POSITION_3F); // pitch/yaw/roll（俯仰/偏航/翻滚）
                     wrapper.read(BedrockTypes.FLOAT_LE); // time（时间）
+                    skipSplineKeyframeEase(wrapper, protocol);
+                }
+                if (CameraPacketLayout.usesSplineKeyframeEase(protocol)) {
+                    wrapper.read(BedrockTypes.STRING); // spline_identifier（样条标识符，924 起）
+                    wrapper.read(Types.BOOLEAN); // load_from_json（是否从 JSON 载入，924 起）
                 }
             }
             if (wrapper.read(Types.BOOLEAN)) {
                 wrapper.read(BedrockTypes.LONG_LE); // attach unique_entity_id（附加到唯一实体 ID）
             }
             skipOptionalBoolean(wrapper); // detach_from_entity（从实体分离）
+        }
+    }
+
+    /** 924 起样条关键帧带缓动字段，944 起由枚举序号改成名字字符串。 */
+    private static void skipSplineKeyframeEase(final PacketWrapper wrapper, final int protocol) {
+        if (!CameraPacketLayout.usesSplineKeyframeEase(protocol)) {
+            return;
+        }
+        if (CameraPacketLayout.usesEaseByName(protocol)) {
+            wrapper.read(BedrockTypes.STRING);
+        } else {
+            wrapper.read(Types.BYTE);
         }
     }
 

@@ -34,7 +34,8 @@ class UpdateClientInputLocksLayoutTest {
         assertTrue(UpdateClientInputLocksLayout.usesServerPosition(true, 860));
         assertTrue(UpdateClientInputLocksLayout.usesServerPosition(true, 943));
         assertFalse(UpdateClientInputLocksLayout.usesServerPosition(true, 944));
-        assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 860));
+        assertTrue(UpdateClientInputLocksLayout.usesServerPosition(false, 860), "官方 860 仍带服务端位置");
+        assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 944));
         assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 975));
     }
 

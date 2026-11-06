@@ -33,7 +33,8 @@ class InventoryTransactionLayoutTest {
         assertFalse(InventoryTransactionLayout.usesClientCooldownState(true, 860));
         assertFalse(InventoryTransactionLayout.usesClientCooldownState(true, 943));
         assertTrue(InventoryTransactionLayout.usesClientCooldownState(true, 944));
-        assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 860));
+        assertFalse(InventoryTransactionLayout.usesClientCooldownState(false, 860), "官方 860 没有冷却字节");
+        assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 944));
         assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 975));
     }
 
@@ -41,9 +42,9 @@ class InventoryTransactionLayoutTest {
     void netease860UseItemTrailerHasNoCooldownByte() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 1, true, 860);
+            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 1, 860);
             assertEquals(0, buffer.readableBytes());
-            assertEquals(0, InventoryTransactionLayout.readClientCooldownState(buffer, true, 860));
+            assertEquals(0, InventoryTransactionLayout.readClientCooldownState(buffer, 860));
         } finally {
             buffer.release();
         }
@@ -53,9 +54,9 @@ class InventoryTransactionLayoutTest {
     void treatingNetease860UseItemAs944ReadsPastThePacket() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 1, true, 860);
+            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 1, 860);
             assertThrows(IndexOutOfBoundsException.class,
-                    () -> InventoryTransactionLayout.readClientCooldownState(buffer, true, 944));
+                    () -> InventoryTransactionLayout.readClientCooldownState(buffer, 944));
         } finally {
             buffer.release();
         }
@@ -65,9 +66,9 @@ class InventoryTransactionLayoutTest {
     void officialUseItemStillWritesCooldownByte() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 3, false, 975);
+            InventoryTransactionLayout.writeClientCooldownState(buffer, (byte) 3, 975);
             assertEquals(1, buffer.readableBytes());
-            assertEquals(3, InventoryTransactionLayout.readClientCooldownState(buffer, false, 975));
+            assertEquals(3, InventoryTransactionLayout.readClientCooldownState(buffer, 975));
             assertFalse(buffer.isReadable());
         } finally {
             buffer.release();

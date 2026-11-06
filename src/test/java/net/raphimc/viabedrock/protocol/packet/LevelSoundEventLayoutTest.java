@@ -32,9 +32,11 @@ class LevelSoundEventLayoutTest {
     void netease860KeepsUniqueIdButDropsFireAtPosition() {
         assertTrue(LevelSoundEventLayout.usesEntityUniqueId(true, 860));
         assertFalse(LevelSoundEventLayout.usesFireAtPosition(true, 860));
-        assertTrue(LevelSoundEventLayout.usesFireAtPosition(false, 860));
+        assertFalse(LevelSoundEventLayout.usesFireAtPosition(false, 860), "官方 860 仍在 974 之下");
         assertTrue(LevelSoundEventLayout.usesFireAtPosition(true, 974));
         assertTrue(LevelSoundEventLayout.usesFireAtPosition(true, 975));
+        assertFalse(LevelSoundEventLayout.usesFireAtPosition(false, 973), "官方 973 也没有 fireAtPosition");
+        assertTrue(LevelSoundEventLayout.usesFireAtPosition(false, 974));
     }
 
     @Test
@@ -67,9 +69,9 @@ class LevelSoundEventLayoutTest {
     void officialSoundTrailerStillReadsFireAtPosition() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            LevelSoundEventLayout.writeTrailer(buffer, 42L, null, false, 860);
+            LevelSoundEventLayout.writeTrailer(buffer, 42L, null, false, 975);
             assertEquals(9, buffer.readableBytes(), "official trailer is unique id plus absent optional vector");
-            LevelSoundEventLayout.skipTrailer(buffer, false, 860);
+            LevelSoundEventLayout.skipTrailer(buffer, false, 975);
             assertFalse(buffer.isReadable());
         } finally {
             buffer.release();

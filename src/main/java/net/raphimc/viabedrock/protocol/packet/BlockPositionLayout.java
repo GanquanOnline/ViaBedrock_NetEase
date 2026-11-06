@@ -18,13 +18,13 @@
 
 package net.raphimc.viabedrock.protocol.packet;
 
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 
 /**
  * 基岩 {@code BlockVector3} 的线格式布局辅助。
  * <p>
  * 官方基岩 / Nukkit-MOT 协议 944+（{@code V1_26_10}）把 Y 编码为
- * zigzag varint。网易 860 仍使用 944 之前的布局：
+ * zigzag varint。944 之前（官方 860..943 与网易 860 一样）是
  * {@code zigzag X, unsigned-varint Y, zigzag Z}。把三个 zigzag varint 写进
  * 860 的 USE_ITEM / CONTAINER_OPEN 会把 Y=64 变成 Y=32，于是箱子和
  * 右键使用方块会落在空气上。
@@ -41,19 +41,17 @@ public final class BlockPositionLayout {
     }
 
     public static boolean usesUnsignedY() {
-        return usesUnsignedY(emulateNetEase(), netEaseProtocol());
+        return usesUnsignedY(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesUnsignedY(final int protocol) {
+        return protocol > 0 && protocol < SIGNED_Y_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesUnsignedY(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < SIGNED_Y_PROTOCOL;
+        return usesUnsignedY(protocol);
     }
 
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
-    }
 }
 

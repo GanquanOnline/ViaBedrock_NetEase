@@ -18,14 +18,14 @@
 package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
  * 基岩物品栏事务物品使用载荷的尾部辅助工具。
  * <p>
  * 官方基岩 / Nukkit-MOT 协议 944+ 在 {@code clientInteractPrediction} 之后
- * 追加 {@code clientCooldownState}。网易 860 仍结束于
+ * 追加 {@code clientCooldownState}。官方 860..943 与网易 860 仍结束于
  * 预测结果的 varint。把这个额外字节写入 PlayerAuthInput 的
  * PERFORM_ITEM_INTERACTION 载荷（或独立的 USE_ITEM 事务）
  * 会使其后的模拟量/相机/原始移动字段错位，Nukkit 会以
@@ -147,15 +147,27 @@ public final class InventoryTransactionLayout {
     }
 
     public static boolean usesClientCooldownState() {
-        return usesClientCooldownState(emulateNetEase(), netEaseProtocol());
+        return usesClientCooldownState(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesClientCooldownState(final int protocol) {
+        return protocol >= CLIENT_COOLDOWN_STATE_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesClientCooldownState(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= CLIENT_COOLDOWN_STATE_PROTOCOL;
+        return usesClientCooldownState(protocol);
     }
 
     public static byte readClientCooldownState(final ByteBuf buffer) {
-        return readClientCooldownState(buffer, emulateNetEase(), netEaseProtocol());
+        return readClientCooldownState(buffer, BedrockWire.effectiveProtocol());
+    }
+
+    public static byte readClientCooldownState(final ByteBuf buffer, final int protocol) {
+        if (!usesClientCooldownState(protocol)) {
+            return 0;
+        }
+        return buffer.readByte();
     }
 
     public static byte readClientCooldownState(final ByteBuf buffer, final boolean emulateNetEase, final int protocol) {
@@ -166,21 +178,12 @@ public final class InventoryTransactionLayout {
     }
 
     public static void writeClientCooldownState(final ByteBuf buffer, final byte clientCooldownState) {
-        writeClientCooldownState(buffer, clientCooldownState, emulateNetEase(), netEaseProtocol());
+        writeClientCooldownState(buffer, clientCooldownState, BedrockWire.effectiveProtocol());
     }
 
-    public static void writeClientCooldownState(final ByteBuf buffer, final byte clientCooldownState,
-                                                final boolean emulateNetEase, final int protocol) {
-        if (usesClientCooldownState(emulateNetEase, protocol)) {
+    public static void writeClientCooldownState(final ByteBuf buffer, final byte clientCooldownState, final int protocol) {
+        if (usesClientCooldownState(protocol)) {
             buffer.writeByte(clientCooldownState);
         }
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
     }
 }

@@ -196,6 +196,7 @@ class EntityDeathPacketsTest {
             this.configField.set(null, Proxy.newProxyInstance(ViaBedrockConfig.class.getClassLoader(), new Class[]{ViaBedrockConfig.class}, (proxy, method, args) -> {
                 if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
                 if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                if (method.getName().equals("getBedrockProtocolVersion")) return 975;
                 throw new UnsupportedOperationException(method.getName());
             }));
             this.fieldsField.set(BedrockProtocol.MAPPINGS,

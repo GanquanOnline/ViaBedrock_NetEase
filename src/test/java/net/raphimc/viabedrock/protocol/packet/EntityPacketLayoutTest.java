@@ -38,6 +38,8 @@ class EntityPacketLayoutTest {
         assertTrue(EntityPacketLayout.usesAmbient(true, 897));
         assertTrue(EntityPacketLayout.usesSwingSource(true, 897));
         assertTrue(EntityPacketLayout.usesEntityEventFireAtPosition(true, 974));
+        assertFalse(EntityPacketLayout.usesEntityEventFireAtPosition(false, 973));
+        assertTrue(EntityPacketLayout.usesEntityEventFireAtPosition(false, 974));
     }
 
     @Test

@@ -38,8 +38,10 @@ class CraftingDataLayoutTest {
     }
 
     @Test
-    void official975UsesShapelessFurnaceLayout() {
-        assertTrue(CraftingDataLayout.usesShapelessFurnaceLayout(false, 860));
+    void shapelessFurnaceLayoutStartsAt974() {
+        assertFalse(CraftingDataLayout.usesShapelessFurnaceLayout(false, 860));
+        assertFalse(CraftingDataLayout.usesShapelessFurnaceLayout(false, 973));
+        assertTrue(CraftingDataLayout.usesShapelessFurnaceLayout(false, 974));
         assertTrue(CraftingDataLayout.usesShapelessFurnaceLayout(false, 975));
         assertTrue(CraftingDataLayout.usesShapelessFurnaceLayout(true, 974));
         assertFalse(CraftingDataLayout.usesShapelessFurnaceLayout(true, 973));

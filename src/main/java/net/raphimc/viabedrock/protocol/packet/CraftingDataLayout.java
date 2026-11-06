@@ -50,7 +50,7 @@ public final class CraftingDataLayout {
     }
 
     public static boolean usesShapelessFurnaceLayout(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= SHAPELESS_FURNACE_PROTOCOL;
+        return protocol >= SHAPELESS_FURNACE_PROTOCOL;
     }
 
     public static boolean isLegacyFurnaceType(final int rawType) {

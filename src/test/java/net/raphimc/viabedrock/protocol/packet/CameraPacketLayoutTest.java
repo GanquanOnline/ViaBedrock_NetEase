@@ -52,6 +52,16 @@ class CameraPacketLayoutTest {
     }
 
     @Test
+    void easeByNameAndSplineKeyframeEaseFollow924And944() {
+        assertFalse(CameraPacketLayout.usesSplineKeyframeEase(923));
+        assertTrue(CameraPacketLayout.usesSplineKeyframeEase(924));
+        assertTrue(CameraPacketLayout.usesSplineKeyframeEase(2225));
+        assertFalse(CameraPacketLayout.usesEaseByName(943));
+        assertTrue(CameraPacketLayout.usesEaseByName(944));
+        assertTrue(CameraPacketLayout.usesEaseByName(975));
+    }
+
+    @Test
     void startingRotationIs2192Only() {
         assertFalse(CameraPacketLayout.usesStartingRotation(true, 2191));
         assertTrue(CameraPacketLayout.usesStartingRotation(true, 2192));

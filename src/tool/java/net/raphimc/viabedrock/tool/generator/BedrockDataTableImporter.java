@@ -158,7 +158,7 @@ public final class BedrockDataTableImporter {
             entry.put("states", states);
             entry.putInt("block_id", motState.getNumberTag("id").asInt());
             entry.put("name_hash", new LongTag(FNV1.fnv1_64(name.getBytes(StandardCharsets.UTF_8))));
-            entry.putInt("network_id", BlockStateHasher.hash(motState));
+            entry.putInt("network_id", BlockStateHasher.hash(entry));
             entry.putInt("version", motState.getNumberTag("version").asInt());
             if (seen.add(stateKey(entry))) {
                 palette.add(entry);

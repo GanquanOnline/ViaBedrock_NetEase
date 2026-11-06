@@ -301,7 +301,7 @@ public class EntityPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_ENTITY_DELTA, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final MoveEntityDeltaLayout.Delta delta = MoveEntityDeltaLayout.read(wrapper, BedrockWire.current());
+            final MoveEntityDeltaLayout.Delta delta = MoveEntityDeltaLayout.read(wrapper, BedrockWire.effectiveProtocol());
             final long entityRuntimeId = delta.entityRuntimeId();
             final boolean hasX = delta.has(MoveEntityDeltaLayout.FLAG_HAS_X);
             final boolean hasY = delta.has(MoveEntityDeltaLayout.FLAG_HAS_Y);

@@ -25,9 +25,12 @@ package net.raphimc.viabedrock.protocol.data;
  * 要求该协议号能解析到数据表目录（自己那份，或 {@code BedrockDataTables} 里登记的共用目录），
  * 所以实际能启动的只有随包发布了数据表的协议号。
  * <p>
+ * 档案按协议号升序排列，{@link #newest()} 取末项，所以新增旧协议号要插到对应位置，
+ * 不能一律追加到末尾。
+ * <p>
  * 接入新的官方版本：先在该版本抓包补齐 {@link BedrockDeviation} 的区间，再用
- * {@code importBedrockDataTables} 生成 {@code data/versions/<protocol>/}，然后把档案行追加到
- * 本枚举末尾，最后在 {@code BedrockDeviationTest} 钉住该协议的偏差集。
+ * {@code importBedrockDataTables} 生成 {@code data/versions/<protocol>/}，然后把档案行按协议号
+ * 插到对应位置，最后在 {@code BedrockDeviationTest} 钉住该协议的偏差集。
  * <p>
  * 档案行与数据表目录必须成对出现：{@code ViaBedrockPlatform.init} 会为每个档案注册转换协议，
  * 启动闸门 {@link BedrockDataTables#validate} 则按协议号找目录，缺了直接拒绝启动。
@@ -36,6 +39,13 @@ package net.raphimc.viabedrock.protocol.data;
  */
 public enum BedrockProtocolProfile {
 
+    /**
+     * 974 与 975 声明的游戏版本串相同（MOT 的 {@code V1_26_20_26} 名字也是 "1.26.20"），
+     * 线上只差 {@code DIMENSION_DATA} 的 {@code dimension type} 字段。为了让 ViaProxy
+     * 下拉框能区分，给 974 单独一个展示标签；握手仍发 {@link #gameVersion()}。
+     */
+    V1_26_10(944, "1.26.10"),
+    V1_26_20_26(974, "1.26.20", "1.26.20 (974)"),
     V1_26_20(975, "1.26.20"),
     V1_26_30(1001, "1.26.30"),
     V1_26_40(2168, "1.26.40"),
@@ -48,10 +58,16 @@ public enum BedrockProtocolProfile {
 
     private final int protocolVersion;
     private final String gameVersion;
+    private final String label;
 
     BedrockProtocolProfile(final int protocolVersion, final String gameVersion) {
+        this(protocolVersion, gameVersion, gameVersion);
+    }
+
+    BedrockProtocolProfile(final int protocolVersion, final String gameVersion, final String label) {
         this.protocolVersion = protocolVersion;
         this.gameVersion = gameVersion;
+        this.label = label;
     }
 
     public int protocolVersion() {
@@ -62,7 +78,12 @@ public enum BedrockProtocolProfile {
         return this.gameVersion;
     }
 
-    /** @return 最后一个档案；枚举只允许追加，所以末项就是已实现的最新版本 */
+    /** @return 展示用名字；仅当两个档案握手字符串相同时才与 {@link #gameVersion()} 不同 */
+    public String label() {
+        return this.label;
+    }
+
+    /** @return 最后一个档案；枚举按协议号升序排列，所以末项就是已实现的最新版本 */
     public static BedrockProtocolProfile newest() {
         final BedrockProtocolProfile[] profiles = values();
         return profiles[profiles.length - 1];

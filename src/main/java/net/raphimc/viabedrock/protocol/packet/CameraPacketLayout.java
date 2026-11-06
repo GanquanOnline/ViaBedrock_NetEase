@@ -22,6 +22,10 @@ public final class CameraPacketLayout {
     public static final int CAMERA_TARGET_PROTOCOL = 712;
     public static final int CAMERA_FOV_PROTOCOL = 827;
     public static final int CAMERA_SPLINE_PROTOCOL = 859;
+    /** 样条关键帧开始带缓动字段 */
+    public static final int SPLINE_KEYFRAME_EASE_PROTOCOL = 924;
+    /** 缓动字段由枚举序号改成名字字符串 */
+    public static final int CAMERA_EASE_BY_NAME_PROTOCOL = 944;
     public static final int STARTING_ROTATION_PROTOCOL = 2192;
 
     private CameraPacketLayout() {
@@ -78,6 +82,16 @@ public final class CameraPacketLayout {
     /** 每个预设尾部新增“继承起始朝向”开关与可选的起始朝向。 */
     public static boolean usesStartingRotation(final boolean emulateNetEase, final int protocol) {
         return !emulateNetEase || protocol >= STARTING_ROTATION_PROTOCOL;
+    }
+
+    /** 样条关键帧的缓动字段与尾部 {@code splineIdentifier} / {@code loadFromJson} 从 924 起出现。 */
+    public static boolean usesSplineKeyframeEase(final int protocol) {
+        return protocol >= SPLINE_KEYFRAME_EASE_PROTOCOL;
+    }
+
+    /** 缓动字段在 944 起由枚举序号改成名字字符串。 */
+    public static boolean usesEaseByName(final int protocol) {
+        return protocol >= CAMERA_EASE_BY_NAME_PROTOCOL;
     }
 
 }

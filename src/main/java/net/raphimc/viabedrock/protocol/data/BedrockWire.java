@@ -48,6 +48,20 @@ public final class BedrockWire {
         return configured > 0 ? configured : ProtocolConstants.DEFAULT_BEDROCK_PROTOCOL_VERSION;
     }
 
+    /**
+     * @return 本次连接实际使用的线格式协议号：网易仿真下取配置的网易协议号，
+     * 否则取 {@link #current()}。布局分支按这个号判断，不再按“是否仿真网易”分支：
+     * 已实现的网易号（860 / 898）低于当前已实现的最低阈值 974，两者结果一致；
+     * 将来若启用高于阈值的网易号，这里返回的仍是网易号，判断不会失真。
+     */
+    public static int effectiveProtocol() {
+        final ViaBedrockConfig config = ViaBedrock.getConfig();
+        if (config != null && config.shouldEmulateNetEaseClient() && config.getNetEaseProtocolVersion() > 0) {
+            return config.getNetEaseProtocolVersion();
+        }
+        return current();
+    }
+
     /** @return 登录声明使用的游戏版本串：已实现档案用自己的版本，其它协议号取不超过它的最近档案 */
     public static String announcedGameVersion() {
         return announcedGameVersion(current());

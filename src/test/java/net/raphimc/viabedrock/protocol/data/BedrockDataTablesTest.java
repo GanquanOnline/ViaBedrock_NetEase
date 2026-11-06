@@ -29,6 +29,8 @@ public class BedrockDataTablesTest {
 
     /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储。{@link BedrockDataTableContentTest} 也从这里派生 */
     static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
+            944, 975,
+            974, 975,
             975, 975,
             1001, 1001,
             2168, 2168,

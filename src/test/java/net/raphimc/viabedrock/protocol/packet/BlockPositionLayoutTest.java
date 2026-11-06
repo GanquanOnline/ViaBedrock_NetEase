@@ -35,7 +35,9 @@ class BlockPositionLayoutTest {
         assertTrue(BlockPositionLayout.usesUnsignedY(true, 860));
         assertTrue(BlockPositionLayout.usesUnsignedY(true, 943));
         assertFalse(BlockPositionLayout.usesUnsignedY(true, 944));
-        assertFalse(BlockPositionLayout.usesUnsignedY(false, 860));
+        assertTrue(BlockPositionLayout.usesUnsignedY(false, 860), "官方 860 仍在 944 之前");
+        assertTrue(BlockPositionLayout.usesUnsignedY(false, 943));
+        assertFalse(BlockPositionLayout.usesUnsignedY(false, 944));
         assertFalse(BlockPositionLayout.usesUnsignedY(false, 975));
     }
 

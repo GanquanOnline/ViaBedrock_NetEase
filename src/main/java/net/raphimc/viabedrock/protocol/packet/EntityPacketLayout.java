@@ -71,11 +71,16 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesEntityEventFireAtPosition() {
-        return usesEntityEventFireAtPosition(emulateNetEase(), netEaseProtocol());
+        return usesEntityEventFireAtPosition(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesEntityEventFireAtPosition(final int protocol) {
+        return protocol >= ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易两档协议号也在 974 之下）。 */
     public static boolean usesEntityEventFireAtPosition(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= ENTITY_EVENT_FIRE_AT_POSITION_PROTOCOL;
+        return usesEntityEventFireAtPosition(protocol);
     }
 
     public static boolean usesRowingTime() {

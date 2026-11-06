@@ -25,11 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OfficialBedrockLayoutForkTest {
 
     @Test
-    void official975KeepsSignedBlockYAndCooldownAndOptionalInteract() {
+    void officialAxisKeeps975LayoutAndFollowsPre944Forks() {
         assertFalse(BlockPositionLayout.usesUnsignedY(false, 975));
-        assertFalse(BlockPositionLayout.usesUnsignedY(false, 860));
+        assertTrue(BlockPositionLayout.usesUnsignedY(false, 860));
+        assertTrue(BlockPositionLayout.usesUnsignedY(false, 943));
+        assertFalse(BlockPositionLayout.usesUnsignedY(false, 944));
         assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 975));
-        assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 860));
+        assertFalse(InventoryTransactionLayout.usesClientCooldownState(false, 860));
+        assertFalse(InventoryTransactionLayout.usesClientCooldownState(false, 943));
+        assertTrue(InventoryTransactionLayout.usesClientCooldownState(false, 944));
+        assertTrue(UpdateClientInputLocksLayout.usesServerPosition(false, 943));
+        assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 944));
         assertTrue(InteractPacketLayout.usesOptionalPosition(false, 975));
         assertTrue(InteractPacketLayout.usesOptionalPosition(false, 860));
     }

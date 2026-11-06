@@ -54,7 +54,7 @@ public class BedrockProtocolVersion {
             if (!registered.add(profile.protocolVersion())) {
                 throw new IllegalStateException("Duplicate Bedrock protocol profile: " + profile.gameVersion() + " (" + profile.protocolVersion() + ")");
             }
-            final ProtocolVersion version = new SpecialProtocolVersion(profile.protocolVersion(), "Bedrock " + profile.gameVersion(), ProtocolConstants.JAVA_VERSION) {
+            final ProtocolVersion version = new SpecialProtocolVersion(profile.protocolVersion(), "Bedrock " + profile.label(), ProtocolConstants.JAVA_VERSION) {
                 @Override
                 public ProtocolVersion getBaseProtocolVersion() {
                     return null;

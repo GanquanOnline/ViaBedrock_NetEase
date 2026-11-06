@@ -32,8 +32,12 @@ public final class BedrockDataTables {
      * 共用同一份转储的协议号。MOT 里 2192（1.26.50.27）与 2193（1.26.50）落到同一份数据：物品表按协议号显式映到
      * {@code V1_26_50}（{@code RuntimeItems.getMapping}），方块调色板按协议号向下回退到最近有资源的版本
      * （{@code BlockPalette.findNearestPaletteResource}）。所以两者共用 {@code versions/2193/}。
+     * <p>
+     * 974 与 944 都共用 975：944 的 MOT 转储是 975 的真子集（方块 15458 ⊂ 16899 状态、物品 1906 ⊂ 2086），
+     * 而 {@code SharedBlockStates} 里的自定义方块（如 {@code minecraft:chiseled_cinnabar}）只在 975 两件里都有；
+     * 单用 944 转储会因调色板缺条目而加载失败，调色板用 975 而物品用 944 则会报 {@code Unknown bedrock item}。
      */
-    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(2192, 2193);
+    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(944, 975, 974, 975, 2192, 2193);
 
     private BedrockDataTables() {
     }
