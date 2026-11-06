@@ -81,6 +81,84 @@ public enum BedrockDeviation {
     LEVEL_SOUND_EVENT_NAME(1001, 0,
             "LEVEL_SOUND_EVENT 的声音改为按名字字符串传输"),
 
+    // ---- 2168 (1.26.40) ----
+
+    /** 皮肤动画的条目数、类型与表达式从 LInt 改成无符号 varint。 */
+    SKIN_ANIMATION_VARINTS(2168, 0,
+            "皮肤动画的条目数 / 类型 / 表达式改为无符号 varint"),
+
+    /** 皮肤臂宽从字符串改成单字节，皮肤颜色从字符串改成小端 int32。 */
+    SKIN_ARM_SIZE_BYTE(2168, 0,
+            "皮肤臂宽改为单字节、皮肤颜色改为小端 int32"),
+
+    /** 物品堆描述符的尾部字段在 2168 换了编码，物品栏与事务包的网络物品堆都走这一条。 */
+    ITEM_DESCRIPTOR_V2168(2168, 0,
+            "网络物品堆描述符在 2168 换掉尾部字段编码"),
+
+    /** 配方原料改成“描述符类型 varint + 类型专属载荷”，不再写成单字节类型 + 固定字段。 */
+    RECIPE_INGREDIENT_TYPED(2168, 0,
+            "配方原料改为带描述符类型前缀的编码"),
+
+    /** 物品堆请求的动作类型改成无符号 varint，并在其后重复一个按跳 7 编号的类型字节。 */
+    ITEM_STACK_REQUEST_TYPED_ACTIONS(2168, 0,
+            "物品堆请求的动作类型改为无符号 varint 并附带重复类型字节"),
+
+    /** ITEM_STACK_RESPONSE 的 filteredCustomName 从固定字符串改成可选字符串。 */
+    ITEM_STACK_RESPONSE_OPTIONAL_FILTERED_NAME(2168, 0,
+            "ITEM_STACK_RESPONSE 的 filteredCustomName 改为可选字符串"),
+
+    /** MOVE_PLAYER 的传送原因/传送物品用外层 bool 包裹，不再由模式隐式决定。 */
+    MOVE_PLAYER_TELEPORT_FLAG(2168, 0,
+            "MOVE_PLAYER 的传送原因与传送物品由外层 bool 包裹"),
+
+    /** MOVE_ENTITY_DELTA 的坐标改为逐轴存在性 bool，不再用标志位掩码。 */
+    MOVE_ENTITY_DELTA_AXIS_BOOLS(2168, 0,
+            "MOVE_ENTITY_DELTA 的坐标改为逐轴存在性 bool"),
+
+    /** PLAYER_LIST 去掉条目之后的可信皮肤 bool 数组。 */
+    PLAYER_LIST_NO_TRUSTED(2168, 0,
+            "PLAYER_LIST 去掉条目后的可信皮肤 bool"),
+
+    /** PLAYER_SKIN 去掉条目末尾的可信皮肤 bool。 */
+    PLAYER_SKIN_NO_TRUSTED(2168, 0,
+            "PLAYER_SKIN 去掉条目末尾的可信皮肤 bool"),
+
+    /** RESOURCE_PACKS_INFO 的两个包数量从 LShort 改成无符号 varint。 */
+    RESOURCE_PACK_VARINT_COUNTS(2168, 0,
+            "RESOURCE_PACKS_INFO 的包数量从 LShort 改为无符号 varint"),
+
+    /** RESOURCE_PACK_CLIENT_RESPONSE 的状态从单字节改成无符号 varint 并附带状态名。 */
+    RESOURCE_PACK_STATUS_VARINT(2168, 0,
+            "RESOURCE_PACK_CLIENT_RESPONSE 的状态改为无符号 varint 并附带状态名"),
+
+    /** START_GAME 的 eduEditionOffer 改无符号 varint、permissionLevel 改单字节。 */
+    START_GAME_BYTE_FIELDS(2168, 0,
+            "START_GAME 的 eduEditionOffer 改无符号 varint、permissionLevel 改单字节"),
+
+    /** SUB_CHUNK 的基准原点改三个 int32、计数改无符号 varint、每条追加存在性 bool。 */
+    SUB_CHUNK_PACKET_V2168(2168, 0,
+            "SUB_CHUNK 的基准原点改三个 int32，计数改无符号 varint，逐条追加存在性 bool"),
+
+    /** LEVEL_CHUNK 的子区块计数改无符号 varint 并追加可选的 subChunkLimit。 */
+    LEVEL_CHUNK_PACKET_V2168(2168, 0,
+            "LEVEL_CHUNK 的子区块计数改为无符号 varint 并追加可选 subChunkLimit"),
+
+    /** DIMENSION_DATA 每个维度追加 pack UUID。 */
+    DIMENSION_DATA_PACK_ID(2168, 0,
+            "DIMENSION_DATA 的每个维度追加 pack UUID"),
+
+    /** PLAY_SOUND 在 2168 换成音量/音高可选字段的编码。 */
+    PLAY_SOUND_V2168(2168, 0,
+            "PLAY_SOUND 在 2168 换成音量与音高可选字段的编码"),
+
+    /** SET_SCORE 去掉动作前缀，改为逐条目类型表加类型名。 */
+    SET_SCORE_V2168(2168, 0,
+            "SET_SCORE 去掉动作前缀，改为逐条目类型表"),
+
+    /** CRAFTING_DATA 改为按配方类型分桶的顺序编码。 */
+    CRAFTING_DATA_BUCKETS(2168, 0,
+            "CRAFTING_DATA 改为按配方类型分桶的顺序编码"),
+
     ;
 
     /** 位掩码容量，偏差集用一个 long 存放。 */

@@ -38,6 +38,8 @@ public final class ItemStackResponseLayout {
     public static final int FILTERED_CUSTOM_NAME_PROTOCOL = 766;
     public static final int DURABILITY_CORRECTION_PROTOCOL = 428;
     public static final int OPTIONAL_CONTAINER_PROTOCOL = 2168;
+    /** filteredCustomName 从固定字符串改成可选字符串的起点 */
+    public static final int OPTIONAL_FILTERED_NAME_PROTOCOL = 2168;
     public static final byte RESULT_OK = 0;
 
     private ItemStackResponseLayout() {
@@ -61,6 +63,11 @@ public final class ItemStackResponseLayout {
 
     public static boolean usesDurabilityCorrection(final boolean emulateNetEase, final int protocol) {
         return !emulateNetEase || protocol >= DURABILITY_CORRECTION_PROTOCOL;
+    }
+
+    /** @return true 表示 filteredCustomName 带存在性 bool */
+    public static boolean usesOptionalFilteredCustomName(final int protocol) {
+        return protocol >= OPTIONAL_FILTERED_NAME_PROTOCOL;
     }
 
     public static DecodedResponse skip(final PacketWrapper wrapper) {
@@ -217,8 +224,13 @@ public final class ItemStackResponseLayout {
             }
             final String customName = usesCustomName(emulateNetEase, protocol)
                     ? wrapper.read(BedrockTypes.STRING) : null;
-            final String filteredCustomName = usesFilteredCustomName(emulateNetEase, protocol)
-                    ? wrapper.read(BedrockTypes.STRING) : null;
+            final String filteredCustomName;
+            if (usesOptionalFilteredCustomName(protocol)) {
+                filteredCustomName = wrapper.read(Types.BOOLEAN) ? wrapper.read(BedrockTypes.STRING) : null;
+            } else {
+                filteredCustomName = usesFilteredCustomName(emulateNetEase, protocol)
+                        ? wrapper.read(BedrockTypes.STRING) : null;
+            }
             final Integer durabilityCorrection = usesDurabilityCorrection(emulateNetEase, protocol)
                     ? wrapper.read(BedrockTypes.VAR_INT) : null;
             slots.add(new DecodedSlot(slot, hotbarSlot, count, stackNetworkId,
@@ -243,8 +255,13 @@ public final class ItemStackResponseLayout {
             }
             final String customName = usesCustomName(emulateNetEase, protocol)
                     ? BedrockTypes.STRING.read(buffer) : null;
-            final String filteredCustomName = usesFilteredCustomName(emulateNetEase, protocol)
-                    ? BedrockTypes.STRING.read(buffer) : null;
+            final String filteredCustomName;
+            if (usesOptionalFilteredCustomName(protocol)) {
+                filteredCustomName = buffer.readBoolean() ? BedrockTypes.STRING.read(buffer) : null;
+            } else {
+                filteredCustomName = usesFilteredCustomName(emulateNetEase, protocol)
+                        ? BedrockTypes.STRING.read(buffer) : null;
+            }
             final Integer durabilityCorrection = usesDurabilityCorrection(emulateNetEase, protocol)
                     ? BedrockTypes.VAR_INT.read(buffer) : null;
             slots.add(new DecodedSlot(slot, hotbarSlot, count, stackNetworkId,
@@ -292,7 +309,14 @@ public final class ItemStackResponseLayout {
             BedrockTypes.STRING.write(buffer, customName != null ? customName : "");
         }
         if (usesFilteredCustomName(emulateNetEase, protocol)) {
-            BedrockTypes.STRING.write(buffer, filteredCustomName != null ? filteredCustomName : "");
+            if (usesOptionalFilteredCustomName(protocol)) {
+                buffer.writeBoolean(filteredCustomName != null);
+                if (filteredCustomName != null) {
+                    BedrockTypes.STRING.write(buffer, filteredCustomName);
+                }
+            } else {
+                BedrockTypes.STRING.write(buffer, filteredCustomName != null ? filteredCustomName : "");
+            }
         }
         if (usesDurabilityCorrection(emulateNetEase, protocol)) {
             BedrockTypes.VAR_INT.write(buffer, durabilityCorrection);

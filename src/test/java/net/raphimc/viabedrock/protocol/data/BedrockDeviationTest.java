@@ -81,9 +81,9 @@ class BedrockDeviationTest {
 
     @Test
     void resolvesProfilesAndAuto() {
-        assertEquals(1001, BedrockProtocolProfile.newest().protocolVersion());
-        assertEquals("1.26.30", BedrockProtocolProfile.newest().gameVersion());
-        assertEquals(1001, BedrockProtocolProfile.resolveProtocol(BedrockProtocolProfile.AUTO));
+        assertEquals(2168, BedrockProtocolProfile.newest().protocolVersion());
+        assertEquals("1.26.40", BedrockProtocolProfile.newest().gameVersion());
+        assertEquals(2168, BedrockProtocolProfile.resolveProtocol(BedrockProtocolProfile.AUTO));
         assertEquals(975, BedrockProtocolProfile.byProtocol(975).protocolVersion());
         assertEquals("1.26.20", BedrockProtocolProfile.byProtocol(975).gameVersion());
         assertEquals(1001, BedrockProtocolProfile.byProtocol(1001).protocolVersion());
@@ -113,7 +113,8 @@ class BedrockDeviationTest {
     @Test
     void announcedGameVersionFollowsTheProfile() {
         assertEquals("1.26.20", BedrockWire.announcedGameVersion(975));
-        assertEquals(BedrockProtocolProfile.newest().gameVersion(), BedrockWire.announcedGameVersion(1001));
+        assertEquals("1.26.30", BedrockWire.announcedGameVersion(1001));
+        assertEquals("1.26.40", BedrockWire.announcedGameVersion(2168));
         assertEquals(BedrockWire.announcedGameVersion(975), BedrockWire.announcedGameVersion());
     }
 

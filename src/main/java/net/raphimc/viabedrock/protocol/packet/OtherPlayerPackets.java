@@ -37,6 +37,8 @@ import net.raphimc.viabedrock.api.util.StringUtil;
 import net.raphimc.viabedrock.experimental.ExperimentalFeatures;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.GameType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PlayerPositionModeComponent_PositionMode;
 import net.raphimc.viabedrock.protocol.data.enums.java.Relative;
@@ -155,7 +157,13 @@ public class OtherPlayerPackets {
             final PlayerPositionModeComponent_PositionMode mode = PlayerPositionModeComponent_PositionMode.getByValue(wrapper.read(Types.BYTE), PlayerPositionModeComponent_PositionMode.OnlyHeadRot); // 模式
             final boolean onGround = wrapper.read(Types.BOOLEAN); // 是否在地面
             wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 所骑乘实体的运行时 ID
-            if (mode == PlayerPositionModeComponent_PositionMode.Teleport) {
+            if (BedrockWire.applies(BedrockDeviation.MOVE_PLAYER_TELEPORT_FLAG)) {
+                // 2168 起传送原因/物品由外层 bool 决定，不再只看模式
+                if (wrapper.read(Types.BOOLEAN)) {
+                    wrapper.read(BedrockTypes.INT_LE); // 传送原因
+                    wrapper.read(BedrockTypes.INT_LE); // 实体类型
+                }
+            } else if (mode == PlayerPositionModeComponent_PositionMode.Teleport) {
                 wrapper.read(BedrockTypes.INT_LE); // 传送原因
                 wrapper.read(BedrockTypes.INT_LE); // 实体类型
             }

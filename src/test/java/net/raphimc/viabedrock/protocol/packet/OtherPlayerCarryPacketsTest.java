@@ -123,6 +123,7 @@ class OtherPlayerCarryPacketsTest {
                 if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
                 if (method.getName().equals("shouldEnableExperimentalFeatures")) return true;
                 if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                if (method.getName().equals("getBedrockProtocolVersion")) return 975;
                 throw new UnsupportedOperationException(method.getName());
             }));
             idField.setAccessible(true);

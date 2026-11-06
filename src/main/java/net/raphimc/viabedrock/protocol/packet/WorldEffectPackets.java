@@ -101,6 +101,9 @@ public class WorldEffectPackets {
             final BlockPosition position = wrapper.read(BedrockTypes.BLOCK_POSITION); // 位置
             final float volume = wrapper.read(BedrockTypes.FLOAT_LE); // 音量
             final float pitch = wrapper.read(BedrockTypes.FLOAT_LE); // 音高
+            if (BedrockWire.applies(BedrockDeviation.PLAY_SOUND_V2168)) {
+                wrapper.read(BedrockTypes.VAR_INT); // 循环次数
+            }
             // 网易 860 从未增加 v827+ 的服务端音效句柄尾部。读取该可选 long
             // 只在其不存在时消费存在性布尔值，把该布尔字节留在
             // 缓冲区里，并在服务端→客户端写入器遇到尾部字节时抛错；具有概率性，

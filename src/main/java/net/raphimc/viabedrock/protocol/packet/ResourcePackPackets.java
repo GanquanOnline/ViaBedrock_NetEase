@@ -39,6 +39,8 @@ import net.raphimc.viabedrock.experimental.resourcepack.cache.ResourcePackArchiv
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.ProtocolConstants;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.PackType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ResourcePackResponse;
@@ -88,7 +90,10 @@ public class ResourcePackPackets {
                     final boolean forceDisableVibrantVisuals = wrapper.read(Types.BOOLEAN);
                     final UUID worldTemplateId = wrapper.read(BedrockTypes.UUID);
                     final String worldTemplateVersion = wrapper.read(BedrockTypes.STRING);
-                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE)]; // 资源包数量
+                    final int resourcePackCount = BedrockWire.applies(BedrockDeviation.RESOURCE_PACK_VARINT_COUNTS)
+                            ? wrapper.read(BedrockTypes.UNSIGNED_VAR_INT) // 资源包数量
+                            : wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 资源包数量
+                    final ResourcePackLoadStateTracker.Info[] infos = new ResourcePackLoadStateTracker.Info[resourcePackCount];
                     for (int i = 0; i < infos.length; i++) {
                         final UUID id = wrapper.read(BedrockTypes.UUID); // 包 ID
                         final String version = wrapper.read(BedrockTypes.STRING); // 包版本
@@ -752,10 +757,7 @@ public class ResourcePackPackets {
                 try {
                     final PacketWrapper resourcePackClientResponse = PacketWrapper.create(
                             ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, liveUser);
-                    resourcePackClientResponse.write(Types.BYTE,
-                            (byte) ResourcePackResponse.DownloadingFinished.getValue()); // 状态
-                    resourcePackClientResponse.write(
-                            BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+                    writeResourcePackResponseStatus(resourcePackClientResponse, ResourcePackResponse.DownloadingFinished);
                     resourcePackClientResponse.sendToServer(BedrockProtocol.class);
                 } catch (Throwable sendError) {
                     BedrockProtocol.kickForIllegalState(liveUser,
@@ -1256,11 +1258,25 @@ public class ResourcePackPackets {
         return user != null && user.getChannel().isActive();
     }
 
+    /** 2168 起状态是“无符号 varint（状态 - 1）+ 状态名”，下载列表只在 Downloading 状态下出现。 */
+    private static final String[] RESOURCE_PACK_STATUS_NAMES = {
+            "cancel", "downloading", "downloadingfinished", "resourcepackstackfinished"};
+
+    private static void writeResourcePackResponseStatus(final PacketWrapper wrapper, final ResourcePackResponse status) {
+        if (BedrockWire.applies(BedrockDeviation.RESOURCE_PACK_STATUS_VARINT)) {
+            final int index = Math.max(0, Math.min(status.getValue() - 1, RESOURCE_PACK_STATUS_NAMES.length - 1));
+            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, index); // 状态
+            wrapper.write(BedrockTypes.STRING, RESOURCE_PACK_STATUS_NAMES[index]); // 状态名
+            return;
+        }
+        wrapper.write(Types.BYTE, (byte) status.getValue()); // 状态
+        wrapper.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+    }
+
     private static void sendResourcePackStackFinished(final UserConnection user) {
         try {
             final PacketWrapper resourcePackClientResponse = PacketWrapper.create(ServerboundBedrockPackets.RESOURCE_PACK_CLIENT_RESPONSE, user);
-            resourcePackClientResponse.write(Types.BYTE, (byte) ResourcePackResponse.ResourcePackStackFinished.getValue()); // 状态
-            resourcePackClientResponse.write(BedrockTypes.SHORT_LE_STRING_ARRAY, new String[0]); // 正在下载的包
+            writeResourcePackResponseStatus(resourcePackClientResponse, ResourcePackResponse.ResourcePackStackFinished);
             resourcePackClientResponse.sendToServer(BedrockProtocol.class);
             ViaBedrock.getPlatform().getLogger().log(Level.INFO,
                     "Sent ResourcePackStackFinished (client declares all resource packs loaded)");

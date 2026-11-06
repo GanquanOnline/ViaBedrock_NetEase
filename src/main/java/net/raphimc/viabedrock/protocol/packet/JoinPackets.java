@@ -550,6 +550,9 @@ public class JoinPackets {
                         wrapper.read(BedrockTypes.VAR_INT); // 生成器类型
                         // 官方 975+ 会追加维度类型。网易 860 每个条目仍使用四个字段。
                         DimensionDataLayout.skipDimensionType(wrapper);
+                        if (BedrockWire.applies(BedrockDeviation.DIMENSION_DATA_PACK_ID)) {
+                            wrapper.read(BedrockTypes.UUID); // 维度包 id
+                        }
                         if (dimensionIdentifier.equals(Dimension.OVERWORLD.getKey())) { // 基岩客户端目前只支持主世界
                             gameSession.putBedrockDimensionDefinition(dimensionIdentifier, new IntIntImmutablePair(minimumHeight, maximumHeight));
                         }
@@ -905,7 +908,11 @@ public class JoinPackets {
         wrapper.read(Types.BOOLEAN); // 在世界编辑器中创建
         wrapper.read(Types.BOOLEAN); // 从世界编辑器导出
         final int currentTime = wrapper.read(BedrockTypes.VAR_INT); // 昼夜循环停止时间
-        wrapper.read(BedrockTypes.VAR_INT); // 教育版优惠
+        if (BedrockWire.applies(BedrockDeviation.START_GAME_BYTE_FIELDS)) {
+            wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 教育版优惠
+        } else {
+            wrapper.read(BedrockTypes.VAR_INT); // 教育版优惠
+        }
         wrapper.read(Types.BOOLEAN); // 教育版功能已启用
         wrapper.read(BedrockTypes.STRING); // 教育版产品 id
         final float rainLevel = wrapper.read(BedrockTypes.FLOAT_LE); // 降雨强度
@@ -922,7 +929,9 @@ public class JoinPackets {
         wrapper.read(Types.BOOLEAN); // 之前已切换的实验
         wrapper.read(Types.BOOLEAN); // 奖励箱已启用
         wrapper.read(Types.BOOLEAN); // 已启用初始地图
-        final int playerPermission = wrapper.read(BedrockTypes.VAR_INT); // 玩家权限
+        final int playerPermission = BedrockWire.applies(BedrockDeviation.START_GAME_BYTE_FIELDS)
+                ? wrapper.read(Types.BYTE) // 玩家权限
+                : wrapper.read(BedrockTypes.VAR_INT); // 玩家权限
         final int chunkTickRange = wrapper.read(BedrockTypes.INT_LE); // 服务端区块刻范围
         wrapper.read(Types.BOOLEAN); // 行为包已锁定
         wrapper.read(Types.BOOLEAN); // 资源包已锁定

@@ -35,7 +35,8 @@ package net.raphimc.viabedrock.protocol.data;
 public enum BedrockProtocolProfile {
 
     V1_26_20(975, "1.26.20"),
-    V1_26_30(1001, "1.26.30");
+    V1_26_30(1001, "1.26.30"),
+    V1_26_40(2168, "1.26.40");
 
     /** {@code bedrock.protocol-version: 0} 解析为 {@link #newest()}。 */
     public static final int AUTO = 0;
