@@ -32,13 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 已入库的按版本数据表自洽性：能被加载、字段能被映射数据读走、哈希与文件名一致。
  * <p>
- * 975 目录是现有 Geyser 调色板的原样拷贝，这里用逐字节相等把它钉住；1001/2168 由
+ * 975 目录是现有 Geyser 调色板的原样拷贝，这里用逐字节相等把它钉住；1001/2168/2193/2225 由
  * {@code importBedrockDataTables} 从 MOT 转储生成，这里校验重新算出的
  * {@code network_id} / {@code name_hash} 与表里存的值一致。
  */
 public class BedrockDataTableContentTest {
 
-    private static final List<Integer> SHIPPED_PROTOCOLS = List.of(975, 1001, 2168);
+    /** 实际存在的版本目录；2192 复用 2193 的目录，不需要单独列 */
+    private static final List<Integer> SHIPPED_PROTOCOLS = List.of(975, 1001, 2168, 2193, 2225);
     private static final int MIN_ITEM_STATES = 1500;
 
     @Test

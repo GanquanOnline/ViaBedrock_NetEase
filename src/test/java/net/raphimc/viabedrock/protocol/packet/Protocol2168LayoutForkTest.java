@@ -91,11 +91,9 @@ class Protocol2168LayoutForkTest {
     );
 
     @Test
-    void profileIsRegisteredAsTheNewestLayout() {
+    void profileIsRegisteredAsASupportedLayout() {
         assertEquals(2168, BedrockProtocolProfile.V1_26_40.protocolVersion());
         assertEquals("1.26.40", BedrockProtocolProfile.V1_26_40.gameVersion());
-        assertEquals(2168, BedrockProtocolProfile.newest().protocolVersion());
-        assertEquals(2168, BedrockProtocolProfile.resolveProtocol(BedrockProtocolProfile.AUTO));
         assertTrue(BedrockProtocolProfile.isSupported(2168));
         assertTrue(BedrockProtocolProfile.isSelectable(2168));
         assertTrue(BedrockProtocolProfile.supportedList().contains("2168"));

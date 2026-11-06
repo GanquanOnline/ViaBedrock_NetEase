@@ -2,6 +2,7 @@ package net.raphimc.viabedrock.protocol.data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -26,6 +27,12 @@ public final class BedrockDataTables {
     private static final String BLOCK_PALETTE = "block_palette.nbt";
     private static final String ITEM_STATES = "runtime_item_states.json";
     private static final String BIOME_DEFINITIONS = "biome_definitions.nbt";
+
+    /**
+     * 共用同一份转储的协议号。MOT 把 2192（1.26.50.27）与 2193（1.26.50）都映射到 {@code GameVersion.V1_26_50}，
+     * {@code RuntimeItems} 与 {@code GlobalBlockPalette} 都是这么查的，所以两者共用 {@code versions/2193/}。
+     */
+    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(2192, 2193);
 
     private BedrockDataTables() {
     }
@@ -66,7 +73,7 @@ public final class BedrockDataTables {
     public static void validate(final int protocol) {
         final List<String> missing = new ArrayList<>(2);
         for (final String fileName : List.of(BLOCK_PALETTE, ITEM_STATES)) {
-            if (!exists(DATA_ROOT + VERSIONS + protocol + "/" + fileName)) {
+            if (versionFile(protocol, fileName, BedrockDataTables::exists, false) == null) {
                 missing.add(fileName);
             }
         }
@@ -80,15 +87,23 @@ public final class BedrockDataTables {
 
     private static String versionFile(final int protocol, final String fileName,
                                       final Predicate<String> exists, final boolean required) {
-        final String path = VERSIONS + protocol + "/" + fileName;
-        if (exists.test(DATA_ROOT + path)) {
-            return path;
+        for (final int tableProtocol : tableProtocols(protocol)) {
+            final String path = VERSIONS + tableProtocol + "/" + fileName;
+            if (exists.test(DATA_ROOT + path)) {
+                return path;
+            }
         }
         if (required) {
-            throw new IllegalStateException("No bedrock data table " + DATA_ROOT + path
+            throw new IllegalStateException("No bedrock data table " + DATA_ROOT + VERSIONS + protocol + "/" + fileName
                     + " for protocol " + protocol + " (run the importBedrockDataTables tool)");
         }
         return null;
+    }
+
+    /** @return 该协议号要查的版本目录，共用表的协议先查自己、再查共用的那个 */
+    private static List<Integer> tableProtocols(final int protocol) {
+        final Integer shared = SHARED_TABLES.get(protocol);
+        return shared == null ? List.of(protocol) : List.of(protocol, shared);
     }
 
     private static boolean exists(final String path) {

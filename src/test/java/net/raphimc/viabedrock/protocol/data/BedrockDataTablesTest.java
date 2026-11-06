@@ -3,6 +3,7 @@ package net.raphimc.viabedrock.protocol.data;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,15 +16,44 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class BedrockDataTablesTest {
 
-    private static final List<Integer> SHIPPED_PROTOCOLS = List.of(975, 1001, 2168);
+    /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储 */
+    private static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
+            975, 975,
+            1001, 1001,
+            2168, 2168,
+            2192, 2193,
+            2193, 2193,
+            2225, 2225
+    );
+
+    @Test
+    void everyProfileHasAShippedTableDirectory() {
+        for (final BedrockProtocolProfile profile : BedrockProtocolProfile.values()) {
+            assertTrue(SHIPPED_TABLES.containsKey(profile.protocolVersion()),
+                    "档案 " + profile.gameVersion() + " 没有登记数据表目录");
+        }
+        assertEquals(BedrockProtocolProfile.values().length, SHIPPED_TABLES.size(),
+                "登记了没有档案的目录");
+    }
 
     @Test
     void everyShippedProtocolHasRequiredTables() {
-        for (final int protocol : SHIPPED_PROTOCOLS) {
+        for (final Map.Entry<Integer, Integer> entry : SHIPPED_TABLES.entrySet()) {
+            final int protocol = entry.getKey();
+            final int table = entry.getValue();
             BedrockDataTables.validate(protocol);
-            assertEquals("versions/" + protocol + "/block_palette.nbt", BedrockDataTables.blockPalette(protocol));
-            assertEquals("versions/" + protocol + "/runtime_item_states.json", BedrockDataTables.itemStates(protocol));
+            assertEquals("versions/" + table + "/block_palette.nbt", BedrockDataTables.blockPalette(protocol));
+            assertEquals("versions/" + table + "/runtime_item_states.json", BedrockDataTables.itemStates(protocol));
         }
+    }
+
+    @Test
+    void sharedProtocolFallsBackToTheOtherProtocolsDirectory() {
+        assertEquals("versions/2193/block_palette.nbt", BedrockDataTables.blockPalette(2192),
+                "MOT 把 2192 与 2193 都映射到 GameVersion.V1_26_50 的转储");
+        assertEquals("versions/2193/runtime_item_states.json", BedrockDataTables.itemStates(2192));
+        assertEquals("bedrock/biome_definitions.nbt", BedrockDataTables.biomeDefinitions(2192),
+                "共用目录同样没有生物群系转储");
     }
 
     @Test

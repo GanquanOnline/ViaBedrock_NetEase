@@ -24,19 +24,23 @@ package net.raphimc.viabedrock.protocol.data;
  * 的协议号上线，布局由 {@link BedrockWire} 的偏差区间推导，启动日志会标记为 inferred；
  * 档案列表只用于下拉框、告警文案和启动日志，不参与布局判断。
  * <p>
- * 接入新的官方版本：先在该版本抓包补齐 {@link BedrockDeviation} 的区间，再把档案行
- * 追加到本枚举末尾，最后在 {@code BedrockDeviationTest} 钉住该协议的偏差集。
+ * 接入新的官方版本：先在该版本抓包补齐 {@link BedrockDeviation} 的区间，再用
+ * {@code importBedrockDataTables} 生成 {@code data/versions/<protocol>/}，然后把档案行追加到
+ * 本枚举末尾，最后在 {@code BedrockDeviationTest} 钉住该协议的偏差集。
  * <p>
- * 追加第二个档案前要注意：ViaProxy 侧用 {@code equals(BedrockProtocolVersion.bedrockLatest)}
- * 判定“是否基岩连接”（AddressUtil、Proxy2ServerChannelInitializer、Client2ProxyHandler），
- * 而 {@code ViaBedrockPlatform.init} 只为 bedrockLatest 注册协议；两处不一起改，新档案会在
- * 下拉框里能选、实际却按 Java 连接处理。
+ * 档案行与数据表目录必须成对出现：{@code ViaBedrockPlatform.init} 会为每个档案注册转换协议，
+ * 启动闸门 {@link BedrockDataTables#validate} 则按协议号找目录，缺了直接拒绝启动。
+ * “是否基岩连接”一律走 {@code BedrockProtocolVersion.isBedrock}，不要再写
+ * {@code equals(bedrockLatest)}。
  */
 public enum BedrockProtocolProfile {
 
     V1_26_20(975, "1.26.20"),
     V1_26_30(1001, "1.26.30"),
-    V1_26_40(2168, "1.26.40");
+    V1_26_40(2168, "1.26.40"),
+    V1_26_50_27(2192, "1.26.50.27"),
+    V1_26_50(2193, "1.26.50"),
+    V1_26_60(2225, "1.26.60");
 
     /** {@code bedrock.protocol-version: 0} 解析为 {@link #newest()}。 */
     public static final int AUTO = 0;
