@@ -19,6 +19,7 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.experimental.types.inventory.RecipeIngredientType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerEnumName;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemStackRequestActionType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.TextProcessingEventOrigin;
@@ -44,6 +45,8 @@ import java.util.List;
 public final class ItemStackRequestLayout {
 
     public static final int UNSIGNED_ACTION_TYPE_PROTOCOL = 2168;
+    /** 2192（v1_26_60）在 CRAFT_LOOM 之后插入 CRAFT_RESERVED，action id 表需要另一张。 */
+    public static final int CRAFT_RESERVED_PROTOCOL = 2192;
     public static final int OPTIONAL_DYNAMIC_ID_PROTOCOL = 729;
     public static final int FILTER_STRINGS_PROTOCOL = 422;
     public static final int TEXT_ORIGIN_PROTOCOL = 554;
@@ -84,7 +87,7 @@ public final class ItemStackRequestLayout {
     public static void writeActionType(final ByteBuf buffer, final ItemStackRequestActionType type,
                                        final boolean emulateNetEase, final int protocol) {
         if (usesUnsignedActionType(emulateNetEase, protocol)) {
-            final int id = typedActionId(type);
+            final int id = typedActionId(type, protocol);
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, id);
             // 2168 在类型序数后重复一个类型字节。MOT 读取端会消费它（丢弃），
             // CloudburstMC 的 writeIngredient2/readIngredient2 系列也是同一个值。
@@ -99,7 +102,12 @@ public final class ItemStackRequestLayout {
      * 与 MOT {@code ItemStackRequestActionType.fromId} 的 2168 分支和 CloudburstMC 的
      * ITEM_STACK_REQUEST_TYPES 一致。
      */
-    static int typedActionId(final ItemStackRequestActionType type) {
+    static int typedActionId(final ItemStackRequestActionType type, final int protocol) {
+        if (protocol >= CRAFT_RESERVED_PROTOCOL) {
+            // 2192 起 CRAFT_RESERVED 占 16，其余后移；本仓还没有 2192 档案，
+            // 不能沿用 2168 的表静默写错字节。
+            throw new UnsupportedOperationException("Action id table for protocol " + protocol + " is not implemented");
+        }
         final int legacyId = type.getValue();
         if (legacyId == ItemStackRequestActionType.PlaceInItemContainer_DEPRECATED.getValue()
                 || legacyId == ItemStackRequestActionType.TakeFromItemContainer_DEPRECATED.getValue()) {
@@ -218,6 +226,16 @@ public final class ItemStackRequestLayout {
     public static void writeCraftRecipeAuto(final ByteBuf buffer, final int recipeNetworkId, final int numberOfRequestedCrafts,
                                             final int timesCrafted, final List<BedrockItem> ingredients,
                                             final boolean emulateNetEase, final int protocol) {
+        writeCraftRecipeAuto(buffer, recipeNetworkId, numberOfRequestedCrafts, timesCrafted, ingredients, null, emulateNetEase, protocol);
+    }
+
+    /**
+     * @param ingredientIdentifiers 与 {@code ingredients} 等长的命名空间 id；2168 的 DEFAULT 配料必须写字符串
+     */
+    public static void writeCraftRecipeAuto(final ByteBuf buffer, final int recipeNetworkId, final int numberOfRequestedCrafts,
+                                            final int timesCrafted, final List<BedrockItem> ingredients,
+                                            final List<String> ingredientIdentifiers,
+                                            final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftRecipeAuto, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
         if (!emulateNetEase || protocol >= 712) {
@@ -230,13 +248,24 @@ public final class ItemStackRequestLayout {
             }
         }
         if (!emulateNetEase || protocol >= 557) {
+            final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
             if (protocol >= UNSIGNED_ACTION_TYPE_PROTOCOL) {
-                // 2168 的 DEFAULT 配料写的是命名空间字符串，而这里没有物品映射可用；
-                // 发空数组，服务端仍按 recipeNetworkId 取配方（MOT 的 CraftRecipeAutoProcessor 就是这样做的）。
-                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0);
+                // 2168 的计数也改成 VarUInt，每个配料是类型化描述符。
+                // 不能发空数组：MOT 的 CraftRecipeAutoProcessor 会按配料逐条核对 CONSUME，
+                // 空配料列表会让带 CONSUME 的自动合成整请求报错。
+                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, descriptors.size());
+                for (int i = 0; i < descriptors.size(); i++) {
+                    final String identifier = ingredientIdentifiers != null && i < ingredientIdentifiers.size()
+                            ? ingredientIdentifiers.get(i) : null;
+                    if (identifier == null) {
+                        throw new IllegalStateException("v2168 auto-craft ingredient #" + i + " has no namespaced identifier");
+                    }
+                    final int data = descriptors.get(i).data() & 0xFFFF;
+                    final int aux = data == 0x7FFF || data == 0xFFFF ? 0 : data;
+                    RecipeIngredientType.writeTypedDefault(buffer, identifier, aux, descriptors.get(i).amount());
+                }
                 return;
             }
-            final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
             buffer.writeByte(descriptors.size());
             for (final BedrockItem ingredient : descriptors) {
                 writeDefaultIngredientDescriptor(buffer, ingredient, emulateNetEase, protocol);

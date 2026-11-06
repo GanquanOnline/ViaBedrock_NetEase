@@ -65,25 +65,29 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
             item.setBlockRuntimeId(0);
         }
 
-        final ByteBuf userData = buffer.readSlice(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
-        try {
-            final short marker = userData.readShortLE();
-            if (marker == -1) {
-                final byte version = userData.readByte();
-                if (version != 1) {
-                    return item;
+        final int userDataLength = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+        // 2168 允许 0 长度的 user data（写出端就写 VarUInt 0），不能当成读越界。
+        if (userDataLength > 0) {
+            final ByteBuf userData = buffer.readSlice(userDataLength);
+            try {
+                final short marker = userData.readShortLE();
+                if (marker == -1) {
+                    final byte version = userData.readByte();
+                    if (version != 1) {
+                        return item;
+                    }
+                    item.setTag((CompoundTag) BedrockTypes.TAG_LE.read(userData));
+                } else if (marker != 0) { // 标记不是 -1 或 0 时基岩客户端会崩溃
+                    throw new IllegalStateException("Expected -1 or 0 marker but got " + marker);
                 }
-                item.setTag((CompoundTag) BedrockTypes.TAG_LE.read(userData));
-            } else if (marker != 0) { // 标记不是 -1 或 0 时基岩客户端会崩溃
-                throw new IllegalStateException("Expected -1 or 0 marker but got " + marker);
+                item.setCanPlace(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
+                item.setCanBreak(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
+                if (item.identifier() == this.blockingId) {
+                    item.setBlockingTicks(userData.readLongLE());
+                }
+            } catch (IndexOutOfBoundsException ignored) {
+                // 基岩客户端会在任意位置停止读取，并加载它已成功读到的内容
             }
-            item.setCanPlace(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
-            item.setCanBreak(BedrockTypes.UTF8_STRING_ARRAY.read(userData));
-            if (item.identifier() == this.blockingId) {
-                item.setBlockingTicks(userData.readLongLE());
-            }
-        } catch (IndexOutOfBoundsException ignored) {
-            // 基岩客户端会在任意位置停止读取，并加载它已成功读到的内容
         }
 
         return item;

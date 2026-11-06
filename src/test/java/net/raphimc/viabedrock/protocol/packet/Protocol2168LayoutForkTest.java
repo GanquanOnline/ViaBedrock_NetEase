@@ -27,6 +27,7 @@ import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockProtocolProfile;
 import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemStackRequestActionType;
+import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.SkinData;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 import net.raphimc.viabedrock.protocol.types.model.SkinType;
@@ -255,27 +256,96 @@ class Protocol2168LayoutForkTest {
     @Test
     void typedActionIdsFollowThe2168Table() {
         // 2168 的 action id 表去掉了 7/8（两个已废弃的物品容器动作），其余整体前移两位。
-        assertEquals(0, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Take));
-        assertEquals(1, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Place));
-        assertEquals(2, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Swap));
-        assertEquals(3, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Drop));
-        assertEquals(4, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Destroy));
-        assertEquals(5, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Consume));
-        assertEquals(6, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.Create));
-        assertEquals(7, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.ScreenLabTableCombine));
-        assertEquals(8, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.ScreenBeaconPayment));
-        assertEquals(9, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.ScreenHUDMineBlock));
-        assertEquals(10, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftRecipe));
-        assertEquals(11, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftRecipeAuto));
-        assertEquals(12, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftCreative));
-        assertEquals(13, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftRecipeOptional));
-        assertEquals(14, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftRepairAndDisenchant));
-        assertEquals(15, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftLoom));
-        assertEquals(17, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftResults_DEPRECATEDASKTYLAING));
+        assertEquals(0, typedActionId(ItemStackRequestActionType.Take));
+        assertEquals(1, typedActionId(ItemStackRequestActionType.Place));
+        assertEquals(2, typedActionId(ItemStackRequestActionType.Swap));
+        assertEquals(3, typedActionId(ItemStackRequestActionType.Drop));
+        assertEquals(4, typedActionId(ItemStackRequestActionType.Destroy));
+        assertEquals(5, typedActionId(ItemStackRequestActionType.Consume));
+        assertEquals(6, typedActionId(ItemStackRequestActionType.Create));
+        assertEquals(7, typedActionId(ItemStackRequestActionType.ScreenLabTableCombine));
+        assertEquals(8, typedActionId(ItemStackRequestActionType.ScreenBeaconPayment));
+        assertEquals(9, typedActionId(ItemStackRequestActionType.ScreenHUDMineBlock));
+        assertEquals(10, typedActionId(ItemStackRequestActionType.CraftRecipe));
+        assertEquals(11, typedActionId(ItemStackRequestActionType.CraftRecipeAuto));
+        assertEquals(12, typedActionId(ItemStackRequestActionType.CraftCreative));
+        assertEquals(13, typedActionId(ItemStackRequestActionType.CraftRecipeOptional));
+        assertEquals(14, typedActionId(ItemStackRequestActionType.CraftRepairAndDisenchant));
+        assertEquals(15, typedActionId(ItemStackRequestActionType.CraftLoom));
+        assertEquals(17, typedActionId(ItemStackRequestActionType.CraftResults_DEPRECATEDASKTYLAING));
         assertThrows(IllegalStateException.class,
-                () -> ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.PlaceInItemContainer_DEPRECATED));
+                () -> typedActionId(ItemStackRequestActionType.PlaceInItemContainer_DEPRECATED));
         assertThrows(IllegalStateException.class,
-                () -> ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.TakeFromItemContainer_DEPRECATED));
+                () -> typedActionId(ItemStackRequestActionType.TakeFromItemContainer_DEPRECATED));
+    }
+
+    /** 2168 的 action id 表去掉了 7/8（两个已废弃的物品容器动作），其后的动作整体前移两位。 */
+    private static int typedActionId(final ItemStackRequestActionType type) {
+        return ItemStackRequestLayout.typedActionId(type, 2168);
+    }
+
+    @Test
+    void actionIdTableStopsAtTheCraftReservedFork() {
+        assertEquals(16, ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftNonImplemented_DEPRECATEDASKTYLAING, 2168));
+        assertThrows(UnsupportedOperationException.class,
+                () -> ItemStackRequestLayout.typedActionId(ItemStackRequestActionType.CraftCreative, 2192));
+    }
+
+    @Test
+    void craftRecipeAutoWritesTypedIngredientsAt2168() {
+        final ByteBuf typed = Unpooled.buffer();
+        final BedrockItem first = new BedrockItem((short) 5);
+        first.setAmount(2);
+        final BedrockItem second = new BedrockItem((short) 7);
+        second.setAmount(1);
+        second.setData((short) 3);
+        ItemStackRequestLayout.writeCraftRecipeAuto(typed, 42, 1, 1, List.of(first, second),
+                List.of("minecraft:planks", "minecraft:wool"), false, 2168);
+        assertEquals(11, BedrockTypes.UNSIGNED_VAR_INT.read(typed)); // CraftRecipeAuto
+        assertEquals(11, typed.readUnsignedByte());
+        assertEquals(42, BedrockTypes.UNSIGNED_VAR_INT.read(typed)); // recipeNetworkId
+        assertEquals(1, typed.readUnsignedByte()); // numberOfRequestedCrafts
+        assertEquals(2, BedrockTypes.UNSIGNED_VAR_INT.read(typed)); // 配料数
+        assertEquals(1, BedrockTypes.UNSIGNED_VAR_INT.read(typed));
+        assertEquals("name", BedrockTypes.STRING.read(typed));
+        assertEquals("minecraft:planks", BedrockTypes.STRING.read(typed));
+        assertEquals(0, BedrockTypes.VAR_INT.read(typed)); // 无 meta 写 0
+        assertEquals(2, BedrockTypes.VAR_INT.read(typed));
+        assertEquals(1, BedrockTypes.UNSIGNED_VAR_INT.read(typed));
+        assertEquals("name", BedrockTypes.STRING.read(typed));
+        assertEquals("minecraft:wool", BedrockTypes.STRING.read(typed));
+        assertEquals(3, BedrockTypes.VAR_INT.read(typed));
+        assertEquals(1, BedrockTypes.VAR_INT.read(typed));
+        assertEquals(0, typed.readableBytes());
+        typed.release();
+
+        final ByteBuf legacy = Unpooled.buffer();
+        ItemStackRequestLayout.writeCraftRecipeAuto(legacy, 42, 1, 1, List.of(first),
+                List.of("minecraft:planks"), false, 2167);
+        legacy.readUnsignedByte(); // action 类型
+        BedrockTypes.UNSIGNED_VAR_INT.read(legacy);
+        legacy.readUnsignedByte(); // 请求次数
+        legacy.readUnsignedByte(); // timesCrafted
+        assertEquals(1, legacy.readUnsignedByte()); // 旧布局的配料计数带一字节
+        assertEquals(1, legacy.readUnsignedByte()); // DEFAULT
+        assertEquals(5, legacy.readShortLE());
+        assertEquals(0, legacy.readShortLE());
+        assertEquals(2, BedrockTypes.VAR_INT.read(legacy));
+        assertEquals(0, legacy.readableBytes());
+        legacy.release();
+    }
+
+    @Test
+    void craftRepairWritesLittleEndianRecipeIdAt2168() {
+        final ByteBuf typed = Unpooled.buffer();
+        ItemStackRequestLayout.writeCraftRepairAndDisenchant(typed, 0x01020304, 1, 7, false, 2168);
+        assertEquals(14, BedrockTypes.UNSIGNED_VAR_INT.read(typed));
+        assertEquals(14, typed.readUnsignedByte());
+        assertEquals(0x01020304, typed.readIntLE());
+        assertEquals(1, typed.readUnsignedByte());
+        assertEquals(7, BedrockTypes.VAR_INT.read(typed));
+        assertEquals(0, typed.readableBytes());
+        typed.release();
     }
 
     @Test

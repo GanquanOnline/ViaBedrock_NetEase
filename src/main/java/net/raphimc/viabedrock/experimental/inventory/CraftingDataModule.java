@@ -268,6 +268,10 @@ public class CraftingDataModule implements FeatureModule {
         ));
     }
 
+    /**
+     * 2168 的分桶把普通无序配方与切石机配方放进同一个 shapeless 桶，tag（"stonecutter"）
+     * 是唯一的来源标记，RecipeRegistry 靠它区分两者。
+     */
     private static void readShapelessRecipeBuckets(final PacketWrapper wrapper, final List<BedrockRecipe> recipes,
                                                    final RecipeIngredientType ingredientType) {
         final String recipeId = wrapper.read(BedrockTypes.STRING);
