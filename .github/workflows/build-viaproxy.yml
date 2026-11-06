@@ -62,6 +62,15 @@ jobs:
           ref: 27c6769d78cf938b97d9101623352122af4dc171
           path: .ci-dependencies/BedrockMotion
           persist-credentials: false
+      # BedrockMotion 27c6769 依赖 team.unnamed:mocha:3.0.3-ec.4（EaseCation 的 fork），
+      # 该坐标不在公开仓库里，得自己发进 mavenLocal。
+      - name: "Checkout mocha 3.0.3-ec.4"
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+        with:
+          repository: EaseCation/mocha
+          ref: a0690f333d1089646c98c77e5118ecb926c3e12e
+          path: .ci-dependencies/mocha
+          persist-credentials: false
       - name: "Checkout CubeConverter"
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
@@ -95,6 +104,27 @@ jobs:
               text = text.replace("repositories {", "repositories {\n    mavenLocal()", 1)
               path.write_text(text)
           PY
+      # fork 原本要 JDK 17 且强制 GPG 签名；CI 只有 21、也没有 signatory。
+      # source/target 仍是 Java 8，产出的字节码不变。
+      - name: "Patch mocha build for the CI JDK"
+        run: |
+          python3 - << 'PY'
+          from pathlib import Path
+          path = Path(".ci-dependencies/mocha/build.gradle.kts")
+          text = path.read_text()
+          replacements = [
+              ("JavaLanguageVersion.of(17)", "JavaLanguageVersion.of(21)"),
+              (
+                  'signing {\n    sign(publishing.publications["maven"])\n}',
+                  'if (project.hasProperty("sign")) {\n    signing {\n        sign(publishing.publications["maven"])\n    }\n}',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit("mocha patch target not found: %s" % old[:40])
+              text = text.replace(old, new)
+          path.write_text(text)
+          PY
       - name: "Publish shaded ViaVersion 5.9.2"
         working-directory: .ci-dependencies/ViaVersion
         run: "./gradlew :viaversion-common:publishToMavenLocal --no-daemon"
@@ -110,6 +140,9 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 21
+      - name: "Publish mocha to mavenLocal"
+        working-directory: .ci-dependencies/mocha
+        run: "./gradlew publishToMavenLocal -x test --no-daemon --stacktrace"
       - name: "Publish CubeConverter to mavenLocal"
         working-directory: .ci-dependencies/CubeConverter
         run: "./gradlew publishToMavenLocal -x test --no-daemon --stacktrace"
