@@ -28,16 +28,18 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 public class BedrockDataTablesTest {
 
     /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储。{@link BedrockDataTableContentTest} 也从这里派生 */
-    static final Map<Integer, Integer> SHIPPED_TABLES = Map.of(
-            924, 975,
-            944, 975,
-            974, 975,
-            975, 975,
-            1001, 1001,
-            2168, 2168,
-            2192, 2193,
-            2193, 2193,
-            2225, 2225
+    static final Map<Integer, Integer> SHIPPED_TABLES = Map.ofEntries(
+            Map.entry(897, 975),
+            Map.entry(898, 975),
+            Map.entry(924, 975),
+            Map.entry(944, 975),
+            Map.entry(974, 975),
+            Map.entry(975, 975),
+            Map.entry(1001, 1001),
+            Map.entry(2168, 2168),
+            Map.entry(2192, 2193),
+            Map.entry(2193, 2193),
+            Map.entry(2225, 2225)
     );
 
     @Test
@@ -77,6 +79,17 @@ public class BedrockDataTablesTest {
         assertEquals("versions/975/runtime_item_states.json", BedrockDataTables.itemStates(924),
                 "924 的物品表就是 V1_26_0 的转储，名字全在 975 里");
         BedrockDataTables.validate(924);
+    }
+
+    @Test
+    void the897And898WindowsShareThe975Dump() {
+        for (int protocol : new int[]{897, 898}) {
+            assertEquals("versions/975/block_palette.nbt", BedrockDataTables.blockPalette(protocol),
+                    "MOT 在 897/898 没有方块转储，调色板回落到 1.21.111(844)，而 844 是 975 的子集");
+            assertEquals("versions/975/runtime_item_states.json", BedrockDataTables.itemStates(protocol),
+                    "官方 897/898 的 RuntimeItems 档案都是 V1_21_130，转储名字全在 975 里");
+            BedrockDataTables.validate(protocol);
+        }
     }
 
     @Test

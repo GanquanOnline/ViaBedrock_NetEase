@@ -30,11 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EntityPacketLayoutTest {
 
     @Test
-    void netease860OmitsPost860EntityTrailers() {
+    void pre897OmitsPost860EntityTrailers() {
         assertFalse(EntityPacketLayout.usesAmbient(true, 860));
         assertFalse(EntityPacketLayout.usesSwingSource(true, 860));
         assertFalse(EntityPacketLayout.usesEntityEventFireAtPosition(true, 860));
-        assertTrue(EntityPacketLayout.usesAmbient(false, 860));
+        assertFalse(EntityPacketLayout.usesAmbient(false, 860));
+        assertFalse(EntityPacketLayout.usesSwingSource(false, 896));
+        assertTrue(EntityPacketLayout.usesAmbient(false, 897));
         assertTrue(EntityPacketLayout.usesAmbient(true, 897));
         assertTrue(EntityPacketLayout.usesSwingSource(true, 897));
         assertTrue(EntityPacketLayout.usesEntityEventFireAtPosition(true, 974));
@@ -69,15 +71,24 @@ class EntityPacketLayoutTest {
     }
 
     @Test
-    void officialMobEffectTrailerStillReadsAmbient() {
+    void officialMobEffectTrailerReadsAmbientFrom897() {
         final ByteBuf buffer = Unpooled.buffer();
         try {
-            EntityPacketLayout.writeMobEffectTrailer(buffer, 0L, true, false, 860);
+            EntityPacketLayout.writeMobEffectTrailer(buffer, 0L, true, false, 896);
             assertEquals(0L, BedrockTypes.UNSIGNED_VAR_LONG.read(buffer));
-            assertTrue(EntityPacketLayout.readAmbient(buffer, false, 860));
+            assertFalse(EntityPacketLayout.readAmbient(buffer, false, 896));
             assertFalse(buffer.isReadable());
         } finally {
             buffer.release();
+        }
+        final ByteBuf withAmbient = Unpooled.buffer();
+        try {
+            EntityPacketLayout.writeMobEffectTrailer(withAmbient, 0L, true, false, 897);
+            assertEquals(0L, BedrockTypes.UNSIGNED_VAR_LONG.read(withAmbient));
+            assertTrue(EntityPacketLayout.readAmbient(withAmbient, false, 897));
+            assertFalse(withAmbient.isReadable());
+        } finally {
+            withAmbient.release();
         }
     }
 
@@ -128,10 +139,13 @@ class EntityPacketLayoutTest {
     }
 
     @Test
-    void officialAnimateOmitsRowingTimeEvenForRowActions() {
-        assertFalse(EntityPacketLayout.usesRowingTime(false, 860));
+    void rowingTimeOnlyExistsBelow897() {
+        assertTrue(EntityPacketLayout.usesRowingTime(false, 860));
         assertTrue(EntityPacketLayout.usesRowingTime(true, 860));
+        assertTrue(EntityPacketLayout.usesRowingTime(false, 896));
+        assertFalse(EntityPacketLayout.usesRowingTime(false, 897));
         assertFalse(EntityPacketLayout.usesRowingTime(true, 897));
+        assertFalse(EntityPacketLayout.usesRowingTime(false, 0));
         final ByteBuf buffer = Unpooled.buffer();
         try {
             EntityPacketLayout.writeRowingTime(buffer, EntityPacketLayout.ROW_RIGHT_ACTION, 1F, false, 975);

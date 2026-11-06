@@ -37,7 +37,26 @@ class OfficialBedrockLayoutForkTest {
         assertTrue(UpdateClientInputLocksLayout.usesServerPosition(false, 943));
         assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 944));
         assertTrue(InteractPacketLayout.usesOptionalPosition(false, 975));
-        assertTrue(InteractPacketLayout.usesOptionalPosition(false, 860));
+        assertFalse(InteractPacketLayout.usesOptionalPosition(false, 860));
+    }
+
+    /** 897 的边界：命令串化、实体尾部、交互位置与划船时间。 */
+    @Test
+    void officialAxisFollowsThe897Forks() {
+        assertFalse(CommandPacketLayout.usesStringLayout(false, 896));
+        assertTrue(CommandPacketLayout.usesStringLayout(false, 897));
+        assertFalse(EntityPacketLayout.usesAmbient(false, 896));
+        assertTrue(EntityPacketLayout.usesAmbient(false, 897));
+        assertFalse(EntityPacketLayout.usesSwingSource(false, 896));
+        assertTrue(EntityPacketLayout.usesSwingSource(false, 897));
+        assertFalse(EntityPacketLayout.usesByteAnimateAction(false, 896));
+        assertTrue(EntityPacketLayout.usesByteAnimateAction(false, 897));
+        assertTrue(EntityPacketLayout.usesRowingTime(false, 896));
+        assertFalse(EntityPacketLayout.usesRowingTime(false, 897));
+        assertFalse(InteractPacketLayout.usesOptionalPosition(false, 896));
+        assertTrue(InteractPacketLayout.usesOptionalPosition(false, 897));
+        assertTrue(JoinPackets.usesStartGameTickDeathSystems(896));
+        assertFalse(JoinPackets.usesStartGameTickDeathSystems(897));
     }
 
     /** 924 的四个边界：BOOK_EDIT、TEXT、START_GAME 尾部与 tickDeathSystems。 */

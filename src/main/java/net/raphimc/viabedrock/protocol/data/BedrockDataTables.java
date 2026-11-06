@@ -40,8 +40,12 @@ public final class BedrockDataTables {
      * （如 {@code minecraft:chiseled_cinnabar}）只在 975 两件里都有；单用 924/944 转储会因调色板缺条目而加载失败，
      * 调色板用 975 而物品用旧转储则会报 {@code Unknown bedrock item}。线格式上的 id 由服务端给出
      * （物品走 {@code ITEM_REGISTRY}，方块走 {@code network_id} 哈希），所以超集表不会把 id 错位。
+     * <p>
+     * 897 与 898 同理：官方 {@code RuntimeItems} 对 {@code >= 897} 返回 {@code V1_21_130}，转储就是上面那份
+     * 与 924 字节相同的 1905 项；方块侧没有 898 转储，{@code floorEntry(898)} 同样落到
+     * {@code V1_21_111}(844)。
      */
-    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(924, 975, 944, 975, 974, 975, 2192, 2193);
+    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(897, 975, 898, 975, 924, 975, 944, 975, 974, 975, 2192, 2193);
 
     private BedrockDataTables() {
     }

@@ -36,6 +36,10 @@ import net.raphimc.viabedrock.protocol.types.BedrockTypes;
  * 多读一个布尔值，会以 {@code UPDATE_MOB_EFFECT} 为由中止 Java 连接。
  * {@code ANIMATE} 在 897 增加了可选的 {@code swingSource}，{@code ENTITY_EVENT}
  * 在 974 增加了可选的 {@code fireAtPosition}。
+ * <p>
+ * 谓词里的 {@code protocol <= 0} 表示“未配置”，一律按最新布局处理：新式字段（ambient、
+ * swingSource 等）的谓词返回 true，旧式字段（{@code rowingTime}）的谓词返回 false。
+ * 无参重载只会拿到 {@code BedrockWire.effectiveProtocol()}，它不会返回非正数。
  */
 public final class EntityPacketLayout {
 
@@ -55,19 +59,29 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesAmbient() {
-        return usesAmbient(emulateNetEase(), netEaseProtocol());
+        return usesAmbient(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesAmbient(final int protocol) {
+        return protocol <= 0 || protocol >= AMBIENT_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesAmbient(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= AMBIENT_PROTOCOL;
+        return usesAmbient(protocol);
     }
 
     public static boolean usesSwingSource() {
-        return usesSwingSource(emulateNetEase(), netEaseProtocol());
+        return usesSwingSource(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesSwingSource(final int protocol) {
+        return protocol <= 0 || protocol >= SWING_SOURCE_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（网易 860 也在阈值之下）。 */
     public static boolean usesSwingSource(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= SWING_SOURCE_PROTOCOL;
+        return usesSwingSource(protocol);
     }
 
     public static boolean usesEntityEventFireAtPosition() {
@@ -84,11 +98,16 @@ public final class EntityPacketLayout {
     }
 
     public static boolean usesRowingTime() {
-        return usesRowingTime(emulateNetEase(), netEaseProtocol());
+        return usesRowingTime(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesRowingTime(final int protocol) {
+        return protocol > 0 && protocol < ROWING_TIME_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesRowingTime(final boolean emulateNetEase, final int protocol) {
-        return emulateNetEase && protocol > 0 && protocol < ROWING_TIME_PROTOCOL;
+        return usesRowingTime(protocol);
     }
 
     public static boolean isRowAction(final int action) {
@@ -106,8 +125,13 @@ public final class EntityPacketLayout {
         return usesSwingSource();
     }
 
+    public static boolean usesByteAnimateAction(final int protocol) {
+        return usesSwingSource(protocol);
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesByteAnimateAction(final boolean emulateNetEase, final int protocol) {
-        return usesSwingSource(emulateNetEase, protocol);
+        return usesSwingSource(protocol);
     }
 
     public static int readAnimateAction(final PacketWrapper wrapper) {

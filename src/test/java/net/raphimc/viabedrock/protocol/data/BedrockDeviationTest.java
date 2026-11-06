@@ -193,6 +193,19 @@ class BedrockDeviationTest {
     }
 
     @Test
+    void the897And898ProfilesAreBackwardWindows() {
+        for (int protocol : new int[]{897, 898}) {
+            assertFalse(BedrockWire.inferred(protocol));
+            assertTrue(BedrockWire.describe(protocol).contains("protocol " + protocol));
+            assertTrue(BedrockProtocolProfile.byProtocol(protocol).protocolVersion()
+                    < BedrockProtocolProfile.newest().protocolVersion(), "897/898 是向后窗口，不能顶掉 newest()");
+            assertTrue(BedrockWire.deviations(protocol).isEmpty(), "897/898 之上没有 BedrockDeviation 区间");
+        }
+        assertEquals("1.21.130.28", BedrockProtocolProfile.byProtocol(897).gameVersion());
+        assertEquals("1.21.130", BedrockProtocolProfile.byProtocol(898).gameVersion());
+    }
+
+    @Test
     void the974ProfileIsABackwardWindow() {
         assertFalse(BedrockWire.inferred(974));
         assertTrue(BedrockWire.describe(974).contains("protocol 974"));

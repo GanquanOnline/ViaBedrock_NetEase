@@ -109,7 +109,7 @@ public class CraftingDataModule implements FeatureModule {
                 if (CraftingDataLayout.isLegacyFurnaceType(rawType)) {
                     if (CraftingDataLayout.usesShapelessFurnaceLayout(
                             ViaBedrock.getConfig().shouldEmulateNetEaseClient(),
-                            ViaBedrock.getConfig().getNetEaseProtocolVersion())) {
+                            BedrockWire.effectiveProtocol())) {
                         readShapelessRecipe(wrapper, parsedRecipes);
                     } else if (rawType == CraftingDataLayout.FURNACE_RECIPE_TYPE) {
                         skipFurnaceRecipe(wrapper);
