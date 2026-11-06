@@ -2,7 +2,9 @@ package net.raphimc.viabedrock.protocol.data;
 
 import org.junit.jupiter.api.Test;
 
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -18,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * 数据表路径解析与启动闸门。
@@ -125,11 +128,28 @@ public class BedrockDataTablesTest {
     }
 
     @Test
+    void validationNamesTheResolvedDirectoryOfASharedProtocol() {
+        final Predicate<String> onlyPaletteIn2192 = path -> path.endsWith("versions/2192/block_palette.nbt");
+        final IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> BedrockDataTables.validate(2192, onlyPaletteIn2192));
+        assertTrue(error.getMessage().contains("runtime_item_states.json"), error.getMessage());
+        assertFalse(error.getMessage().contains("block_palette.nbt"), error.getMessage());
+        assertTrue(error.getMessage().contains("versions/2192/ (candidates: "), error.getMessage());
+    }
+
+    @Test
     void versionsDirectoryHasNoOrphanFolders() throws Exception {
         final URL versions = BedrockDataTablesTest.class.getClassLoader().getResource("assets/viabedrock/data/versions");
         assertNotNull(versions, "missing assets/viabedrock/data/versions");
+        Path versionsPath = null;
+        try {
+            versionsPath = Paths.get(versions.toURI());
+        } catch (final FileSystemNotFoundException | URISyntaxException e) {
+            // 测试 classpath 不是目录（例如以 jar 附加）时无法枚举，跳过而不是误报
+        }
+        assumeTrue(versionsPath != null, "versions/ 不在目录 classpath 上，跳过");
         final Set<String> onDisk = new TreeSet<>();
-        try (Stream<Path> stream = Files.list(Paths.get(versions.toURI()))) {
+        try (Stream<Path> stream = Files.list(versionsPath)) {
             stream.filter(Files::isDirectory).forEach(path -> onDisk.add(path.getFileName().toString()));
         }
         final Set<String> expected = new TreeSet<>();

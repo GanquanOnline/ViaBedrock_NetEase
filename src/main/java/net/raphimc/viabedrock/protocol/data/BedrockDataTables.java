@@ -72,17 +72,21 @@ public final class BedrockDataTables {
      * @throws IllegalStateException 版本目录或必需文件缺失
      */
     public static void validate(final int protocol) {
-        final int directory = tableDirectory(protocol, BedrockDataTables::exists);
+        validate(protocol, BedrockDataTables::exists);
+    }
+
+    static void validate(final int protocol, final Predicate<String> exists) {
+        final int directory = tableDirectory(protocol, exists);
         final List<String> missing = new ArrayList<>(2);
         for (final String fileName : List.of(BLOCK_PALETTE, ITEM_STATES)) {
-            if (directory == 0 || !exists(DATA_ROOT + VERSIONS + directory + "/" + fileName)) {
+            if (directory == 0 || !exists.test(DATA_ROOT + VERSIONS + directory + "/" + fileName)) {
                 missing.add(fileName);
             }
         }
         if (!missing.isEmpty()) {
             throw new IllegalStateException("No bedrock data tables for protocol " + protocol
                     + ": missing " + String.join(", ", missing)
-                    + " under " + versionDirectories(protocol)
+                    + " under " + tableDirectoryDescription(protocol, directory)
                     + " (run the importBedrockDataTables tool)");
         }
     }
@@ -98,7 +102,7 @@ public final class BedrockDataTables {
         }
         if (required) {
             throw new IllegalStateException("No bedrock data table " + fileName
-                    + " under " + versionDirectories(protocol) + " for protocol " + protocol
+                    + " under " + tableDirectoryDescription(protocol, directory) + " for protocol " + protocol
                     + " (run the importBedrockDataTables tool)");
         }
         return null;
@@ -119,13 +123,19 @@ public final class BedrockDataTables {
         return 0;
     }
 
-    /** @return 该协议号会探测的目录，用于报错，如 {@code assets/.../versions/2192/ or assets/.../versions/2193/} */
-    private static String versionDirectories(final int protocol) {
-        final List<String> paths = new ArrayList<>(2);
+    /**
+     * 报错用的目录描述：已定下目录时写实际查的那个，共用协议再把候选目录列上；
+     * 一个都没命中时列出全部候选。
+     */
+    private static String tableDirectoryDescription(final int protocol, final int directory) {
+        final List<String> candidates = new ArrayList<>(2);
         for (final int candidate : tableProtocols(protocol)) {
-            paths.add(DATA_ROOT + VERSIONS + candidate + "/");
+            candidates.add(DATA_ROOT + VERSIONS + candidate + "/");
         }
-        return String.join(" or ", paths);
+        if (directory == 0 || candidates.size() == 1) {
+            return String.join(" or ", candidates);
+        }
+        return DATA_ROOT + VERSIONS + directory + "/ (candidates: " + String.join(", ", candidates) + ")";
     }
 
     /** @return 该协议号要查的版本目录，共用表的协议先查自己、再查共用的那个 */
