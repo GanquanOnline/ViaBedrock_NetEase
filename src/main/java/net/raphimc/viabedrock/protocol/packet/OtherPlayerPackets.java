@@ -237,7 +237,9 @@ public class OtherPlayerPackets {
             final SkinData skin = wrapper.read(BedrockTypes.SKIN); // 皮肤
             wrapper.read(BedrockTypes.STRING); // 新皮肤名称
             wrapper.read(BedrockTypes.STRING); // 旧皮肤名称
-            wrapper.read(Types.BOOLEAN); // 可信皮肤
+            if (!BedrockWire.applies(BedrockDeviation.PLAYER_SKIN_NO_TRUSTED)) {
+                wrapper.read(Types.BOOLEAN); // 可信皮肤（2168 起并入皮肤块尾部）
+            }
 
             // 与 PLAYER_LIST 的重映射保持一致：本地玩家的基岩 UUID 与其 javaUuid 不同，因此
             // 以基岩 UUID 寻址的运行时皮肤更新必须重映射到 javaUuid。否则

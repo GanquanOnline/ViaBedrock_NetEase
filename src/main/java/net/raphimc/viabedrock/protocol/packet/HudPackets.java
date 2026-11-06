@@ -70,14 +70,22 @@ public class HudPackets {
             final ScoreboardTracker scoreboardTracker = wrapper.user().get(ScoreboardTracker.class);
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final byte rawAction = wrapper.read(Types.BYTE); // 动作
+            final boolean varintEntryFlags = PlayerListLayout.usesVarintEntryFlags(BedrockWire.current());
+            final byte rawAction;
+            final int length;
+            if (varintEntryFlags) {
+                length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+                rawAction = length > 0 ? PlayerListLayout.readEntryAction(wrapper) : (byte) 0; // 空列表按添加处理
+            } else {
+                rawAction = wrapper.read(Types.BYTE); // 动作
+                length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+            }
             final PlayerListPacketType action = PlayerListPacketType.getByValue(rawAction);
             if (action == null) { // 动作无效时基岩客户端会崩溃
                 throw new IllegalStateException("Unknown PlayerListPacketType: " + rawAction);
             }
             switch (action) {
                 case Add -> {
-                    final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                     final UUID[] uuids = new UUID[length];
                     final long[] entityUniqueIds = new long[length];
                     final String[] names = new String[length];
@@ -85,6 +93,9 @@ public class HudPackets {
                     wrapper.write(Types.PROFILE_ACTIONS_ENUM1_21_4, BitSets.create(8, PlayerInfoUpdateAction.ADD_PLAYER, PlayerInfoUpdateAction.UPDATE_LISTED, PlayerInfoUpdateAction.UPDATE_LATENCY, PlayerInfoUpdateAction.UPDATE_DISPLAY_NAME)); // 动作列表
                     wrapper.write(Types.VAR_INT, length); // 长度
                     for (int i = 0; i < length; i++) {
+                        if (varintEntryFlags && i > 0 && !readMatchingEntryAction(wrapper, rawAction)) {
+                            return;
+                        }
                         uuids[i] = wrapper.read(BedrockTypes.UUID); // uuid
                         entityUniqueIds[i] = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
 
@@ -145,11 +156,13 @@ public class HudPackets {
 
                         Via.getManager().getProviders().get(SkinProvider.class).setSkin(wrapper.user(), uuids[i], skin);
                     }
-                    try {
-                        for (int i = 0; i < length; i++) {
-                            wrapper.read(Types.BOOLEAN); // 受信任皮肤
+                    if (!varintEntryFlags) {
+                        try {
+                            for (int i = 0; i < length; i++) {
+                                wrapper.read(Types.BOOLEAN); // 受信任皮肤
+                            }
+                        } catch (InformativeException ignored) { // 基岩客户端会静默忽略读取错误
                         }
-                    } catch (InformativeException ignored) { // 基岩客户端会静默忽略读取错误
                     }
                     try {
                         PlayerListLayout.skipNetEaseAddTrailer(wrapper, length);
@@ -189,7 +202,18 @@ public class HudPackets {
                 }
                 case Remove -> {
                     wrapper.setPacketType(ClientboundPackets26_1.PLAYER_INFO_REMOVE);
-                    final UUID[] uuids = wrapper.read(BedrockTypes.UUID_ARRAY); // UUID 列表
+                    final UUID[] uuids;
+                    if (varintEntryFlags) {
+                        uuids = new UUID[length];
+                        for (int i = 0; i < length; i++) {
+                            if (i > 0 && !readMatchingEntryAction(wrapper, rawAction)) {
+                                return;
+                            }
+                            uuids[i] = wrapper.read(BedrockTypes.UUID); // uuid
+                        }
+                    } else {
+                        uuids = wrapper.read(BedrockTypes.UUID_ARRAY); // UUID 列表
+                    }
                     wrapper.write(Types.UUID_ARRAY, uuids); // UUID 列表
 
                     final List<String> names = new ArrayList<>();
@@ -666,6 +690,21 @@ public class HudPackets {
         wrapper.write(Types.VAR_INT, bar.color()); // 颜色
         wrapper.write(Types.VAR_INT, 0); // 叠加层
         wrapper.write(Types.UNSIGNED_BYTE, (short) 0); // 标志
+    }
+
+    /**
+     * 2168 起 PLAYER_LIST 在每条之前重复一次动作标志。与包头不一致时丢弃整包，
+     * 避免 java 侧按错误动作写出条目。
+     */
+    private static boolean readMatchingEntryAction(final PacketWrapper wrapper, final byte expected) {
+        final byte entryAction = PlayerListLayout.readEntryAction(wrapper);
+        if (entryAction != expected) {
+            ViaBedrock.getPlatform().getLogger().log(Level.WARNING,
+                    "Mixed PLAYER_LIST entry actions: " + entryAction + " != " + expected);
+            wrapper.cancel();
+            return false;
+        }
+        return true;
     }
 
     /**

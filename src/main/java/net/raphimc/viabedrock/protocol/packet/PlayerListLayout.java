@@ -21,14 +21,18 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
 import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * 基岩 PLAYER_LIST 添加（0x3F 号包）的尾部辅助方法。
+ * 基岩 PLAYER_LIST（0x3F 号包）的布局辅助方法。
  * <p>
- * 官方基岩 860–2167 在可信皮肤布尔数组之后结束。
+ * 官方 2168 起包体改成“先写条目数，再在每条之前重复一次 1/0 动作标志”，
+ * 同时去掉条目之后的可信皮肤 bool 数组。2167 及以下仍是“动作字节 + 条目数 + 字段 + bool 数组”。
+ * <p>
  * MOT 网易在 {@code protocol >= 649} 时按条目追加：
  * {@code bool, bool, byte[], lint, bool}（bloom / persona 尾部）。
  * Java 从不消费这些字段，但必须把它们读掉，这样
@@ -45,6 +49,22 @@ public final class PlayerListLayout {
 
     public static boolean usesNetEaseAddTrailer(final boolean emulateNetEase, final int protocol) {
         return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.PLAYER_LIST_TRAILER);
+    }
+
+    /** 2168 起先写条目数，每条之前重复一次动作标志。 */
+    public static boolean usesVarintEntryFlags(final int protocol) {
+        return BedrockWire.applies(protocol, BedrockDeviation.PLAYER_LIST_NO_TRUSTED);
+    }
+
+    /** 2167 及以下在条目之后跟一批可信皮肤 bool，2168 起并入皮肤块。 */
+    public static boolean usesTrailingTrustedArray(final int protocol) {
+        return !usesVarintEntryFlags(protocol);
+    }
+
+    /** 读一条条目前的动作标志：一个 1/0 的 unsigned varint，再一个动作字节。 */
+    public static byte readEntryAction(final PacketWrapper wrapper) {
+        wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
+        return wrapper.read(Types.BYTE);
     }
 
     public static void skipNetEaseAddTrailer(final PacketWrapper wrapper, final int length) {

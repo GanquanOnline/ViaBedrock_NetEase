@@ -22,6 +22,8 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
 import com.viaversion.viaversion.libs.fastutil.ints.IntSortedSet;
 import io.netty.buffer.ByteBuf;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.rewriter.BlockItemMappingLayout;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -47,7 +49,10 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
         item.setAmount(buffer.readUnsignedShortLE());
         item.setData(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
         if (buffer.readBoolean()) {
-            BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // net id 变体
+            // 2168 前 net id 前面还有一个恒为 0 的变体编号；2168 起只剩布尔值 + VarInt。
+            if (!BedrockWire.applies(BedrockDeviation.ITEM_DESCRIPTOR_V2168)) {
+                BedrockTypes.UNSIGNED_VAR_INT.read(buffer); // net id 变体
+            }
             item.setNetId(BedrockTypes.VAR_INT.read(buffer));
         }
         item.setBlockRuntimeId(BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
@@ -92,7 +97,9 @@ public class NetworkItemStackDescriptorType extends Type<BedrockItem> {
         if (this.writeItemNetId) {
             buffer.writeBoolean(value.netId() != null);
             if (value.netId() != null) {
-                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // net id 变体
+                if (!BedrockWire.applies(BedrockDeviation.ITEM_DESCRIPTOR_V2168)) {
+                    BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0); // net id 变体
+                }
                 BedrockTypes.VAR_INT.write(buffer, value.netId());
             }
         } else {

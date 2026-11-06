@@ -270,7 +270,9 @@ class NeteasePacketLayoutTest {
                 "#0",
                 Collections.emptyList(),
                 Collections.emptyList(),
-                true
+                true,
+                false,
+                null
         );
     }
 }

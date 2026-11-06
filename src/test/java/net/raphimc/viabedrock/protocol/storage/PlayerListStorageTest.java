@@ -112,7 +112,9 @@ class PlayerListStorageTest {
                 "#0",
                 Collections.emptyList(),
                 Collections.emptyList(),
-                true
+                true,
+                false,
+                null
         );
     }
 }

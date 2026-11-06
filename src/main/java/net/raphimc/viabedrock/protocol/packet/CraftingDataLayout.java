@@ -18,6 +18,7 @@
 package net.raphimc.viabedrock.protocol.packet;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.experimental.model.inventory.BedrockRecipe.RecipeIngredient;
@@ -71,13 +72,13 @@ public final class CraftingDataLayout {
         if (usesVarIntUnlockingRequirement(emulateNetEase, protocol)) {
             final int context = wrapper.read(BedrockTypes.VAR_INT);
             if (wrapper.read(Types.BOOLEAN)) {
-                skipUnlockingIngredients(wrapper);
+                skipUnlockingIngredients(wrapper, ingredientType(true));
             }
             return context;
         }
         final int context = wrapper.read(Types.UNSIGNED_BYTE);
         if (context == UNLOCKING_CONTEXT_NONE) {
-            skipUnlockingIngredients(wrapper);
+            skipUnlockingIngredients(wrapper, RecipeIngredientType.INSTANCE);
         }
         return context;
     }
@@ -89,13 +90,13 @@ public final class CraftingDataLayout {
         if (usesVarIntUnlockingRequirement(emulateNetEase, protocol)) {
             final int context = BedrockTypes.VAR_INT.read(buffer);
             if (buffer.readBoolean()) {
-                skipUnlockingIngredients(buffer);
+                skipUnlockingIngredients(buffer, ingredientType(true));
             }
             return context;
         }
         final int context = buffer.readUnsignedByte();
         if (context == UNLOCKING_CONTEXT_NONE) {
-            skipUnlockingIngredients(buffer);
+            skipUnlockingIngredients(buffer, RecipeIngredientType.INSTANCE);
         }
         return context;
     }
@@ -110,38 +111,52 @@ public final class CraftingDataLayout {
             final boolean present = context == UNLOCKING_CONTEXT_NONE;
             buffer.writeBoolean(present);
             if (present) {
-                writeUnlockingIngredients(buffer, extraIngredients);
+                writeUnlockingIngredients(buffer, true, extraIngredients);
             }
             return;
         }
         buffer.writeByte(context);
         if (context == UNLOCKING_CONTEXT_NONE) {
-            writeUnlockingIngredients(buffer, extraIngredients);
+            writeUnlockingIngredients(buffer, false, extraIngredients);
         }
     }
 
-    private static void skipUnlockingIngredients(final PacketWrapper wrapper) {
+    private static Type<RecipeIngredient> ingredientType(final boolean typed) {
+        return typed ? new RecipeIngredientType(null, Boolean.TRUE) : RecipeIngredientType.INSTANCE;
+    }
+
+    private static void skipUnlockingIngredients(final PacketWrapper wrapper, final Type<RecipeIngredient> ingredientType) {
         final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         for (int i = 0; i < count; i++) {
-            wrapper.read(RecipeIngredientType.INSTANCE);
+            wrapper.read(ingredientType);
         }
     }
 
-    private static void skipUnlockingIngredients(final ByteBuf buffer) {
+    private static void skipUnlockingIngredients(final ByteBuf buffer, final Type<RecipeIngredient> ingredientType) {
         final int count = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
         for (int i = 0; i < count; i++) {
-            RecipeIngredientType.INSTANCE.read(buffer);
+            ingredientType.read(buffer);
         }
     }
 
-    private static void writeUnlockingIngredients(final ByteBuf buffer, final RecipeIngredient[] extraIngredients) {
+    private static void writeUnlockingIngredients(final ByteBuf buffer, final boolean typed, final RecipeIngredient[] extraIngredients) {
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, extraIngredients.length);
         for (RecipeIngredient ingredient : extraIngredients) {
-            writeDefaultIngredient(buffer, ingredient);
+            writeDefaultIngredient(buffer, typed, ingredient);
         }
     }
 
-    private static void writeDefaultIngredient(final ByteBuf buffer, final RecipeIngredient ingredient) {
+    /**
+     * 2168 的 DEFAULT 配料需要命名空间 id，而 {@link RecipeIngredient} 只有网络 id，
+     * 因此这里退化成 INVALID 描述符（aux + 数量），读回时的字节数与之一致。
+     */
+    private static void writeDefaultIngredient(final ByteBuf buffer, final boolean typed, final RecipeIngredient ingredient) {
+        if (typed) {
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0);
+            BedrockTypes.VAR_INT.write(buffer, ingredient.damage());
+            BedrockTypes.VAR_INT.write(buffer, ingredient.count());
+            return;
+        }
         buffer.writeByte(1);
         buffer.writeShortLE(ingredient.runtimeId());
         buffer.writeShortLE(ingredient.damage());

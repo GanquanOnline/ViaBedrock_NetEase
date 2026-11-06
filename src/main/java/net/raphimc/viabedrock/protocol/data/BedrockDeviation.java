@@ -115,9 +115,9 @@ public enum BedrockDeviation {
     MOVE_ENTITY_DELTA_AXIS_BOOLS(2168, 0,
             "MOVE_ENTITY_DELTA 的坐标改为逐轴存在性 bool"),
 
-    /** PLAYER_LIST 去掉条目之后的可信皮肤 bool 数组。 */
+    /** PLAYER_LIST 先写条目数、每条重复一次动作标志，并去掉条目之后的可信皮肤 bool 数组。 */
     PLAYER_LIST_NO_TRUSTED(2168, 0,
-            "PLAYER_LIST 去掉条目后的可信皮肤 bool"),
+            "PLAYER_LIST 先写条目数、每条重复动作标志，并去掉条目后的可信皮肤 bool"),
 
     /** PLAYER_SKIN 去掉条目末尾的可信皮肤 bool。 */
     PLAYER_SKIN_NO_TRUSTED(2168, 0,
@@ -158,6 +158,14 @@ public enum BedrockDeviation {
     /** CRAFTING_DATA 改为按配方类型分桶的顺序编码。 */
     CRAFTING_DATA_BUCKETS(2168, 0,
             "CRAFTING_DATA 改为按配方类型分桶的顺序编码"),
+
+    /** 皮肤人格件与染色的编码：计数改无符号 varint、件类型改序数、packId 改 UUID、染色定长四个 int32。 */
+    SKIN_PERSONA_V2168(2168, 0,
+            "皮肤人格件计数改无符号 varint，件类型改序数、packId 改 UUID、染色定长四个 int32"),
+
+    /** 皮肤块尾部新增可信皮肤字符串与 profileHash。 */
+    SKIN_TRUSTED_STRING(2168, 0,
+            "皮肤块尾部新增可信皮肤字符串与 profileHash"),
 
     ;
 

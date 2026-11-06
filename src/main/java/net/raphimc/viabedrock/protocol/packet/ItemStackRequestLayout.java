@@ -84,11 +84,28 @@ public final class ItemStackRequestLayout {
     public static void writeActionType(final ByteBuf buffer, final ItemStackRequestActionType type,
                                        final boolean emulateNetEase, final int protocol) {
         if (usesUnsignedActionType(emulateNetEase, protocol)) {
-            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, type.getValue());
-            buffer.writeByte(0);
+            final int id = typedActionId(type);
+            BedrockTypes.UNSIGNED_VAR_INT.write(buffer, id);
+            // 2168 在类型序数后重复一个类型字节。MOT 读取端会消费它（丢弃），
+            // CloudburstMC 的 writeIngredient2/readIngredient2 系列也是同一个值。
+            buffer.writeByte(id);
             return;
         }
         buffer.writeByte(type.getValue());
+    }
+
+    /**
+     * 2168 的 action id 表去掉了 7/8（两个已废弃的物品容器动作），其后的动作整体前移两位。
+     * 与 MOT {@code ItemStackRequestActionType.fromId} 的 2168 分支和 CloudburstMC 的
+     * ITEM_STACK_REQUEST_TYPES 一致。
+     */
+    static int typedActionId(final ItemStackRequestActionType type) {
+        final int legacyId = type.getValue();
+        if (legacyId == ItemStackRequestActionType.PlaceInItemContainer_DEPRECATED.getValue()
+                || legacyId == ItemStackRequestActionType.TakeFromItemContainer_DEPRECATED.getValue()) {
+            throw new IllegalStateException("v2168 has no item container stack request action: " + type);
+        }
+        return legacyId <= 6 ? legacyId : legacyId - 2;
     }
 
     public static void writeSlotInfo(final ByteBuf buffer, final ContainerEnumName container, final int slot, final int stackNetworkId) {
@@ -207,15 +224,20 @@ public final class ItemStackRequestLayout {
             buffer.writeByte(numberOfRequestedCrafts);
         }
         if (!emulateNetEase || protocol >= 448) {
-            buffer.writeByte(timesCrafted);
+            // 2168 起不再有独立的 timesCrafted 字节，读取端用 numberOfRequestedCrafts 回填。
+            if (protocol < UNSIGNED_ACTION_TYPE_PROTOCOL) {
+                buffer.writeByte(timesCrafted);
+            }
         }
         if (!emulateNetEase || protocol >= 557) {
-            final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
             if (protocol >= UNSIGNED_ACTION_TYPE_PROTOCOL) {
-                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, descriptors.size());
-            } else {
-                buffer.writeByte(descriptors.size());
+                // 2168 的 DEFAULT 配料写的是命名空间字符串，而这里没有物品映射可用；
+                // 发空数组，服务端仍按 recipeNetworkId 取配方（MOT 的 CraftRecipeAutoProcessor 就是这样做的）。
+                BedrockTypes.UNSIGNED_VAR_INT.write(buffer, 0);
+                return;
             }
+            final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
+            buffer.writeByte(descriptors.size());
             for (final BedrockItem ingredient : descriptors) {
                 writeDefaultIngredientDescriptor(buffer, ingredient, emulateNetEase, protocol);
             }

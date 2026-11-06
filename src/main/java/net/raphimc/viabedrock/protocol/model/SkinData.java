@@ -23,7 +23,7 @@ import java.util.List;
 public record SkinData(String skinId, String playFabId, String skinResourcePatch, BufferedImage skinData, List<AnimationData> animations, BufferedImage capeData,
                        String geometryData, String geometryDataEngineVersion, String animationData, boolean premium, boolean persona, boolean capeOnClassic, boolean primaryUser,
                        String capeId, String fullSkinId, String armSize, String skinColor, List<PersonaPieceData> personaPieces, List<PersonaPieceTintData> tintColors,
-                       boolean overridingPlayerAppearance) {
+                       boolean overridingPlayerAppearance, boolean trusted, String profileHash) {
 
     public record AnimationData(BufferedImage image, int type, float frames, int expression) {
     }
