@@ -47,11 +47,12 @@ jobs:
           path: .ci-dependencies/ViaVersion-5.12
           persist-credentials: false
       # BedrockMotion 27c6769 依赖 team.unnamed:mocha:3.0.3-ec.4（EaseCation 的 fork），
-      # 该坐标不在公开仓库里，得自己发进 mavenLocal。
+      # 该坐标不在公开仓库里，得自己发进 mavenLocal。源码取组织内镜像仓，
+      # 与上游 a0690f3 同树，不随上游仓库的可见性变化而断。
       - name: "Checkout mocha 3.0.3-ec.4"
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
-          repository: EaseCation/mocha
+          repository: GanquanOnline/mocha
           ref: a0690f333d1089646c98c77e5118ecb926c3e12e
           path: .ci-dependencies/mocha
           persist-credentials: false
