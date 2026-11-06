@@ -58,7 +58,7 @@ public final class CraftingDataLayout {
     }
 
     public static boolean usesUnlockingRequirement(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= UNLOCKING_REQUIREMENT_PROTOCOL;
+        return protocol >= UNLOCKING_REQUIREMENT_PROTOCOL;
     }
 
     public static boolean usesVarIntUnlockingRequirement(final boolean emulateNetEase, final int protocol) {

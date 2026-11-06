@@ -57,19 +57,19 @@ public final class ItemStackResponseLayout {
     }
 
     public static boolean usesFullContainerName(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= FULL_CONTAINER_NAME_PROTOCOL;
+        return protocol >= FULL_CONTAINER_NAME_PROTOCOL;
     }
 
     public static boolean usesCustomName(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= CUSTOM_NAME_PROTOCOL;
+        return protocol >= CUSTOM_NAME_PROTOCOL;
     }
 
     public static boolean usesFilteredCustomName(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= FILTERED_CUSTOM_NAME_PROTOCOL;
+        return protocol >= FILTERED_CUSTOM_NAME_PROTOCOL;
     }
 
     public static boolean usesDurabilityCorrection(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= DURABILITY_CORRECTION_PROTOCOL;
+        return protocol >= DURABILITY_CORRECTION_PROTOCOL;
     }
 
     /** @return true 表示 filteredCustomName 带存在性 bool */

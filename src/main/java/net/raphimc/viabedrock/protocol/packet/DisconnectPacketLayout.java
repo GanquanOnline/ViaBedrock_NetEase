@@ -20,16 +20,15 @@ package net.raphimc.viabedrock.protocol.packet;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
-import net.raphimc.viabedrock.ViaBedrock;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
  * Bedrock DISCONNECT（数据包 0x05）的线上布局辅助方法。
  * <p>
- * 官方 Bedrock 974+ 把 hide-disconnection-screen 编码为 unsigned varint。
- * 网易 860 仍然使用布尔值。在布尔载荷上读 varint，
- * 会吃掉 hide-screen 标志以及消息字符串的第一个字节，
- * 随后把 Java DISCONNECT 当作多余／截断数据中止。
+ * 官方 Bedrock 974+ 把 hide-disconnection-screen 编码为 unsigned varint；
+ * 897..973 与网易 860 仍然使用布尔值（0x00/0x01），恰好就是一个 1 字节 unsigned varint，
+ * 所以两种读法在 897..973 上字节等价，这里只是把取值方式统一成协议号判断。
  */
 public final class DisconnectPacketLayout {
 
@@ -39,11 +38,16 @@ public final class DisconnectPacketLayout {
     }
 
     public static boolean usesUnsignedHideScreen() {
-        return usesUnsignedHideScreen(emulateNetEase(), netEaseProtocol());
+        return usesUnsignedHideScreen(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesUnsignedHideScreen(final int protocol) {
+        return protocol >= UNSIGNED_HIDE_SCREEN_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定（官方 897..973 也在阈值之下）。 */
     public static boolean usesUnsignedHideScreen(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= UNSIGNED_HIDE_SCREEN_PROTOCOL;
+        return usesUnsignedHideScreen(protocol);
     }
 
     /** @return 当 hide-screen 标志之后跟着踢出消息／过滤后消息时返回 true */
@@ -68,13 +72,5 @@ public final class DisconnectPacketLayout {
         } else {
             buffer.writeBoolean(hideScreen);
         }
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
     }
 }

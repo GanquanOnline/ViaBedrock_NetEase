@@ -42,11 +42,16 @@ public final class LevelSoundEventLayout {
     }
 
     public static boolean usesEntityUniqueId() {
-        return usesEntityUniqueId(emulateNetEase(), netEaseProtocol());
+        return usesEntityUniqueId(BedrockWire.effectiveProtocol());
     }
 
+    public static boolean usesEntityUniqueId(final int protocol) {
+        return protocol >= ENTITY_UNIQUE_ID_PROTOCOL;
+    }
+
+    /** 旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean usesEntityUniqueId(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= ENTITY_UNIQUE_ID_PROTOCOL;
+        return usesEntityUniqueId(protocol);
     }
 
     public static boolean usesFireAtPosition() {

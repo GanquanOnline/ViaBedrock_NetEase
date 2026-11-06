@@ -19,29 +19,40 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import io.netty.buffer.ByteBuf;
-import net.raphimc.viabedrock.ViaBedrock;
-import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
-import net.raphimc.viabedrock.protocol.data.NetEaseWire;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
 /**
- * Bedrock RESOURCE_PACK_STACK（数据包 0x07）的网易前缀辅助方法。
+ * Bedrock RESOURCE_PACK_STACK（数据包 0x07）的行为包栈辅助方法。
  * <p>
- * Nukkit-MOT 只在会话协议低于 {@code 1.21.130.28}（897）时先序列化行为包栈；
- * 网易 860（{@code V1_21_124_NETEASE}）带这一段，网易 898（{@code V1_21_130_NETEASE}）已移除。
+ * Nukkit-MOT 只在会话协议低于 {@code 1.21.130.28}（897）时先序列化行为包栈，
+ * 与是否仿真网易无关：网易 860 带这一段，网易 898 已移除。因此这个栈只由
+ * 协议号决定；网易轴原来那条 {@code BEHAVIOUR_PACK_STACK_TRAILER} 偏差行
+ * 现在与协议号判断重合（枚举顺序决定位掩码，只能追加，行保留）。
  * 多读或少读这一段都会让后面的资源包条目整体错位，最后以字符串长度越界的形式失败。
  */
 public final class ResourcePackStackLayout {
 
+    public static final int BEHAVIOUR_PACK_STACK_PROTOCOL = 897;
+
     private ResourcePackStackLayout() {
     }
 
+    public static boolean sendsBehaviourPackStack() {
+        return sendsBehaviourPackStack(BedrockWire.effectiveProtocol());
+    }
+
+    public static boolean sendsBehaviourPackStack(final int protocol) {
+        return protocol < BEHAVIOUR_PACK_STACK_PROTOCOL;
+    }
+
+    /** 旧名与旧签名的布尔参数只为兼容既有调用点，布局只由协议号决定。 */
     public static boolean sendsNetEaseBehaviourPackStack() {
-        return sendsNetEaseBehaviourPackStack(emulateNetEase(), netEaseProtocol());
+        return sendsBehaviourPackStack();
     }
 
     public static boolean sendsNetEaseBehaviourPackStack(final boolean emulateNetEase, final int protocol) {
-        return NetEaseWire.applies(emulateNetEase, protocol, NetEaseDeviation.BEHAVIOUR_PACK_STACK_TRAILER);
+        return sendsBehaviourPackStack(protocol);
     }
 
     /**
@@ -65,13 +76,5 @@ public final class ResourcePackStackLayout {
             BedrockTypes.STRING.read(buffer);
         }
         return count;
-    }
-
-    private static boolean emulateNetEase() {
-        return ViaBedrock.getConfig().shouldEmulateNetEaseClient();
-    }
-
-    private static int netEaseProtocol() {
-        return ViaBedrock.getConfig().getNetEaseProtocolVersion();
     }
 }

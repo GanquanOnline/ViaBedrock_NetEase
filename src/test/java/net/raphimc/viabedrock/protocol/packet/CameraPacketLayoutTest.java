@@ -66,7 +66,9 @@ class CameraPacketLayoutTest {
         assertFalse(CameraPacketLayout.usesStartingRotation(true, 2191));
         assertTrue(CameraPacketLayout.usesStartingRotation(true, 2192));
         assertTrue(CameraPacketLayout.usesStartingRotation(true, 2225));
-        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2191));
+        assertFalse(CameraPacketLayout.usesStartingRotation(false, 975));
+        assertFalse(CameraPacketLayout.usesStartingRotation(false, 2191));
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2192));
     }
 
 }

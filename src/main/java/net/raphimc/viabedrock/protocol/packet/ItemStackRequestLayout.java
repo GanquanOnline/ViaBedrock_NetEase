@@ -77,7 +77,7 @@ public final class ItemStackRequestLayout {
     }
 
     public static boolean usesOptionalDynamicId(final boolean emulateNetEase, final int protocol) {
-        return !emulateNetEase || protocol >= OPTIONAL_DYNAMIC_ID_PROTOCOL;
+        return protocol >= OPTIONAL_DYNAMIC_ID_PROTOCOL;
     }
 
     public static void writeActionType(final ByteBuf buffer, final ItemStackRequestActionType type) {
@@ -156,14 +156,14 @@ public final class ItemStackRequestLayout {
 
     public static void writeRequestTrailer(final ByteBuf buffer, final boolean emulateNetEase, final int protocol,
                                            final String[] filterStrings, final TextProcessingEventOrigin origin) {
-        if (!emulateNetEase || protocol >= FILTER_STRINGS_PROTOCOL) {
+        if (protocol >= FILTER_STRINGS_PROTOCOL) {
             final String[] strings = filterStrings != null ? filterStrings : new String[0];
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, strings.length);
             for (final String filterString : strings) {
                 BedrockTypes.STRING.write(buffer, filterString != null ? filterString : "");
             }
         }
-        if (!emulateNetEase || protocol >= TEXT_ORIGIN_PROTOCOL) {
+        if (protocol >= TEXT_ORIGIN_PROTOCOL) {
             final TextProcessingEventOrigin resolved = origin != null ? origin : TextProcessingEventOrigin.BlockActorDataText;
             buffer.writeIntLE(resolved.getValue());
         }
@@ -218,7 +218,7 @@ public final class ItemStackRequestLayout {
                                         final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftRecipe, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
@@ -238,16 +238,16 @@ public final class ItemStackRequestLayout {
                                             final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftRecipeAuto, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(numberOfRequestedCrafts);
         }
-        if (!emulateNetEase || protocol >= 448) {
+        if (protocol >= 448) {
             // 2168 起不再有独立的 timesCrafted 字节，读取端用 numberOfRequestedCrafts 回填。
             if (protocol < UNSIGNED_ACTION_TYPE_PROTOCOL) {
                 buffer.writeByte(timesCrafted);
             }
         }
-        if (!emulateNetEase || protocol >= 557) {
+        if (protocol >= 557) {
             final List<BedrockItem> descriptors = ingredients == null ? List.of() : ingredients;
             if (protocol >= UNSIGNED_ACTION_TYPE_PROTOCOL) {
                 // 2168 的计数也改成 VarUInt，每个配料是类型化描述符。
@@ -293,7 +293,7 @@ public final class ItemStackRequestLayout {
                                           final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftCreative, emulateNetEase, protocol);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, creativeItemNetworkId);
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
@@ -306,7 +306,7 @@ public final class ItemStackRequestLayout {
         } else {
             BedrockTypes.UNSIGNED_VAR_INT.write(buffer, recipeNetworkId);
         }
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
         BedrockTypes.VAR_INT.write(buffer, repairCost);
@@ -323,20 +323,20 @@ public final class ItemStackRequestLayout {
                                       final boolean emulateNetEase, final int protocol) {
         writeActionType(buffer, ItemStackRequestActionType.CraftLoom, emulateNetEase, protocol);
         BedrockTypes.STRING.write(buffer, patternId != null ? patternId : "");
-        if (!emulateNetEase || protocol >= 712) {
+        if (protocol >= 712) {
             buffer.writeByte(timesCrafted);
         }
     }
 
     public static DecodedRequestTrailer readRequestTrailer(final ByteBuf buffer, final boolean emulateNetEase, final int protocol) {
         final String[] filterStrings;
-        if (!emulateNetEase || protocol >= FILTER_STRINGS_PROTOCOL) {
+        if (protocol >= FILTER_STRINGS_PROTOCOL) {
             filterStrings = BedrockTypes.STRING_ARRAY.read(buffer);
         } else {
             filterStrings = new String[0];
         }
         Integer origin = null;
-        if (!emulateNetEase || protocol >= TEXT_ORIGIN_PROTOCOL) {
+        if (protocol >= TEXT_ORIGIN_PROTOCOL) {
             origin = buffer.readIntLE();
         }
         return new DecodedRequestTrailer(filterStrings, origin);

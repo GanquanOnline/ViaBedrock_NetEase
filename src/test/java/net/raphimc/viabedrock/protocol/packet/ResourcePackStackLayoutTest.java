@@ -44,10 +44,12 @@ class ResourcePackStackLayoutTest {
             "10000003-0000-0000-0000-000000000000");
 
     @Test
-    void behaviourPackStackIsOnlySentBelowTheNetEase130Split() {
+    void behaviourPackStackIsOnlySentBelow897OnBothAxes() {
         assertTrue(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(true, 860));
+        assertTrue(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(false, 860));
+        assertFalse(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(true, 897));
+        assertFalse(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(false, 897));
         assertFalse(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(true, 898));
-        assertFalse(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(false, 860));
         assertFalse(ResourcePackStackLayout.sendsNetEaseBehaviourPackStack(false, 898));
     }
 

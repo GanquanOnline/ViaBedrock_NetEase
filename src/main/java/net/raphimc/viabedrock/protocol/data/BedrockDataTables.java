@@ -44,8 +44,13 @@ public final class BedrockDataTables {
      * 897 与 898 同理：官方 {@code RuntimeItems} 对 {@code >= 897} 返回 {@code V1_21_130}，转储就是上面那份
      * 与 924 字节相同的 1905 项；方块侧没有 898 转储，{@code floorEntry(898)} 同样落到
      * {@code V1_21_111}(844)。
+     * <p>
+     * 860（官方 1.21.124）也共用 975：MOT 没有 {@code runtime_item_states_860.json}，
+     * 官方链在 {@code RuntimeItems.getMapping} 里把 860 落到 {@code V1_21_120}（859 的转储），
+     * 方块侧 {@code floorEntry(860)} 同样落到 {@code V1_21_111}(844)；两者都已在 975 表内，
+     * 且 860 的线格式 id 仍由服务端的 {@code ITEM_REGISTRY} 给出。
      */
-    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(897, 975, 898, 975, 924, 975, 944, 975, 974, 975, 2192, 2193);
+    private static final Map<Integer, Integer> SHARED_TABLES = Map.of(860, 975, 897, 975, 898, 975, 924, 975, 944, 975, 974, 975, 2192, 2193);
 
     private BedrockDataTables() {
     }

@@ -40,6 +40,13 @@ package net.raphimc.viabedrock.protocol.data;
 public enum BedrockProtocolProfile {
 
     /**
+     * 官方 1.21.124，后向窗口最低的一段。MOT 把 860 的物品表映到 {@code V1_21_120}（859 的转储，
+     * 没有 {@code runtime_item_states_860.json}），方块调色板的 {@code floorEntry(860)} 是
+     * {@code V1_21_111}(844)，所以数据表与 897/898/924/944 一样共用 975（见 {@link BedrockDataTables}）。
+     * 官方 860 与 897 之间还有一个官方协议 893（r21_u13），MOT 没有对应常量，这里也不建档案。
+     */
+    V1_21_124(860, "1.21.124"),
+    /**
      * 1.21.130.28 是 1.21.130 的热修版，线上只差 {@code RuntimeItems} 的档案名；MOT 把它的
      * 版本串写作 {@code 1.21.130_28}，这里用点号形式与 {@link #V1_26_50_27} 保持一致。
      * 该握手串只在源码上与 MOT 对齐，未在官方服验证过。

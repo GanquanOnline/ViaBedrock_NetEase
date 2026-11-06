@@ -222,7 +222,7 @@ class Protocol2192_2225LayoutForkTest {
 
     @Test
     void cameraPresetTailAndInventoryDeviationRanges() {
-        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2191));
+        assertFalse(CameraPacketLayout.usesStartingRotation(false, 2191));
         assertTrue(CameraPacketLayout.usesStartingRotation(false, 2192));
         assertTrue(CameraPacketLayout.usesStartingRotation(false, 2225));
         assertFalse(CameraPacketLayout.usesStartingRotation(true, 860));

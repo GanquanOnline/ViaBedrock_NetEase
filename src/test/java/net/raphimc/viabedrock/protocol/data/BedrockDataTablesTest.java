@@ -29,6 +29,7 @@ public class BedrockDataTablesTest {
 
     /** 协议号 → 实际存放数据表的版本目录；2192 与 2193 共用一份转储。{@link BedrockDataTableContentTest} 也从这里派生 */
     static final Map<Integer, Integer> SHIPPED_TABLES = Map.ofEntries(
+            Map.entry(860, 975),
             Map.entry(897, 975),
             Map.entry(898, 975),
             Map.entry(924, 975),
@@ -79,6 +80,15 @@ public class BedrockDataTablesTest {
         assertEquals("versions/975/runtime_item_states.json", BedrockDataTables.itemStates(924),
                 "924 的物品表就是 V1_26_0 的转储，名字全在 975 里");
         BedrockDataTables.validate(924);
+    }
+
+    @Test
+    void the860WindowSharesThe975Dump() {
+        assertEquals("versions/975/block_palette.nbt", BedrockDataTables.blockPalette(860),
+                "MOT 在官方 860 没有方块转储，floorEntry(860) 回落到 1.21.111(844)，而 844 是 975 的子集");
+        assertEquals("versions/975/runtime_item_states.json", BedrockDataTables.itemStates(860),
+                "MOT 没有 runtime_item_states_860.json，官方链把 860 落到 V1_21_120(859)，名字全在 975 里");
+        BedrockDataTables.validate(860);
     }
 
     @Test

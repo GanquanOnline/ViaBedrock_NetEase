@@ -97,4 +97,22 @@ class OfficialBedrockLayoutForkTest {
         assertTrue(UpdateClientInputLocksLayout.usesServerPosition(true, 860));
         assertFalse(UpdateClientInputLocksLayout.usesServerPosition(false, 975));
     }
+
+    /** 共享包的这些分支只看协议号：阈值均 ≤ 785，官方 860 已在阈值之上，与网易仿真开关无关。 */
+    @Test
+    void sharedLayoutsIgnoreTheNetEaseFlagOnTheOfficialAxis() {
+        for (final int protocol : new int[]{860, 897, 898, 924, 944, 975}) {
+            assertTrue(ItemStackResponseLayout.usesFullContainerName(false, protocol));
+            assertTrue(ItemStackResponseLayout.usesCustomName(false, protocol));
+            assertTrue(ItemStackResponseLayout.usesFilteredCustomName(false, protocol));
+            assertTrue(ItemStackResponseLayout.usesDurabilityCorrection(false, protocol));
+            assertTrue(ItemStackRequestLayout.usesOptionalDynamicId(false, protocol));
+            assertTrue(LevelSoundEventLayout.usesEntityUniqueId(false, protocol));
+            assertTrue(CraftingDataLayout.usesUnlockingRequirement(false, protocol));
+        }
+        assertFalse(ItemStackResponseLayout.usesFilteredCustomName(false, 765));
+        assertFalse(ItemStackRequestLayout.usesOptionalDynamicId(false, 728));
+        assertFalse(LevelSoundEventLayout.usesEntityUniqueId(false, 784));
+        assertFalse(CraftingDataLayout.usesUnlockingRequirement(false, 684));
+    }
 }
