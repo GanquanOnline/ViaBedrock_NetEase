@@ -59,7 +59,7 @@ jobs:
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
           repository: EaseCation/BedrockMotion
-          ref: 1309712fd242eef9a508b1599a624ed503741514
+          ref: 27c6769d78cf938b97d9101623352122af4dc171
           path: .ci-dependencies/BedrockMotion
           persist-credentials: false
       - name: "Checkout CubeConverter"

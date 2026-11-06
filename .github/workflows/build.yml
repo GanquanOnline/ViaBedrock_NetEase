@@ -14,11 +14,13 @@ jobs:
         with:
           persist-credentials: false
       # 与已验收工作区的 gitlink 一致，使用公开源码中的定制 API。
+      # 27c6769 起 AnimationControllerInstance 才有 controllerDefinitions 五参构造器，
+      # 更早的 1309712f 只有四参，编不过 ServerEntityTicker:137。
       - name: "Checkout BedrockMotion"
         uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
         with:
           repository: EaseCation/BedrockMotion
-          ref: 1309712fd242eef9a508b1599a624ed503741514
+          ref: 27c6769d78cf938b97d9101623352122af4dc171
           path: .ci-dependencies/BedrockMotion
           persist-credentials: false
       - name: "Checkout CubeConverter"
