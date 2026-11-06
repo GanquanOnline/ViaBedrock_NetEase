@@ -27,6 +27,8 @@ import net.raphimc.viabedrock.protocol.data.NetEaseDeviation;
 import net.raphimc.viabedrock.protocol.data.NetEaseWire;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 
+import java.util.UUID;
+
 /**
  * 基岩 PLAYER_LIST（0x3F 号包）的布局辅助方法。
  * <p>
@@ -65,6 +67,19 @@ public final class PlayerListLayout {
     public static byte readEntryAction(final PacketWrapper wrapper) {
         wrapper.read(BedrockTypes.UNSIGNED_VAR_INT);
         return wrapper.read(Types.BYTE);
+    }
+
+    /**
+     * 读旧布局 remove 的 UUID 列表。包首已经读过动作与条目数，
+     * 而 {@link BedrockTypes#UUID_ARRAY} 自带条目数前缀，再交给它读会把第一个 UUID
+     * 的首字节当成条目数，读到越界长度后整个连接被判为解码失败。
+     */
+    public static UUID[] readRemovalUuids(final PacketWrapper wrapper, final int length) {
+        final UUID[] uuids = new UUID[length];
+        for (int i = 0; i < length; i++) {
+            uuids[i] = wrapper.read(BedrockTypes.UUID);
+        }
+        return uuids;
     }
 
     public static void skipNetEaseAddTrailer(final PacketWrapper wrapper, final int length) {
