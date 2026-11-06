@@ -215,7 +215,7 @@ public class HudPackets {
                             uuids[i] = wrapper.read(BedrockTypes.UUID); // uuid
                         }
                     } else {
-                        uuids = wrapper.read(BedrockTypes.UUID_ARRAY); // UUID 列表
+                        uuids = PlayerListLayout.readRemovalUuids(wrapper, length); // UUID 列表，条目数已在包首读过
                     }
                     wrapper.write(Types.UUID_ARRAY, uuids); // UUID 列表
 
