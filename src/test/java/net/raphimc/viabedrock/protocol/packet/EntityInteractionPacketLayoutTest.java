@@ -49,8 +49,10 @@ class EntityInteractionPacketLayoutTest {
         final Position3f clickPosition = new Position3f(10F, 70F, 11.5F);
         final byte[] payload = EntityInteractionPacketLayout.encode(
                 TEST_ITEM_TYPE,
+                0,
                 runtimeId,
                 ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
+                0,
                 7,
                 new BedrockItem(355, (short) 0, (byte) 2),
                 playerPosition,
@@ -91,8 +93,10 @@ class EntityInteractionPacketLayoutTest {
         assertEquals(1, ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue());
         final byte[] payload = EntityInteractionPacketLayout.encode(
                 TEST_ITEM_TYPE,
+                0,
                 -1L,
                 ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue(),
+                0,
                 0,
                 BedrockItem.empty(),
                 Position3f.ZERO,
@@ -118,7 +122,71 @@ class EntityInteractionPacketLayoutTest {
         }
 
         assertThrows(IllegalArgumentException.class, () -> EntityInteractionPacketLayout.encode(
-                TEST_ITEM_TYPE, 1L, 2, 0, BedrockItem.empty(), Position3f.ZERO, Position3f.ZERO));
+                TEST_ITEM_TYPE, 0, 1L, 2, 0, 0, BedrockItem.empty(), Position3f.ZERO, Position3f.ZERO));
+    }
+    @Test
+    void writesUseItemOnEntityHandAt2225() {
+        final byte[] payload = EntityInteractionPacketLayout.encode(
+                TEST_ITEM_TYPE,
+                2225,
+                1L,
+                ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
+                1,
+                3,
+                new BedrockItem(355, (short) 0, (byte) 2),
+                Position3f.ZERO,
+                Position3f.ZERO
+        );
+        final ByteBuf buffer = Unpooled.wrappedBuffer(payload);
+        try {
+            assertEquals(0, BedrockTypes.VAR_INT.read(buffer));
+            assertFalse(buffer.readBoolean());
+            assertEquals(ComplexInventoryTransaction_Type.ItemUseOnEntityTransaction.getValue(),
+                    BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
+            assertEquals(0, BedrockTypes.UNSIGNED_VAR_INT.read(buffer));
+            assertEquals(1L, BedrockTypes.UNSIGNED_VAR_LONG.read(buffer));
+            assertEquals(ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
+                    BedrockTypes.VAR_INT.read(buffer));
+            assertEquals(3, BedrockTypes.VAR_INT.read(buffer));
+            assertEquals(1, buffer.readUnsignedByte());
+            assertEquals(355, TEST_ITEM_TYPE.read(buffer).identifier());
+            assertEquals(Position3f.ZERO, BedrockTypes.POSITION_3F.read(buffer));
+            assertEquals(Position3f.ZERO, BedrockTypes.POSITION_3F.read(buffer));
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    void omitsUseItemOnEntityHandBelow2225() {
+        final byte[] payload = EntityInteractionPacketLayout.encode(
+                TEST_ITEM_TYPE,
+                2192,
+                1L,
+                ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue(),
+                1,
+                3,
+                new BedrockItem(355, (short) 0, (byte) 2),
+                Position3f.ZERO,
+                Position3f.ZERO
+        );
+        final ByteBuf buffer = Unpooled.wrappedBuffer(payload);
+        try {
+            BedrockTypes.VAR_INT.read(buffer);
+            buffer.readBoolean();
+            BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+            BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
+            BedrockTypes.UNSIGNED_VAR_LONG.read(buffer);
+            BedrockTypes.VAR_INT.read(buffer);
+            assertEquals(3, BedrockTypes.VAR_INT.read(buffer));
+            assertEquals(355, TEST_ITEM_TYPE.read(buffer).identifier());
+            assertEquals(Position3f.ZERO, BedrockTypes.POSITION_3F.read(buffer));
+            assertEquals(Position3f.ZERO, BedrockTypes.POSITION_3F.read(buffer));
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
     }
 
 }

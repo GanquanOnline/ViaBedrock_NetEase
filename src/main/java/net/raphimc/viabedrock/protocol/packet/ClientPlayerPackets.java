@@ -675,6 +675,7 @@ public class ClientPlayerPackets {
             final InventoryContainer inventoryContainer = wrapper.user().get(InventoryTracker.class).getInventoryContainer();
             EntityInteractionPacketSender.write(wrapper, entity.runtimeId(),
                     ItemUseOnActorInventoryTransaction_ActionType.Attack.getValue(),
+                    InteractionHand.MAIN_HAND.ordinal(),
                     (int) inventoryContainer.getSelectedHotbarSlot(), inventoryContainer.getSelectedHotbarItem(),
                     clientPlayer.position(), clickPosition);
 
@@ -741,6 +742,7 @@ public class ClientPlayerPackets {
             // TODO: 基岩客户端在悬停实体变化时发送 INTERACT 包。可能被反作弊使用
             EntityInteractionPacketSender.write(wrapper, entity.runtimeId(),
                     ItemUseOnActorInventoryTransaction_ActionType.Interact.getValue(),
+                    hand.ordinal(),
                     handContext.entityTransactionHotbarSlot(wrapper.user().get(InventoryTracker.class)
                             .getInventoryContainer().getSelectedHotbarSlot()),
                     handContext.item(), clientPlayer.position(), clickPosition);

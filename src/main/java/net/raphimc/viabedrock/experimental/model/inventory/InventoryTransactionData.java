@@ -36,6 +36,7 @@ public interface InventoryTransactionData {
 
 
     // UseItemTransactionData 表示客户端对方块使用物品时发送的物品栏事务数据对象。
+    // hand 为主手 0 / 副手 1，2192 起才在线上出现。
     record UseItemTransactionData(
             ItemUseInventoryTransaction_ActionType actionType,
             ItemUseInventoryTransaction_TriggerType triggerType,
@@ -47,26 +48,30 @@ public interface InventoryTransactionData {
             Position3f clickPosition,
             int blockRuntimeId,
             ItemUseInventoryTransaction_PredictedResult predictedResult,
-            byte clientCooldownState
+            byte clientCooldownState,
+            int hand
     ) implements InventoryTransactionData {}
 
     // UseItemOnEntityTransactionData 表示客户端对实体使用物品时发送的物品栏事务数据对象。
+    // hand 在 2225 才在线上出现。
     record UseItemOnEntityTransactionData(
             long entityRuntimeId,
             ItemUseOnActorInventoryTransaction_ActionType actionType,
             int hotbarSlot,
             BedrockItem itemInHand,
             Position3f playerPosition,
-            Position3f clickPosition
+            Position3f clickPosition,
+            int hand
     ) implements InventoryTransactionData {}
 
     // ReleaseItemTransactionData 表示客户端松开正在使用的物品时发送的物品栏事务数据对象，
-    // 例如进食中途停止或停止拉弓。
+    // 例如进食中途停止或停止拉弓。hand 在 2225 才在线上出现。
     record ReleaseItemTransactionData(
             ItemReleaseInventoryTransaction_ActionType actionType,
             int hotbarSlot,
             BedrockItem itemInHand,
-            Position3f headPosition
+            Position3f headPosition,
+            int hand
     ) implements InventoryTransactionData {}
 
 }

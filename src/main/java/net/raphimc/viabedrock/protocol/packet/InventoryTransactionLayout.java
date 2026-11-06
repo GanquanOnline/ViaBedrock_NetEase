@@ -44,6 +44,10 @@ public final class InventoryTransactionLayout {
     public static final int TRANSACTION_SHAPE_2192_PROTOCOL = 2192;
     /** PLAYER_AUTH_INPUT 内嵌交互载荷改形状的起点 */
     public static final int EMBEDDED_INTERACTION_PROTOCOL = 2168;
+    /** USE_ITEM 事务在 hotbarSlot 之后多一个手持字节 */
+    public static final int USE_ITEM_HAND_PROTOCOL = 2192;
+    /** USE_ITEM_ON_ENTITY 与 RELEASE_ITEM 事务补手持字节 */
+    public static final int LATE_HAND_PROTOCOL = 2225;
 
     private InventoryTransactionLayout() {
     }
@@ -57,7 +61,22 @@ public final class InventoryTransactionLayout {
     }
 
     public static boolean usesSourcePresencePairs(final int protocol) {
-        return protocol >= TRANSACTION_SHAPE_1001_PROTOCOL && protocol < TRANSACTION_SHAPE_2192_PROTOCOL;
+        return SourceShape.of(protocol) == SourceShape.PRESENCE_PAIRS;
+    }
+
+    /** USE_ITEM 事务的手持字节：2192 起紧跟 hotbarSlot，值为主手 0 / 副手 1。 */
+    public static boolean usesUseItemHand(final int protocol) {
+        return protocol >= USE_ITEM_HAND_PROTOCOL;
+    }
+
+    /** USE_ITEM_ON_ENTITY 事务的手持字节。 */
+    public static boolean usesUseItemOnEntityHand(final int protocol) {
+        return protocol >= LATE_HAND_PROTOCOL;
+    }
+
+    /** RELEASE_ITEM 事务的手持字节，位于 headRot 之后。 */
+    public static boolean usesReleaseItemHand(final int protocol) {
+        return protocol >= LATE_HAND_PROTOCOL;
     }
 
     public static boolean usesByteEnums(final int protocol) {
@@ -67,6 +86,26 @@ public final class InventoryTransactionLayout {
     /** @return true 表示内嵌在 PLAYER_AUTH_INPUT 里的交互载荷已经换成 1001 形状 */
     public static boolean usesEmbeddedInteractionShape(final int protocol) {
         return protocol >= EMBEDDED_INTERACTION_PROTOCOL;
+    }
+
+    /**
+     * 动作来源在线上有三种形状：1001 之前按来源类型分支写各自字段；1001~2191 是两组
+     * “外层存在性 + 内层存在性”的 bool 对；2192 起外层 bool 消失，只剩内层存在性 bool。
+     */
+    public enum SourceShape {
+
+        LEGACY,
+        PRESENCE_PAIRS,
+        PRESENCE_BOOL;
+
+        /** 伪协议号 0 表示“按旧形状写”，供内嵌载荷复用。 */
+        public static SourceShape of(final int protocol) {
+            if (protocol < TRANSACTION_SHAPE_1001_PROTOCOL) {
+                return LEGACY;
+            }
+            return protocol < TRANSACTION_SHAPE_2192_PROTOCOL ? PRESENCE_PAIRS : PRESENCE_BOOL;
+        }
+
     }
 
     public static int readActionType(final ByteBuf buffer, final int protocol) {

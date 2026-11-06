@@ -18,6 +18,7 @@
 package net.raphimc.viabedrock.experimental.types.inventory;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 import net.raphimc.viabedrock.experimental.model.inventory.BedrockInventoryTransaction;
@@ -29,6 +30,7 @@ import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.ItemUseInventoryTransaction_TriggerType;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.*;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
+import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.packet.InventoryTransactionLayout;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
@@ -68,37 +70,60 @@ public class InventoryTransactionPacketType extends Type<BedrockInventoryTransac
         if (InventoryTransactionLayout.usesConstantBooleans(protocol)) {
             buffer.readBoolean(); // 恒 true，位于动作数之前
         }
-        InventoryActionData[] actions = this.readActions(buffer, itemType, InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+        InventoryActionData[] actions = this.readActions(buffer, itemType, InventoryTransactionLayout.SourceShape.of(protocol));
         InventoryTransactionData transactionData = switch (type) {
             case NormalTransaction ->  new InventoryTransactionData.NormalTransactionData();
             case InventoryMismatch -> new InventoryTransactionData.MismatchTransactionData();
-            case ItemUseTransaction -> new InventoryTransactionData.UseItemTransactionData(
-                    ItemUseInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol)),
-                    ItemUseInventoryTransaction_TriggerType.getByValue(InventoryTransactionLayout.readUnsignedEnum(buffer, protocol)),
-                    BedrockTypes.BLOCK_POSITION.read(buffer),
-                    InventoryTransactionLayout.readFace(buffer, protocol),
-                    BedrockTypes.VAR_INT.read(buffer),
-                    itemType.read(buffer),
-                    BedrockTypes.POSITION_3F.read(buffer),
-                    BedrockTypes.POSITION_3F.read(buffer),
-                    BedrockTypes.UNSIGNED_VAR_INT.read(buffer),
-                    ItemUseInventoryTransaction_PredictedResult.getByValue(InventoryTransactionLayout.readUnsignedEnum(buffer, protocol)),
-                    InventoryTransactionLayout.readClientCooldownState(buffer)
-            );
-            case ItemUseOnEntityTransaction -> new InventoryTransactionData.UseItemOnEntityTransactionData(
-                    readEntityRuntimeId(buffer),
-                    ItemUseOnActorInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol)),
-                    BedrockTypes.VAR_INT.read(buffer),
-                    itemType.read(buffer),
-                    BedrockTypes.POSITION_3F.read(buffer),
-                    BedrockTypes.POSITION_3F.read(buffer)
-            );
-            case ItemReleaseTransaction -> new InventoryTransactionData.ReleaseItemTransactionData(
-                    ItemReleaseInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol)),
-                    BedrockTypes.VAR_INT.read(buffer),
-                    itemType.read(buffer),
-                    BedrockTypes.POSITION_3F.read(buffer)
-            );
+            case ItemUseTransaction -> {
+                final ItemUseInventoryTransaction_ActionType actionType = ItemUseInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol));
+                final ItemUseInventoryTransaction_TriggerType triggerType = ItemUseInventoryTransaction_TriggerType.getByValue(InventoryTransactionLayout.readUnsignedEnum(buffer, protocol));
+                final BlockPosition blockPosition = BedrockTypes.BLOCK_POSITION.read(buffer);
+                final int face = InventoryTransactionLayout.readFace(buffer, protocol);
+                final int hotbarSlot = BedrockTypes.VAR_INT.read(buffer);
+                final int hand = InventoryTransactionLayout.usesUseItemHand(protocol) ? buffer.readUnsignedByte() : 0;
+                yield new InventoryTransactionData.UseItemTransactionData(
+                        actionType,
+                        triggerType,
+                        blockPosition,
+                        face,
+                        hotbarSlot,
+                        itemType.read(buffer),
+                        BedrockTypes.POSITION_3F.read(buffer),
+                        BedrockTypes.POSITION_3F.read(buffer),
+                        BedrockTypes.UNSIGNED_VAR_INT.read(buffer),
+                        ItemUseInventoryTransaction_PredictedResult.getByValue(InventoryTransactionLayout.readUnsignedEnum(buffer, protocol)),
+                        InventoryTransactionLayout.readClientCooldownState(buffer),
+                        hand
+                );
+            }
+            case ItemUseOnEntityTransaction -> {
+                final long entityRuntimeId = readEntityRuntimeId(buffer);
+                final ItemUseOnActorInventoryTransaction_ActionType actionType = ItemUseOnActorInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol));
+                final int hotbarSlot = BedrockTypes.VAR_INT.read(buffer);
+                final int hand = InventoryTransactionLayout.usesUseItemOnEntityHand(protocol) ? buffer.readUnsignedByte() : 0;
+                yield new InventoryTransactionData.UseItemOnEntityTransactionData(
+                        entityRuntimeId,
+                        actionType,
+                        hotbarSlot,
+                        itemType.read(buffer),
+                        BedrockTypes.POSITION_3F.read(buffer),
+                        BedrockTypes.POSITION_3F.read(buffer),
+                        hand
+                );
+            }
+            case ItemReleaseTransaction -> {
+                final ItemReleaseInventoryTransaction_ActionType actionType = ItemReleaseInventoryTransaction_ActionType.getByValue(InventoryTransactionLayout.readActionType(buffer, protocol));
+                final int hotbarSlot = BedrockTypes.VAR_INT.read(buffer);
+                final BedrockItem itemInHand = itemType.read(buffer);
+                final Position3f headPosition = BedrockTypes.POSITION_3F.read(buffer);
+                yield new InventoryTransactionData.ReleaseItemTransactionData(
+                        actionType,
+                        hotbarSlot,
+                        itemInHand,
+                        headPosition,
+                        InventoryTransactionLayout.usesReleaseItemHand(protocol) ? buffer.readUnsignedByte() : 0
+                );
+            }
         };
 
         return new BedrockInventoryTransaction(legacyRequestId, List.of(legacySlots), List.of(actions), type, transactionData);
@@ -135,20 +160,23 @@ public class InventoryTransactionPacketType extends Type<BedrockInventoryTransac
         if (InventoryTransactionLayout.usesConstantBooleans(protocol)) {
             buffer.writeBoolean(true);
         }
-        this.writeActions(buffer, bedrockInventoryTransaction.actions(), itemType, InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+        this.writeActions(buffer, bedrockInventoryTransaction.actions(), itemType, InventoryTransactionLayout.SourceShape.of(protocol));
         switch (bedrockInventoryTransaction.transactionType()) {
             case NormalTransaction, InventoryMismatch -> {
                 // 没有额外数据要写入
             }
             case ItemUseTransaction -> {
                 InventoryTransactionData.UseItemTransactionData data = (InventoryTransactionData.UseItemTransactionData) bedrockInventoryTransaction.transactionData();
-                this.writeUseItemTransactionData(buffer, data, itemType, InventoryTransactionLayout.usesByteEnums(protocol));
+                this.writeUseItemTransactionData(buffer, data, itemType, protocol);
             }
             case ItemUseOnEntityTransaction -> {
                 InventoryTransactionData.UseItemOnEntityTransactionData data = (InventoryTransactionData.UseItemOnEntityTransactionData) bedrockInventoryTransaction.transactionData();
                 writeEntityRuntimeId(buffer, data.entityRuntimeId());
                 InventoryTransactionLayout.writeActionType(buffer, data.actionType().getValue(), protocol);
                 BedrockTypes.VAR_INT.write(buffer, data.hotbarSlot());
+                if (InventoryTransactionLayout.usesUseItemOnEntityHand(protocol)) {
+                    buffer.writeByte(data.hand());
+                }
                 itemType.write(buffer, data.itemInHand());
                 BedrockTypes.POSITION_3F.write(buffer, data.playerPosition());
                 BedrockTypes.POSITION_3F.write(buffer, data.clickPosition());
@@ -159,6 +187,9 @@ public class InventoryTransactionPacketType extends Type<BedrockInventoryTransac
                 BedrockTypes.VAR_INT.write(buffer, data.hotbarSlot());
                 itemType.write(buffer, data.itemInHand());
                 BedrockTypes.POSITION_3F.write(buffer, data.headPosition());
+                if (InventoryTransactionLayout.usesReleaseItemHand(protocol)) {
+                    buffer.writeByte(data.hand());
+                }
             }
         }
     }
@@ -179,42 +210,45 @@ public class InventoryTransactionPacketType extends Type<BedrockInventoryTransac
             ExperimentalBedrockTypes.LEGACY_SET_ITEM_SLOT_DATA.write(buffer, bedrockInventoryTransaction.legacySlots().toArray(new LegacySetItemSlotData[0]));
         }
         this.writeActions(buffer, bedrockInventoryTransaction.actions(), itemType,
-                InventoryTransactionLayout.usesSourcePresencePairs(newShape ? protocol : 0));
+                InventoryTransactionLayout.SourceShape.of(newShape ? protocol : 0));
         this.writeUseItemTransactionData(buffer, (InventoryTransactionData.UseItemTransactionData) bedrockInventoryTransaction.transactionData(),
-                itemType, InventoryTransactionLayout.usesByteEnums(newShape ? protocol : 0));
+                itemType, newShape ? protocol : 0);
     }
 
     public void writeUseItemTransactionData(ByteBuf buffer, InventoryTransactionData.UseItemTransactionData data,
-                                            final Type<BedrockItem> itemType, final boolean byteEnums) {
-        final int enumProtocol = byteEnums ? InventoryTransactionLayout.TRANSACTION_SHAPE_1001_PROTOCOL : 0;
-        InventoryTransactionLayout.writeActionType(buffer, data.actionType().getValue(), enumProtocol);
-        InventoryTransactionLayout.writeUnsignedEnum(buffer, data.triggerType().getValue(), enumProtocol);
+                                            final Type<BedrockItem> itemType, final int protocol) {
+        InventoryTransactionLayout.writeActionType(buffer, data.actionType().getValue(), protocol);
+        InventoryTransactionLayout.writeUnsignedEnum(buffer, data.triggerType().getValue(), protocol);
         BedrockTypes.BLOCK_POSITION.write(buffer, data.blockPosition());
-        InventoryTransactionLayout.writeFace(buffer, data.face(), enumProtocol);
+        InventoryTransactionLayout.writeFace(buffer, data.face(), protocol);
         BedrockTypes.VAR_INT.write(buffer, data.hotbarSlot());
+        if (InventoryTransactionLayout.usesUseItemHand(protocol)) {
+            buffer.writeByte(data.hand());
+        }
         itemType.write(buffer, data.itemInHand());
         BedrockTypes.POSITION_3F.write(buffer, data.playerPosition());
         BedrockTypes.POSITION_3F.write(buffer, data.clickPosition());
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, data.blockRuntimeId());
-        InventoryTransactionLayout.writeUnsignedEnum(buffer, data.predictedResult().getValue(), enumProtocol);
+        InventoryTransactionLayout.writeUnsignedEnum(buffer, data.predictedResult().getValue(), protocol);
         InventoryTransactionLayout.writeClientCooldownState(buffer, data.clientCooldownState());
     }
 
     private InventoryActionData[] readActions(final ByteBuf buffer, final Type<BedrockItem> itemType,
-                                              final boolean presencePairs) {
+                                              final InventoryTransactionLayout.SourceShape sourceShape) {
         final InventoryActionData[] actions = new InventoryActionData[BedrockTypes.UNSIGNED_VAR_INT.read(buffer)];
         for (int i = 0; i < actions.length; i++) {
-            actions[i] = this.inventoryActionDataType.read(buffer, itemType, presencePairs);
+            actions[i] = this.inventoryActionDataType.read(buffer, itemType, sourceShape);
         }
         return actions;
     }
 
     private void writeActions(final ByteBuf buffer, final List<InventoryActionData> actions,
-                              final Type<BedrockItem> itemType, final boolean presencePairs) {
+                              final Type<BedrockItem> itemType,
+                              final InventoryTransactionLayout.SourceShape sourceShape) {
         final InventoryActionData[] actionArray = actions != null ? actions.toArray(new InventoryActionData[0]) : new InventoryActionData[0];
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, actionArray.length);
         for (final InventoryActionData action : actionArray) {
-            this.inventoryActionDataType.write(buffer, action, itemType, presencePairs);
+            this.inventoryActionDataType.write(buffer, action, itemType, sourceShape);
         }
     }
 

@@ -48,6 +48,15 @@ class CameraPacketLayoutTest {
         assertFalse(CameraPacketLayout.usesAlignTargetAndCameraForward(true, 818));
         assertFalse(CameraPacketLayout.usesAimAssist(true, 765));
         assertTrue(CameraPacketLayout.usesAimAssist(true, 766));
+        assertFalse(CameraPacketLayout.usesStartingRotation(true, 860));
+    }
+
+    @Test
+    void startingRotationIs2192Only() {
+        assertFalse(CameraPacketLayout.usesStartingRotation(true, 2191));
+        assertTrue(CameraPacketLayout.usesStartingRotation(true, 2192));
+        assertTrue(CameraPacketLayout.usesStartingRotation(true, 2225));
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2191));
     }
 
 }

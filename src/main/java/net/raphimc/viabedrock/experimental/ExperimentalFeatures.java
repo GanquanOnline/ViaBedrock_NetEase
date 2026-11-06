@@ -132,7 +132,7 @@ public class ExperimentalFeatures {
     private static final byte DEFAULT_COOLDOWN_STATE = 0;
     private static final List<FeatureModule> MODULES = new ArrayList<>();
 
-    private record ReleaseItemSnapshot(int hotbarSlot, BedrockItem itemInHand, Position3f headPosition) {
+    private record ReleaseItemSnapshot(int hotbarSlot, BedrockItem itemInHand, Position3f headPosition, int hand) {
     }
 
     public static List<FeatureModule> getModules() {
@@ -608,7 +608,8 @@ public class ExperimentalFeatures {
                         Position3f.ZERO,
                         AIR_USE_BLOCK_RUNTIME_ID,
                         ItemUseInventoryTransaction_PredictedResult.Success,
-                        DEFAULT_COOLDOWN_STATE
+                        DEFAULT_COOLDOWN_STATE,
+                        handContext.hand().ordinal()
                 )
         );
     }
@@ -1304,7 +1305,8 @@ public class ExperimentalFeatures {
                         predictedSuccess
                                 ? ItemUseInventoryTransaction_PredictedResult.Success
                                 : ItemUseInventoryTransaction_PredictedResult.Failure,
-                        (byte) 0 // TODO: 客户端冷却状态
+                        (byte) 0, // TODO: 客户端冷却状态
+                        handContext.hand().ordinal()
                 )
         );
         transactionPacket.write(inventoryTransactionRewriter.getInventoryTransactionType(), inventoryTransaction);
@@ -1375,7 +1377,8 @@ public class ExperimentalFeatures {
         return new ReleaseItemSnapshot(
                 handContext.transactionHotbarSlot(),
                 handContext.item().copy(),
-                releaseHeadPosition(clientPlayer)
+                releaseHeadPosition(clientPlayer),
+                handContext.hand().ordinal()
         );
     }
 
@@ -1383,7 +1386,8 @@ public class ExperimentalFeatures {
         return new ReleaseItemSnapshot(
                 itemUseSnapshot.transactionHotbarSlot(),
                 itemUseSnapshot.item().copy(),
-                releaseHeadPosition(clientPlayer)
+                releaseHeadPosition(clientPlayer),
+                itemUseSnapshot.hand().ordinal()
         );
     }
 
@@ -1406,7 +1410,8 @@ public class ExperimentalFeatures {
                         actionType,
                         snapshot.hotbarSlot(),
                         snapshot.itemInHand(),
-                        snapshot.headPosition()
+                        snapshot.headPosition(),
+                        snapshot.hand()
                 )
         );
         transactionPacket.write(inventoryTransactionRewriter.getInventoryTransactionType(), inventoryTransaction);

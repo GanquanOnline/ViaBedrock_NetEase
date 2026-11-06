@@ -22,6 +22,7 @@ public final class CameraPacketLayout {
     public static final int CAMERA_TARGET_PROTOCOL = 712;
     public static final int CAMERA_FOV_PROTOCOL = 827;
     public static final int CAMERA_SPLINE_PROTOCOL = 859;
+    public static final int STARTING_ROTATION_PROTOCOL = 2192;
 
     private CameraPacketLayout() {
     }
@@ -72,6 +73,11 @@ public final class CameraPacketLayout {
 
     public static boolean usesRemoveIgnoreStartingValues(final boolean emulateNetEase, final int protocol) {
         return !emulateNetEase || protocol >= ALIGN_TARGET_REMOVED_PROTOCOL;
+    }
+
+    /** 每个预设尾部新增“继承起始朝向”开关与可选的起始朝向。 */
+    public static boolean usesStartingRotation(final boolean emulateNetEase, final int protocol) {
+        return !emulateNetEase || protocol >= STARTING_ROTATION_PROTOCOL;
     }
 
 }

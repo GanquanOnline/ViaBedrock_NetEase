@@ -106,24 +106,24 @@ class Protocol1001LayoutForkTest {
         final ByteBuf buffer = Unpooled.buffer();
         final InventorySource container = new InventorySource(InventorySourceType.ContainerInventory, 12,
                 InventorySource_InventorySourceFlags.NoFlag);
-        InventorySourcePacketType.write(buffer, container, true);
-        final InventorySource readContainer = InventorySourcePacketType.read(buffer, true);
+        InventorySourcePacketType.write(buffer, container, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
+        final InventorySource readContainer = InventorySourcePacketType.read(buffer, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
         assertEquals(InventorySourceType.ContainerInventory, readContainer.type());
         assertEquals(12, readContainer.containerId());
         assertEquals(0, buffer.readableBytes());
 
         final InventorySource world = new InventorySource(InventorySourceType.WorldInteraction,
                 ContainerID.CONTAINER_ID_NONE.getValue(), InventorySource_InventorySourceFlags.NoFlag);
-        InventorySourcePacketType.write(buffer, world, true);
-        final InventorySource readWorld = InventorySourcePacketType.read(buffer, true);
+        InventorySourcePacketType.write(buffer, world, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
+        final InventorySource readWorld = InventorySourcePacketType.read(buffer, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
         assertEquals(InventorySourceType.WorldInteraction, readWorld.type());
         assertEquals(InventorySource_InventorySourceFlags.NoFlag, readWorld.flags());
         assertEquals(0, buffer.readableBytes());
 
         final InventorySource creative = new InventorySource(InventorySourceType.CreativeInventory,
                 ContainerID.CONTAINER_ID_NONE.getValue(), InventorySource_InventorySourceFlags.NoFlag);
-        InventorySourcePacketType.write(buffer, creative, true);
-        final InventorySource readCreative = InventorySourcePacketType.read(buffer, true);
+        InventorySourcePacketType.write(buffer, creative, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
+        final InventorySource readCreative = InventorySourcePacketType.read(buffer, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
         assertEquals(InventorySourceType.CreativeInventory, readCreative.type());
         assertEquals(0, buffer.readableBytes());
     }
@@ -133,8 +133,8 @@ class Protocol1001LayoutForkTest {
         final ByteBuf buffer = Unpooled.buffer();
         final InventorySource container = new InventorySource(InventorySourceType.ContainerInventory, -1,
                 InventorySource_InventorySourceFlags.NoFlag);
-        InventorySourcePacketType.write(buffer, container, false);
-        final InventorySource read = InventorySourcePacketType.read(buffer, false);
+        InventorySourcePacketType.write(buffer, container, InventoryTransactionLayout.SourceShape.LEGACY);
+        final InventorySource read = InventorySourcePacketType.read(buffer, InventoryTransactionLayout.SourceShape.LEGACY);
         assertEquals(-1, read.containerId());
         assertEquals(0, buffer.readableBytes());
     }

@@ -19,8 +19,13 @@ package net.raphimc.viabedrock.protocol.packet;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import net.raphimc.viabedrock.experimental.model.inventory.InventorySource;
+import net.raphimc.viabedrock.experimental.types.inventory.InventorySourcePacketType;
 import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ContainerID;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySourceType;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.InventorySource_InventorySourceFlags;
 import net.raphimc.viabedrock.protocol.model.SkinData;
 import net.raphimc.viabedrock.protocol.types.model.SkinType;
 import org.junit.jupiter.api.Test;
@@ -147,6 +152,94 @@ class Protocol2192_2225LayoutForkTest {
 
     private static boolean applies(final BedrockDeviation deviation, final int protocol) {
         return BedrockWire.applies(protocol, deviation);
+    }
+
+    @Test
+    void inventoryHandBytesLandAt2192And2225() {
+        assertFalse(InventoryTransactionLayout.usesUseItemHand(2191));
+        assertTrue(InventoryTransactionLayout.usesUseItemHand(2192));
+        assertTrue(InventoryTransactionLayout.usesUseItemHand(2225));
+
+        assertFalse(InventoryTransactionLayout.usesUseItemOnEntityHand(2192));
+        assertTrue(InventoryTransactionLayout.usesUseItemOnEntityHand(2225));
+
+        assertFalse(InventoryTransactionLayout.usesReleaseItemHand(2192));
+        assertTrue(InventoryTransactionLayout.usesReleaseItemHand(2225));
+    }
+
+    @Test
+    void sourceShapeIsThreeStateAround2192() {
+        assertEquals(InventoryTransactionLayout.SourceShape.LEGACY,
+                InventoryTransactionLayout.SourceShape.of(0));
+        assertEquals(InventoryTransactionLayout.SourceShape.LEGACY,
+                InventoryTransactionLayout.SourceShape.of(1000));
+        assertEquals(InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS,
+                InventoryTransactionLayout.SourceShape.of(1001));
+        assertEquals(InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS,
+                InventoryTransactionLayout.SourceShape.of(2191));
+        assertEquals(InventoryTransactionLayout.SourceShape.PRESENCE_BOOL,
+                InventoryTransactionLayout.SourceShape.of(2192));
+        assertEquals(InventoryTransactionLayout.SourceShape.PRESENCE_BOOL,
+                InventoryTransactionLayout.SourceShape.of(2225));
+    }
+
+    @Test
+    void inventorySourceRoundTripsInBothPresenceShapes() {
+        final InventorySource container = new InventorySource(InventorySourceType.ContainerInventory, 5,
+                InventorySource_InventorySourceFlags.NoFlag);
+
+        final ByteBuf pairs = Unpooled.buffer();
+        try {
+            InventorySourcePacketType.write(pairs, container, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS);
+            assertEquals(6, pairs.readableBytes(), "外层 bool + 内层 bool + 单字节 windowId + 外层 bool + 内层 bool");
+            assertEquals(container, InventorySourcePacketType.read(pairs, InventoryTransactionLayout.SourceShape.PRESENCE_PAIRS));
+            assertFalse(pairs.isReadable());
+        } finally {
+            pairs.release();
+        }
+
+        final ByteBuf single = Unpooled.buffer();
+        try {
+            InventorySourcePacketType.write(single, container, InventoryTransactionLayout.SourceShape.PRESENCE_BOOL);
+            assertEquals(4, single.readableBytes(), "2192 起外层 bool 消失：存在性 bool + windowId + 存在性 bool");
+            assertEquals(container, InventorySourcePacketType.read(single, InventoryTransactionLayout.SourceShape.PRESENCE_BOOL));
+            assertFalse(single.isReadable());
+        } finally {
+            single.release();
+        }
+
+        final InventorySource world = new InventorySource(InventorySourceType.WorldInteraction,
+                ContainerID.CONTAINER_ID_NONE.getValue(), InventorySource_InventorySourceFlags.NoFlag);
+        final ByteBuf singleWorld = Unpooled.buffer();
+        try {
+            InventorySourcePacketType.write(singleWorld, world, InventoryTransactionLayout.SourceShape.PRESENCE_BOOL);
+            assertEquals(world, InventorySourcePacketType.read(singleWorld, InventoryTransactionLayout.SourceShape.PRESENCE_BOOL));
+            assertFalse(singleWorld.isReadable());
+        } finally {
+            singleWorld.release();
+        }
+    }
+
+    @Test
+    void cameraPresetTailAndInventoryDeviationRanges() {
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2191));
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2192));
+        assertTrue(CameraPacketLayout.usesStartingRotation(false, 2225));
+        assertFalse(CameraPacketLayout.usesStartingRotation(true, 860));
+
+        assertFalse(applies(BedrockDeviation.INVENTORY_USE_ITEM_HAND, 2191));
+        assertTrue(applies(BedrockDeviation.INVENTORY_USE_ITEM_HAND, 2192));
+
+        assertTrue(applies(BedrockDeviation.INVENTORY_SOURCE_PRESENCE_PAIRS, 2191));
+        assertFalse(applies(BedrockDeviation.INVENTORY_SOURCE_PRESENCE_PAIRS, 2192));
+        assertFalse(applies(BedrockDeviation.INVENTORY_SOURCE_PRESENCE_BOOL, 2191));
+        assertTrue(applies(BedrockDeviation.INVENTORY_SOURCE_PRESENCE_BOOL, 2192));
+
+        assertFalse(applies(BedrockDeviation.INVENTORY_LATE_HAND, 2192));
+        assertTrue(applies(BedrockDeviation.INVENTORY_LATE_HAND, 2225));
+
+        assertFalse(applies(BedrockDeviation.CAMERA_PRESETS_STARTING_ROTATION, 2191));
+        assertTrue(applies(BedrockDeviation.CAMERA_PRESETS_STARTING_ROTATION, 2192));
     }
 
     private static SkinData skinFixture() {

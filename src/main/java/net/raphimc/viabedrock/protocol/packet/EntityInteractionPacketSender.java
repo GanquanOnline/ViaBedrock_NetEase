@@ -27,6 +27,7 @@ import net.raphimc.viabedrock.api.model.entity.DeferredEntityActionQueue;
 import net.raphimc.viabedrock.api.model.entity.Entity;
 import net.raphimc.viabedrock.protocol.BedrockProtocol;
 import net.raphimc.viabedrock.protocol.ServerboundBedrockPackets;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.Position3f;
 import net.raphimc.viabedrock.protocol.rewriter.ItemRewriter;
@@ -92,6 +93,7 @@ public final class EntityInteractionPacketSender {
                     transaction,
                     action.entityRuntimeId(),
                     action.actionType(),
+                    0, // 延迟队列里的动作（攻击 / 主手交互）都是主手
                     (int) inventoryContainer.getSelectedHotbarSlot(),
                     inventoryContainer.getSelectedHotbarItem(),
                     clientPlayer.position(),
@@ -115,12 +117,15 @@ public final class EntityInteractionPacketSender {
     }
 
     public static void write(final PacketWrapper wrapper, final long entityRuntimeId, final int actionType,
-                             final int hotbarSlot, final BedrockItem itemInHand,
+                             final int hand, final int hotbarSlot, final BedrockItem itemInHand,
                              final Position3f playerPosition, final Position3f clickPosition) {
+        final int protocol = BedrockWire.current();
         wrapper.write(Types.REMAINING_BYTES, EntityInteractionPacketLayout.encode(
-                wrapper.user().get(ItemRewriter.class).itemType(),
+                wrapper.user().get(ItemRewriter.class).itemType(protocol),
+                protocol,
                 entityRuntimeId,
                 actionType,
+                hand,
                 hotbarSlot,
                 itemInHand,
                 playerPosition,

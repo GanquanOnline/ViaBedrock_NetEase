@@ -240,6 +240,22 @@ public enum BedrockDeviation {
     PASSENGER_OF_BLOCK_ARGUMENTS(2225, 0,
             "ADD_ENTITY 与 ADD_PLAYER 追加可选的方块乘客参数"),
 
+    /** INVENTORY_TRANSACTION 类型 2（USE_ITEM）在 hotbarSlot 之后追加一个手持字节。 */
+    INVENTORY_USE_ITEM_HAND(2192, 0,
+            "INVENTORY_TRANSACTION 的 USE_ITEM 事务在 hotbarSlot 之后追加手持字节"),
+
+    /** 动作来源的存在性外层 bool 在 2192 消失，只剩内层单个 bool。 */
+    INVENTORY_SOURCE_PRESENCE_BOOL(2192, 0,
+            "INVENTORY_TRANSACTION 动作来源只剩单个存在性 bool"),
+
+    /** 2225 起 USE_ITEM_ON_ENTITY 与 RELEASE_ITEM 补上手持字节。 */
+    INVENTORY_LATE_HAND(2225, 0,
+            "INVENTORY_TRANSACTION 的 USE_ITEM_ON_ENTITY 与 RELEASE_ITEM 事务补上手持字节"),
+
+    /** 相机预设尾部新增“继承起始朝向”开关与可选的起始朝向。 */
+    CAMERA_PRESETS_STARTING_ROTATION(2192, 0,
+            "CAMERA_PRESETS 的每个预设尾部追加继承起始朝向开关与起始朝向"),
+
     ;
 
     /** 位掩码容量，偏差集用一个 long 存放。 */

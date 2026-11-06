@@ -41,7 +41,7 @@ public class InventoryActionDataType extends Type<InventoryActionData> {
     @Override
     public InventoryActionData read(ByteBuf buffer) {
         final int protocol = BedrockWire.current();
-        return read(buffer, itemType(protocol), InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+        return read(buffer, itemType(protocol), InventoryTransactionLayout.SourceShape.of(protocol));
     }
 
     /**
@@ -49,8 +49,8 @@ public class InventoryActionDataType extends Type<InventoryActionData> {
      * PLAYER_AUTH_INPUT 内嵌载荷到 2168 才换，所以两个开关由调用方决定。
      */
     public InventoryActionData read(ByteBuf buffer, final Type<BedrockItem> itemType,
-                                    final boolean presencePairs) {
-        final InventorySource source = InventorySourcePacketType.read(buffer, presencePairs);
+                                    final InventoryTransactionLayout.SourceShape sourceShape) {
+        final InventorySource source = InventorySourcePacketType.read(buffer, sourceShape);
         final int slot = BedrockTypes.UNSIGNED_VAR_INT.read(buffer);
         final BedrockItem fromItem = itemType.read(buffer);
         final BedrockItem toItem = itemType.read(buffer);
@@ -61,12 +61,12 @@ public class InventoryActionDataType extends Type<InventoryActionData> {
     @Override
     public void write(ByteBuf buffer, InventoryActionData value) {
         final int protocol = BedrockWire.current();
-        write(buffer, value, itemType(protocol), InventoryTransactionLayout.usesSourcePresencePairs(protocol));
+        write(buffer, value, itemType(protocol), InventoryTransactionLayout.SourceShape.of(protocol));
     }
 
     public void write(ByteBuf buffer, final InventoryActionData value, final Type<BedrockItem> itemType,
-                      final boolean presencePairs) {
-        InventorySourcePacketType.write(buffer, value.source(), presencePairs);
+                      final InventoryTransactionLayout.SourceShape sourceShape) {
+        InventorySourcePacketType.write(buffer, value.source(), sourceShape);
         BedrockTypes.UNSIGNED_VAR_INT.write(buffer, value.slot());
         itemType.write(buffer, value.fromItem());
         itemType.write(buffer, value.toItem());

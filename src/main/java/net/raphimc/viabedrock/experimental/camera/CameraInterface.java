@@ -129,6 +129,10 @@ public class CameraInterface {
                 if (CameraPacketLayout.usesControlScheme(emulateNetEase, cameraProtocolVersion)) {
                     skipOptionalByte(wrapper); // control_scheme（控制方案）
                 }
+                if (CameraPacketLayout.usesStartingRotation(emulateNetEase, cameraProtocolVersion)) {
+                    wrapper.read(Types.BOOLEAN); // apply_inherited_starting_rotation（继承起始朝向）
+                    skipOptionalVec2f(wrapper); // starting_rotation（起始朝向）
+                }
             }
 
             final CameraAudioTracker cameraAudio = wrapper.user().get(CameraAudioTracker.class);
