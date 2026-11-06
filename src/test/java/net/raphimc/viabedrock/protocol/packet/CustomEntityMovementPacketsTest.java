@@ -293,6 +293,7 @@ class CustomEntityMovementPacketsTest {
             configField.set(null, Proxy.newProxyInstance(ViaBedrockConfig.class.getClassLoader(),
                     new Class[]{ViaBedrockConfig.class}, (proxy, method, args) -> {
                         if (method.getName().equals("shouldBridgeJavaCustomPayloads")) return false;
+                        if (method.getName().equals("getBedrockProtocolVersion")) return 0; // 未配置 → 回退默认档案的旧线格式
                         throw new UnsupportedOperationException(method.getName());
                     }));
             final ProtocolManager protocolManager = (ProtocolManager) Proxy.newProxyInstance(

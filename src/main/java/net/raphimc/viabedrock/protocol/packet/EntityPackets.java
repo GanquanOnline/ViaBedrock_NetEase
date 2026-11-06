@@ -300,17 +300,24 @@ public class EntityPackets {
         protocol.registerClientbound(ClientboundBedrockPackets.MOVE_ENTITY_DELTA, ClientboundPackets26_1.ENTITY_POSITION_SYNC, wrapper -> {
             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
 
-            final long entityRuntimeId = wrapper.read(BedrockTypes.UNSIGNED_VAR_LONG); // 实体运行时 ID
-            final int flags = wrapper.read(BedrockTypes.UNSIGNED_SHORT_LE); // 标志位
-            final boolean hasX = (flags & 1) != 0;
-            final boolean hasY = (flags & 2) != 0;
-            final boolean hasZ = (flags & 4) != 0;
-            final boolean hasPitch = (flags & 8) != 0;
-            final boolean hasYaw = (flags & 16) != 0;
-            final boolean hasHeadYaw = (flags & 32) != 0;
-            final boolean onGround = (flags & 64) != 0;
-            final boolean teleported = (flags & 128) != 0; // 位置是否不应插值
-            final boolean forceMoveLocalEntity = (flags & 256) != 0;
+            final MoveEntityDeltaLayout.Delta delta = MoveEntityDeltaLayout.read(wrapper, BedrockWire.current());
+            final long entityRuntimeId = delta.entityRuntimeId();
+            final boolean hasX = delta.has(MoveEntityDeltaLayout.FLAG_HAS_X);
+            final boolean hasY = delta.has(MoveEntityDeltaLayout.FLAG_HAS_Y);
+            final boolean hasZ = delta.has(MoveEntityDeltaLayout.FLAG_HAS_Z);
+            final boolean hasPitch = delta.has(MoveEntityDeltaLayout.FLAG_HAS_PITCH);
+            final boolean hasYaw = delta.has(MoveEntityDeltaLayout.FLAG_HAS_YAW);
+            final boolean hasHeadYaw = delta.has(MoveEntityDeltaLayout.FLAG_HAS_HEAD_YAW);
+            final boolean onGround = delta.onGround();
+            // 2168 取消了 TELEPORTING 位，本地玩家只能靠 forceMoveLocalEntity 进强制移动分支
+            final boolean teleported = delta.has(MoveEntityDeltaLayout.FLAG_TELEPORTING); // 位置是否不应插值
+            final boolean forceMoveLocalEntity = delta.forceMoveLocalEntity();
+            final float x = delta.x();
+            final float y = delta.y();
+            final float z = delta.z();
+            final float pitch = delta.pitch();
+            final float yaw = delta.yaw();
+            final float headYaw = delta.headYaw();
 
             final Entity entity = entityTracker.getEntityByRid(entityRuntimeId);
             if (entity == null) {
@@ -324,18 +331,6 @@ public class EntityPackets {
                     return;
                 }
 
-                float x = 0F;
-                float y = 0F;
-                float z = 0F;
-                if (hasX) {
-                    x = wrapper.read(BedrockTypes.FLOAT_LE);
-                }
-                if (hasY) {
-                    y = wrapper.read(BedrockTypes.FLOAT_LE);
-                }
-                if (hasZ) {
-                    z = wrapper.read(BedrockTypes.FLOAT_LE);
-                }
                 entityTracker.getClientPlayer().setPositionFromServer(new Position3f(x, y, z));
                 ExperimentalFeatures.dispatchEntityMoved(wrapper.user(), entity);
 
@@ -359,22 +354,22 @@ public class EntityPackets {
             }
 
             if (hasX) {
-                entity.setPosition(new Position3f(wrapper.read(BedrockTypes.FLOAT_LE), entity.position().y(), entity.position().z()));
+                entity.setPosition(new Position3f(x, entity.position().y(), entity.position().z()));
             }
             if (hasY) {
-                entity.setPosition(new Position3f(entity.position().x(), wrapper.read(BedrockTypes.FLOAT_LE), entity.position().z()));
+                entity.setPosition(new Position3f(entity.position().x(), y, entity.position().z()));
             }
             if (hasZ) {
-                entity.setPosition(new Position3f(entity.position().x(), entity.position().y(), wrapper.read(BedrockTypes.FLOAT_LE)));
+                entity.setPosition(new Position3f(entity.position().x(), entity.position().y(), z));
             }
             if (hasPitch) {
-                entity.setRotation(new Position3f(MathUtil.byte2Float(wrapper.read(Types.BYTE)), entity.rotation().y(), entity.rotation().z()));
+                entity.setRotation(new Position3f(pitch, entity.rotation().y(), entity.rotation().z()));
             }
             if (hasYaw) {
-                entity.setRotation(new Position3f(entity.rotation().x(), MathUtil.byte2Float(wrapper.read(Types.BYTE)), entity.rotation().z()));
+                entity.setRotation(new Position3f(entity.rotation().x(), yaw, entity.rotation().z()));
             }
             if (hasHeadYaw) {
-                entity.setRotation(new Position3f(entity.rotation().x(), entity.rotation().y(), MathUtil.byte2Float(wrapper.read(Types.BYTE))));
+                entity.setRotation(new Position3f(entity.rotation().x(), entity.rotation().y(), headYaw));
                 PacketFactory.sendJavaRotateHead(wrapper.user(), entity);
             }
             entity.setOnGround(onGround);

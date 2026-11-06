@@ -361,6 +361,7 @@ class ClientInputLocksPacketsTest {
                 if (method.getName().equals("getMovementWatchdogMode")) return ViaBedrockConfig.MovementWatchdogMode.OFF;
                 if (method.getName().equals("shouldEmulateNetEaseClient")) return false;
                 if (method.getName().equals("getNetEaseProtocolVersion")) return 0;
+                if (method.getName().equals("getBedrockProtocolVersion")) return 0; // 未配置 → 回退默认档案的旧线格式
                 throw new UnsupportedOperationException(method.getName());
             }));
             this.user.put(new GameSessionStorage(this.user));

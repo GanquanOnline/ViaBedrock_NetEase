@@ -18,19 +18,28 @@
 package net.raphimc.viabedrock.protocol.packet;
 
 import com.google.common.collect.HashBiMap;
+import com.viaversion.viaversion.api.protocol.packet.PacketType;
+import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import net.raphimc.viabedrock.experimental.model.inventory.BedrockRecipe.RecipeIngredient;
 import net.raphimc.viabedrock.experimental.types.inventory.RecipeIngredientType;
+import net.raphimc.viabedrock.protocol.ClientboundBedrockPackets;
 import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
 import net.raphimc.viabedrock.protocol.data.BedrockProtocolProfile;
 import net.raphimc.viabedrock.protocol.data.BedrockWire;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.IdentityDefinition_Type;
 import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ItemStackRequestActionType;
+import net.raphimc.viabedrock.protocol.data.enums.bedrock.generated.ScorePacketType;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
 import net.raphimc.viabedrock.protocol.model.SkinData;
 import net.raphimc.viabedrock.protocol.types.BedrockTypes;
 import net.raphimc.viabedrock.protocol.types.model.SkinType;
+import net.raphimc.viabedrock.test.StubUserConnection;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
@@ -44,6 +53,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class Protocol2168LayoutForkTest {
+
+    private final EmbeddedChannel channel = new EmbeddedChannel();
+    private final StubUserConnection user = new StubUserConnection(this.channel);
+
+    @AfterEach
+    void closeChannel() {
+        this.channel.finishAndReleaseAll();
+    }
 
     private static final List<BedrockDeviation> PROTOCOL_2168_DEVIATIONS = List.of(
             BedrockDeviation.SKIN_ANIMATION_VARINTS,
@@ -66,6 +83,9 @@ class Protocol2168LayoutForkTest {
             BedrockDeviation.DIMENSION_DATA_PACK_ID,
             BedrockDeviation.PLAY_SOUND_V2168,
             BedrockDeviation.SET_SCORE_V2168,
+            BedrockDeviation.MAP_ITEM_DATA_V2168,
+            BedrockDeviation.PLAYER_AUTH_INPUT_INPUT_LIST,
+            BedrockDeviation.PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS,
             BedrockDeviation.CRAFTING_DATA_BUCKETS
     );
 
@@ -460,6 +480,149 @@ class Protocol2168LayoutForkTest {
         assertEquals(0, CraftingDataLayout.skipUnlockingRequirement(legacy, false, 2167));
         assertEquals(0, legacy.readableBytes());
         legacy.release();
+    }
+
+    @Test
+    void moveEntityDeltaReadsAxisBooleansAt2168() {
+        final ByteBuf typed = Unpooled.buffer();
+        BedrockTypes.UNSIGNED_VAR_LONG.write(typed, 7L); // 实体运行时 ID
+        typed.writeBoolean(true); // 有 x
+        BedrockTypes.FLOAT_LE.write(typed, 1.5F);
+        typed.writeBoolean(false); // 无 y
+        typed.writeBoolean(true); // 有 z
+        BedrockTypes.FLOAT_LE.write(typed, -2.5F);
+        typed.writeBoolean(false); // 无俯仰角
+        typed.writeBoolean(false); // 无偏航角
+        typed.writeBoolean(false); // 无头部偏航角
+        typed.writeBoolean(true); // 在地面
+        typed.writeBoolean(true); // forceMove
+        typed.writeBoolean(true); // forceMoveLocalEntity
+        typed.writeBoolean(false); // forceCompletion
+
+        final MoveEntityDeltaLayout.Delta delta = MoveEntityDeltaLayout.read(
+                wrapper(ClientboundBedrockPackets.MOVE_ENTITY_DELTA, typed), 2168);
+        assertEquals(0, typed.readableBytes());
+        assertEquals(7L, delta.entityRuntimeId());
+        assertEquals(1.5F, delta.x());
+        assertEquals(0F, delta.y());
+        assertEquals(-2.5F, delta.z());
+        assertTrue(delta.has(MoveEntityDeltaLayout.FLAG_HAS_X));
+        assertFalse(delta.has(MoveEntityDeltaLayout.FLAG_HAS_Y));
+        assertTrue(delta.has(MoveEntityDeltaLayout.FLAG_HAS_Z));
+        assertTrue(delta.onGround());
+        assertTrue(delta.forceMove());
+        assertTrue(delta.forceMoveLocalEntity());
+        assertFalse(delta.forceCompletion());
+        assertFalse(delta.has(MoveEntityDeltaLayout.FLAG_TELEPORTING), "2168 取消了 TELEPORTING 位");
+        typed.release();
+    }
+
+    @Test
+    void moveEntityDeltaKeepsTheFlagMaskBelow2168() {
+        final ByteBuf legacy = Unpooled.buffer();
+        BedrockTypes.UNSIGNED_VAR_LONG.write(legacy, 9L);
+        legacy.writeShortLE(MoveEntityDeltaLayout.FLAG_HAS_X | MoveEntityDeltaLayout.FLAG_HAS_Z
+                | MoveEntityDeltaLayout.FLAG_ON_GROUND | MoveEntityDeltaLayout.FLAG_TELEPORTING); // 标志位
+        BedrockTypes.FLOAT_LE.write(legacy, 4F);
+        BedrockTypes.FLOAT_LE.write(legacy, 6F);
+
+        final MoveEntityDeltaLayout.Delta delta = MoveEntityDeltaLayout.read(
+                wrapper(ClientboundBedrockPackets.MOVE_ENTITY_DELTA, legacy), 2167);
+        assertEquals(0, legacy.readableBytes());
+        assertEquals(9L, delta.entityRuntimeId());
+        assertEquals(4F, delta.x());
+        assertEquals(0F, delta.y());
+        assertEquals(6F, delta.z());
+        assertTrue(delta.onGround());
+        assertTrue(delta.has(MoveEntityDeltaLayout.FLAG_TELEPORTING));
+        assertFalse(delta.forceMoveLocalEntity());
+        legacy.release();
+    }
+
+    @Test
+    void setScoreReadsTypedEntriesAt2168() {
+        final ByteBuf typed = Unpooled.buffer();
+        BedrockTypes.UNSIGNED_VAR_INT.write(typed, 3); // 条目数
+        // 变更假玩家
+        BedrockTypes.UNSIGNED_VAR_INT.write(typed, SetScoreLayout.TYPE_CHANGE_FAKE_PLAYER);
+        BedrockTypes.STRING.write(typed, "CHANGE_FAKE_PLAYER");
+        BedrockTypes.VAR_LONG.write(typed, 7L);
+        BedrockTypes.STRING.write(typed, "objective");
+        BedrockTypes.INT_LE.write(typed, 42);
+        BedrockTypes.STRING.write(typed, "Bot");
+        // 变更实体
+        BedrockTypes.UNSIGNED_VAR_INT.write(typed, SetScoreLayout.TYPE_CHANGE_ENTITY);
+        BedrockTypes.STRING.write(typed, "CHANGE_ENTITY");
+        BedrockTypes.VAR_LONG.write(typed, 8L);
+        BedrockTypes.STRING.write(typed, "objective");
+        BedrockTypes.INT_LE.write(typed, 11);
+        BedrockTypes.VAR_LONG.write(typed, 1234L);
+        // 移除，目标名称可选且缺省
+        BedrockTypes.UNSIGNED_VAR_INT.write(typed, SetScoreLayout.TYPE_REMOVE);
+        BedrockTypes.STRING.write(typed, "REMOVE");
+        BedrockTypes.VAR_LONG.write(typed, 9L);
+        typed.writeBoolean(false);
+
+        final List<SetScoreLayout.Entry> entries = SetScoreLayout.read(
+                wrapper(ClientboundBedrockPackets.SET_SCORE, typed), 2168);
+        assertEquals(0, typed.readableBytes());
+        assertEquals(3, entries.size());
+        assertEquals(7L, entries.get(0).scoreboardId());
+        assertEquals("objective", entries.get(0).objectiveName());
+        assertEquals(42, entries.get(0).entry().score());
+        assertEquals(IdentityDefinition_Type.FakePlayer, entries.get(0).entry().type());
+        assertEquals("Bot", entries.get(0).entry().fakePlayerName());
+        assertEquals(11, entries.get(1).entry().score());
+        assertEquals(IdentityDefinition_Type.Entity, entries.get(1).entry().type());
+        assertEquals(1234L, entries.get(1).entry().entityUniqueId());
+        assertNull(entries.get(2).entry());
+        assertEquals("", entries.get(2).objectiveName());
+        typed.release();
+    }
+
+    @Test
+    void setScoreKeepsThePacketPrefixBelow2168() {
+        final ByteBuf legacy = Unpooled.buffer();
+        legacy.writeByte(ScorePacketType.Change.getValue()); // 包级动作
+        BedrockTypes.UNSIGNED_VAR_INT.write(legacy, 1); // 条目数
+        BedrockTypes.VAR_LONG.write(legacy, 5L);
+        BedrockTypes.STRING.write(legacy, "objective");
+        BedrockTypes.INT_LE.write(legacy, 3);
+        legacy.writeByte(IdentityDefinition_Type.Player.getValue()); // 条目类型
+        BedrockTypes.VAR_LONG.write(legacy, 77L);
+
+        final List<SetScoreLayout.Entry> entries = SetScoreLayout.read(
+                wrapper(ClientboundBedrockPackets.SET_SCORE, legacy), 2167);
+        assertEquals(0, legacy.readableBytes());
+        assertEquals(1, entries.size());
+        assertEquals(5L, entries.get(0).scoreboardId());
+        assertEquals(3, entries.get(0).entry().score());
+        assertEquals(IdentityDefinition_Type.Player, entries.get(0).entry().type());
+        assertEquals(77L, entries.get(0).entry().entityUniqueId());
+        legacy.release();
+    }
+
+    @Test
+    void playerAuthInputShapeFollowsThe2168Deviations() {
+        assertFalse(PlayerAuthInputLayout.usesInputDataList(2167));
+        assertTrue(PlayerAuthInputLayout.usesInputDataList(2168));
+        assertTrue(PlayerAuthInputLayout.usesInputDataList(2192));
+
+        assertFalse(PlayerAuthInputLayout.usesOptionalSectionOuterBool(2167));
+        assertTrue(PlayerAuthInputLayout.usesOptionalSectionOuterBool(2168));
+        assertTrue(PlayerAuthInputLayout.usesOptionalSectionOuterBool(2169));
+        assertFalse(PlayerAuthInputLayout.usesOptionalSectionOuterBool(2192), "2192 只剩内层存在性 bool");
+
+        assertFalse(PlayerAuthInputLayout.usesUnconditionalBlockActions(2167));
+        assertTrue(PlayerAuthInputLayout.usesUnconditionalBlockActions(2168));
+
+        assertEquals(0, PlayerAuthInputLayout.extraInputFlags(false, 2168));
+        assertEquals(0, PlayerAuthInputLayout.extraInputFlags(true, 2168), "改用条目列表后不再有网易额外位");
+        assertEquals(2, PlayerAuthInputLayout.extraInputFlags(true, 860));
+    }
+
+    private PacketWrapper wrapper(final PacketType type, final ByteBuf payload) {
+        return new PacketWrapperImpl(type, payload, this.user);
     }
 
     private static SkinData skinFixture() {

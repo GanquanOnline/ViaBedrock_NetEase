@@ -64,6 +64,8 @@ import net.raphimc.viabedrock.experimental.resourcepack.ResourcePackModule;
 import net.raphimc.viabedrock.experimental.rewriter.EntityMetadataRewriter;
 import net.raphimc.viabedrock.experimental.rewriter.ExperimentalItemRewriter;
 import net.raphimc.viabedrock.experimental.rewriter.InventoryTransactionRewriter;
+import net.raphimc.viabedrock.protocol.data.BedrockDeviation;
+import net.raphimc.viabedrock.protocol.data.BedrockWire;
 import net.raphimc.viabedrock.protocol.data.generated.java.EntityDataFields;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import net.raphimc.viabedrock.experimental.riding.RidingModule;
@@ -1963,28 +1965,68 @@ public class ExperimentalFeatures {
         protocol.registerClientbound(ClientboundBedrockPackets.MAP_ITEM_DATA, ClientboundPackets26_1.MAP_ITEM_DATA, wrapper -> {
             MapTracker mapTracker = wrapper.user().get(MapTracker.class);
 
+            // 2168 去掉类型标志，改成每段一个存在性 bool，颜色改小端 int32
+            final boolean mapV2168 = BedrockWire.applies(BedrockDeviation.MAP_ITEM_DATA_V2168);
             final long mapId = wrapper.read(BedrockTypes.VAR_LONG); // 地图 id
-            final int typeFlags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 类型标志
+            int typeFlags = 0;
+            if (!mapV2168) {
+                typeFlags = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 类型标志
+            }
             final byte dimension = wrapper.read(Types.BYTE); // 维度
             final boolean locked = wrapper.read(Types.BOOLEAN); // 已锁定
             final BlockPosition origin = wrapper.read(BedrockTypes.BLOCK_POSITION); // 原点
 
             final LongList trackedEntities = new LongArrayList();
-            if ((typeFlags & ClientboundMapItemDataPacket_Type.Creation.getValue()) != 0) {
+            if (mapV2168 ? wrapper.read(Types.BOOLEAN) : (typeFlags & ClientboundMapItemDataPacket_Type.Creation.getValue()) != 0) {
                 final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                 for (int i = 0; i < length; i++) {
                     trackedEntities.add(wrapper.read(BedrockTypes.VAR_LONG).longValue());
                 }
+                typeFlags |= ClientboundMapItemDataPacket_Type.Creation.getValue();
             }
 
             byte scale = 0;
-            if ((typeFlags & MAP_FLAGS_ALL) != 0) {
+            if (mapV2168) {
+                wrapper.read(Types.BOOLEAN); // MOT 2168 在这里恒写一个 true 占位，必须无条件消费，改成条件读就会失步
+                scale = wrapper.read(Types.BYTE); // 缩放
+            } else if ((typeFlags & MAP_FLAGS_ALL) != 0) {
                 scale = wrapper.read(Types.BYTE); // 缩放
             }
 
             final List<MapDecoration> decorations = new ArrayList<>();
             final List<MapTrackedObject> trackedObjects = new ArrayList<>();
-            if ((typeFlags & ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue()) != 0) {
+            if (mapV2168) {
+                // 2168 把“装饰更新”拆成两个独立可选段，且追踪对象每条带实体/方块两个 bool
+                if (wrapper.read(Types.BOOLEAN)) {
+                    final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+                    for (int i = 0; i < length; i++) {
+                        wrapper.read(BedrockTypes.INT_LE); // 冗余的类型字段，实际以两个 bool 为准
+                        final boolean isEntity = wrapper.read(Types.BOOLEAN);
+                        final boolean isBlock = wrapper.read(Types.BOOLEAN);
+                        // 服务端保证二者恰有一个为真；都为假时整条丢弃
+                        if (isEntity) {
+                            trackedObjects.add(new MapTrackedObject(wrapper.read(BedrockTypes.VAR_LONG)));
+                        } else if (isBlock) {
+                            trackedObjects.add(new MapTrackedObject(wrapper.read(BedrockTypes.BLOCK_POSITION)));
+                        }
+                    }
+                    typeFlags |= ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue();
+                }
+                if (wrapper.read(Types.BOOLEAN)) {
+                    final int decorLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
+                    for (int i = 0; i < decorLength; i++) {
+                        final byte iconType = wrapper.read(Types.BYTE);
+                        final byte rotation = wrapper.read(Types.BYTE);
+                        final byte x = wrapper.read(Types.BYTE);
+                        final byte y = wrapper.read(Types.BYTE);
+                        final String name = wrapper.read(BedrockTypes.STRING); // 名称
+                        final int color = wrapper.read(BedrockTypes.INT_LE); // 颜色
+
+                        decorations.add(new MapDecoration(iconType, rotation, x, y, name, color));
+                    }
+                    typeFlags |= ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue();
+                }
+            } else if ((typeFlags & ClientboundMapItemDataPacket_Type.DecorationUpdate.getValue()) != 0) {
                 final int length = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 长度
                 for (int i = 0; i < length; i++) {
                     MapTrackedObject.Type objectType = MapTrackedObject.Type.values()[wrapper.read(BedrockTypes.INT_LE)]; // TODO: 错误日志记录
@@ -2016,7 +2058,33 @@ public class ExperimentalFeatures {
             int xOffset = 0;
             int yOffset = 0;
             int[] colors = new int[0];
-            if ((typeFlags & ClientboundMapItemDataPacket_Type.TextureUpdate.getValue()) != 0) {
+            if (mapV2168) {
+                // 四个尺寸字段与颜色数组各自独立可选
+                if (wrapper.read(Types.BOOLEAN)) {
+                    width = wrapper.read(BedrockTypes.VAR_INT); // 宽度
+                    typeFlags |= ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
+                }
+                if (wrapper.read(Types.BOOLEAN)) {
+                    height = wrapper.read(BedrockTypes.VAR_INT); // 高度
+                    typeFlags |= ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
+                }
+                if (wrapper.read(Types.BOOLEAN)) {
+                    xOffset = wrapper.read(BedrockTypes.VAR_INT); // x 偏移
+                    typeFlags |= ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
+                }
+                if (wrapper.read(Types.BOOLEAN)) {
+                    yOffset = wrapper.read(BedrockTypes.VAR_INT); // y 偏移
+                    typeFlags |= ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
+                }
+                if (wrapper.read(Types.BOOLEAN)) {
+                    final int colorsLength = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 颜色数量
+                    colors = new int[colorsLength];
+                    for (int i = 0; i < colorsLength; i++) {
+                        colors[i] = wrapper.read(BedrockTypes.INT_LE);
+                    }
+                    typeFlags |= ClientboundMapItemDataPacket_Type.TextureUpdate.getValue();
+                }
+            } else if ((typeFlags & ClientboundMapItemDataPacket_Type.TextureUpdate.getValue()) != 0) {
                 width = wrapper.read(BedrockTypes.VAR_INT); // 宽度
                 height = wrapper.read(BedrockTypes.VAR_INT); // 高度
                 xOffset = wrapper.read(BedrockTypes.VAR_INT); // x 偏移

@@ -335,36 +335,10 @@ public class HudPackets {
             wrapper.cancel();
             final ScoreboardTracker scoreboardTracker = wrapper.user().get(ScoreboardTracker.class);
 
-            final byte rawAction = wrapper.read(Types.BYTE); // 动作
-            final ScorePacketType action = ScorePacketType.getByValue(rawAction);
-            if (action == null) {
-                ViaBedrock.getPlatform().getLogger().log(Level.WARNING, "Unknown ScorePacketType: " + rawAction);
-                return;
-            }
-            final int count = wrapper.read(BedrockTypes.UNSIGNED_VAR_INT); // 数量
-            for (int i = 0; i < count; i++) {
-                final long scoreboardId = wrapper.read(BedrockTypes.VAR_LONG); // 计分板 ID
-                final String objectiveName = wrapper.read(BedrockTypes.STRING); // 目标名称
-                final int score = wrapper.read(BedrockTypes.INT_LE); // 分数
-
-                final ScoreboardEntry entry;
-                switch (action) {
-                    case Change -> {
-                        final byte rawType = wrapper.read(Types.BYTE); // 类型
-                        final IdentityDefinition_Type type = IdentityDefinition_Type.getByValue(rawType, IdentityDefinition_Type.Invalid);
-                        Long entityUniqueId = null;
-                        String fakePlayerName = null;
-                        switch (type) {
-                            case Player, Entity -> entityUniqueId = wrapper.read(BedrockTypes.VAR_LONG); // 实体唯一 ID
-                            case FakePlayer -> fakePlayerName = wrapper.read(BedrockTypes.STRING); // 假玩家名称
-                            case Invalid -> throw new IllegalStateException("Invalid IdentityDefinition_Type: " + rawType); // 类型无效时基岩客户端会断开连接
-                            default -> throw new IllegalStateException("Unhandled IdentityDefinition_Type: " + rawType);
-                        }
-                        entry = new ScoreboardEntry(score, type, entityUniqueId, fakePlayerName);
-                    }
-                    case Remove -> entry = null;
-                    default -> throw new IllegalStateException("Unhandled ScorePacketType: " + action);
-                }
+            for (final SetScoreLayout.Entry decoded : SetScoreLayout.read(wrapper, BedrockWire.current())) {
+                final long scoreboardId = decoded.scoreboardId(); // 计分板 ID
+                final String objectiveName = decoded.objectiveName(); // 目标名称
+                final ScoreboardEntry entry = decoded.entry(); // null 表示移除
 
                 final ScoreboardObjective objective = scoreboardTracker.getObjective(objectiveName);
                 final Pair<ScoreboardObjective, ScoreboardEntry> existingEntry = scoreboardTracker.getEntry(scoreboardId);

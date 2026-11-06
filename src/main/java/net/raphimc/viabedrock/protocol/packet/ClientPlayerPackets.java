@@ -938,10 +938,25 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.POSITION_3F, authInputContext.position()); // 位置
             wrapper.write(BedrockTypes.POSITION_2F, immobile ? new Position2f(0F, 0F) : MathUtil.calculateMovementDirections(clientPlayer.authInputData(), clientPlayer.isSneaking())); // 移动向量
             wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().z())); // 头部偏航角
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // 输入标志
+            if (PlayerAuthInputLayout.usesInputDataList()) {
+                // 2168 起输入标志不再是 64 位掩码，而是“条目数 + 每条序号”；2168~2169 前面还多一个恒 true 外层
+                if (PlayerAuthInputLayout.usesOptionalSectionOuterBool()) {
+                    wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+                }
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, clientPlayer.authInputData().size()); // 输入标志数量
+                for (PlayerAuthInputPacket_InputData inputData : clientPlayer.authInputData()) {
+                    wrapper.write(BedrockTypes.VAR_INT, inputData.getValue()); // 输入标志（zigzag varint，与 MOT getVarInt 同形）
+                }
+            } else {
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_BIG_INTEGER, PlayerAuthInputLayout.encodeBitmask(clientPlayer.authInputData())); // 输入标志
+            }
             wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, InputMode.Mouse.getValue()); // 输入模式
             wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, ClientPlayMode.Screen.getValue()); // 游玩模式
-            wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式
+            if (PlayerAuthInputLayout.usesInputDataList()) {
+                wrapper.write(BedrockTypes.VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式（有符号 varint）
+            } else {
+                wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, NewInteractionModel.Crosshair.getValue()); // 交互模式
+            }
             wrapper.write(BedrockTypes.FLOAT_LE, clientPlayer.rotation().x()); // 交互俯仰角
             wrapper.write(BedrockTypes.FLOAT_LE, MathUtil.wrapDegrees(clientPlayer.rotation().y())); // 交互偏航角
             wrapper.write(BedrockTypes.UNSIGNED_VAR_LONG, (long) clientPlayer.age()); // 刻
@@ -949,28 +964,71 @@ public class ClientPlayerPackets {
             if (PlayerAuthInputLayout.usesCameraDeparted()) {
                 wrapper.write(Types.BOOLEAN, false); // 相机已离开（网易 >= 422）
             }
-            if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformItemInteraction)) {
-                final BedrockInventoryTransaction itemInteraction = clientPlayer.authInputItemInteraction();
-                if (itemInteraction != null) {
-                    wrapper.write(wrapper.user().get(InventoryTransactionRewriter.class).getItemInteractionDataType(), itemInteraction);
-                }
+            // 2168 起每个可选段前有一对 bool：恒 true 的外层加内层存在性；pre-2168 由输入标志隐式决定
+            final boolean optionalSectionOuterBool = PlayerAuthInputLayout.usesOptionalSectionOuterBool();
+            final boolean optionalSectionFlags = PlayerAuthInputLayout.usesInputDataList();
+            final BedrockInventoryTransaction itemInteraction = clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformItemInteraction)
+                    ? clientPlayer.authInputItemInteraction() : null;
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
             }
-            if (clientPlayer.authInputData().contains(PlayerAuthInputPacket_InputData.PerformBlockActions)) {
-                wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // 玩家方块动作数量
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, itemInteraction != null); // 物品交互存在性
+            }
+            if (itemInteraction != null) {
+                wrapper.write(wrapper.user().get(InventoryTransactionRewriter.class).getItemInteractionDataType(), itemInteraction);
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                // 物品堆请求走独立包，内嵌段恒为空
+                wrapper.write(Types.BOOLEAN, false); // 物品堆请求存在性
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, !blockActions.isEmpty()); // 方块动作存在性
+            }
+            if (!blockActions.isEmpty()) {
+                if (PlayerAuthInputLayout.usesUnconditionalBlockActions()) {
+                    wrapper.write(BedrockTypes.UNSIGNED_VAR_INT, blockActions.size()); // 玩家方块动作数量
+                } else {
+                    wrapper.write(BedrockTypes.VAR_INT, blockActions.size()); // 玩家方块动作数量
+                }
                 for (ClientPlayerEntity.AuthInputBlockAction blockAction : blockActions) {
                     wrapper.write(BedrockTypes.VAR_INT, blockAction.action().getValue()); // 动作
-                    switch (blockAction.action()) {
-                        // StopDestroyBlock 没有附加数据，尽管基岩协议文档声称它有
-                        case StartDestroyBlock, AbortDestroyBlock, CrackBlock, PredictDestroyBlock, ContinueDestroyBlock -> {
-                            wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // 有符号位置
-                            wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // 朝向
-                        }
+                    // 2168 起位置与朝向恒在；pre-2168 只有会改变世界的动作带
+                    // StopDestroyBlock 没有附加数据，尽管基岩协议文档声称它有
+                    final boolean hasBody = PlayerAuthInputLayout.usesUnconditionalBlockActions()
+                            || switch (blockAction.action()) {
+                        case StartDestroyBlock, AbortDestroyBlock, CrackBlock, PredictDestroyBlock, ContinueDestroyBlock -> true;
+                        default -> false;
+                    };
+                    if (hasBody) {
+                        wrapper.write(BedrockTypes.SIGNED_BLOCK_POSITION, blockAction.position()); // 有符号位置
+                        wrapper.write(BedrockTypes.VAR_INT, blockAction.direction()); // 朝向
                     }
                 }
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, authInputContext.hasPredictedVehicle()); // 载具旋转存在性
             }
             if (authInputContext.hasPredictedVehicle()) {
                 wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehiclePitch()); // 载具俯仰角
                 wrapper.write(BedrockTypes.FLOAT_LE, authInputContext.vehicleYaw()); // 载具偏航角
+            }
+            if (optionalSectionOuterBool) {
+                wrapper.write(Types.BOOLEAN, true); // 恒 true 外层
+            }
+            if (optionalSectionFlags) {
+                wrapper.write(Types.BOOLEAN, authInputContext.hasPredictedVehicle()); // 预测载具存在性
+            }
+            if (authInputContext.hasPredictedVehicle()) {
                 wrapper.write(BedrockTypes.VAR_LONG, authInputContext.predictedVehicleUniqueId()); // 预测载具实体唯一 ID
             }
             final Position2f analogMoveVector = immobile

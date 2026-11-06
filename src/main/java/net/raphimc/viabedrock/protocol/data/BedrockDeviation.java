@@ -167,6 +167,21 @@ public enum BedrockDeviation {
     SKIN_TRUSTED_STRING(2168, 0,
             "皮肤块尾部新增可信皮肤字符串与 profileHash"),
 
+    /** CLIENTBOUND_MAP_ITEM_DATA 去掉类型标志，改为逐段存在性 bool，颜色改小端 int32。 */
+    MAP_ITEM_DATA_V2168(2168, 0,
+            "CLIENTBOUND_MAP_ITEM_DATA 去掉类型标志，改为逐段存在性 bool"),
+
+    /** PLAYER_AUTH_INPUT 的输入标志从 64 位掩码改成条目列表，交互模式改有符号 varint。 */
+    PLAYER_AUTH_INPUT_INPUT_LIST(2168, 0,
+            "PLAYER_AUTH_INPUT 的输入标志改为条目列表，交互模式改为有符号 varint"),
+
+    /**
+     * PLAYER_AUTH_INPUT 的可选段改用存在性 bool。2168~2169 是“恒 true 外层 + 内层存在性”双 bool，
+     * 2192 起只剩内层单个 bool；外层边界看 {@code PlayerAuthInputLayout.OPTIONAL_SECTION_OUTER_BOOL_END}。
+     */
+    PLAYER_AUTH_INPUT_OPTIONAL_SECTIONS(2168, 0,
+            "PLAYER_AUTH_INPUT 的可选段加内层存在性 bool，2168~2169 还多一个恒 true 外层 bool"),
+
     ;
 
     /** 位掩码容量，偏差集用一个 long 存放。 */
