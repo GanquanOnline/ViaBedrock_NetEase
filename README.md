@@ -1,163 +1,111 @@
 # ViaBedrock_NetEase
 
-**⚠️ This project is still under development and is not recommended for production use.**
+[![Build](https://github.com/GanquanOnline/ViaBedrock_NetEase/actions/workflows/build.yml/badge.svg)](https://github.com/GanquanOnline/ViaBedrock_NetEase/actions/workflows/build.yml)
+[![Build ViaProxy](https://github.com/GanquanOnline/ViaBedrock_NetEase/actions/workflows/build-viaproxy.yml/badge.svg)](https://github.com/GanquanOnline/ViaBedrock_NetEase/actions/workflows/build-viaproxy.yml)
 
-If you encounter any issues while using it, feel free to submit feedback. You may also submit a PR to merge your branch.
+ViaBedrock 的网易（中国版）分支：把 Java 版协议翻译成基岩版协议，模拟网易客户端的登录链与非标准包布局，让 Java 客户端能进入网易基岩服；同时保留上游的国际基岩多版本档案。
 
-Public fork of [EaseCation/ViaBedrock](https://github.com/EaseCation/ViaBedrock) (`main`, based on [`fcf85f2`](https://github.com/EaseCation/ViaBedrock/commit/fcf85f26309eaed7fa3a070c5916a7d9492e2a91)).
-EaseCation/ViaBedrock itself is a fork of [RaphiMC/ViaBedrock](https://github.com/RaphiMC/ViaBedrock).
+> **English.** A ViaBedrock fork that emulates a NetEase (China Edition) Bedrock client: NetEase login fields, non-standard packet layouts and RakNet 8 transport, alongside the regular international Bedrock translation. Licensed GPL-3.0-or-later.
 
-This repository adds **NetEase / China Edition protocol 860** client emulation on top of ViaBedrock. It translates Minecraft Java Edition packets to Bedrock Edition so a Java client can join NetEase Bedrock servers.
+**状态：仍在开发中。** 网易客户端的线上行为随版本变化，不建议直接用于生产环境；遇到问题请提 issue 或 PR。
 
-## Fork lineage
+## 上游链条
 
-| This repository | Pulled from | Branch | Upstream commit |
-|---|---|---|---|
-| **ViaBedrock_NetEase** | [EaseCation/ViaBedrock](https://github.com/EaseCation/ViaBedrock) | `main` | `fcf85f26309eaed7fa3a070c5916a7d9492e2a91` |
+`RaphiMC/ViaBedrock` → `EaseCation/ViaBedrock` → **本仓库**
 
-## Related repositories
+本仓库以 [EaseCation/ViaBedrock](https://github.com/EaseCation/ViaBedrock) 的 `main` 为基线，最近一次同步到 `908ae571`（2026-11-05），其上叠加网易仿真、多版本档案与协议修正。
 
-```
-Java Fabric 1.21.11 client
-  ViaBedrockUtility  --custom payload-->  ViaProxy_NetEase
-  (optional ModUI / camera / particle mods)     |
-                                                v
-                                         ViaBedrock_NetEase
-                                                |
-                                                v
-                                         ViaVersion shims
-                                                |
-                                                v
-                                      NetEase Bedrock (protocol 860)
-```
+## 支持的版本
 
-| Repository | Upstream | What it does in this stack |
+基岩侧有两套互相独立的版本档案，都在 `viabedrock.yml` 里选。
+
+### 国际基岩（`bedrock.protocol-version`）
+
+| 协议号 | 游戏版本 |
+|---|---|
+| 2225 | 1.26.60（最新） |
+| 2193 / 2192 | 1.26.50 / 1.26.50.27 |
+| 2168 | 1.26.40 |
+| 1001 | 1.26.30 |
+| 975 / 974 | 1.26.20 / 1.26.20 (974) |
+| 944 | 1.26.10 |
+| 924 | 1.26.0 |
+| 898 / 897 | 1.21.130 / 1.21.130.28 |
+| 860 | 1.21.124（后向窗口最低） |
+
+- 不配置时取 `975`（1.26.20）
+- `0` 表示 auto，解析为最新档案（当前 `2225`）
+- 填档案之外的正整数也接受，但布局按偏差区间推导（inferred），服务端可能拒绝握手
+
+### 网易（`netease.protocol-version`）
+
+| 协议号 | 版本串 | 说明 |
 |---|---|---|
-| ViaVersion | [ViaVersion/ViaVersion](https://github.com/ViaVersion/ViaVersion) `master` @ `e8bbb5d` | Protocol base library plus send-interceptor / custom-registry shims that ViaBedrock_NetEase expects |
-| **ViaBedrock_NetEase (this repo)** | EaseCation/ViaBedrock `main` @ `fcf85f2` | Java <-> Bedrock translation, NetEase login, protocol 860 layouts, join replay, ModUI PY_RPC bridge |
-| ViaProxy_NetEase | [ViaVersion/ViaProxy](https://github.com/ViaVersion/ViaProxy) `main` @ `846646b` | Standalone proxy. Bundles ViaBedrock_NetEase and uses RakNet 8 when NetEase emulation is enabled |
-| ViaBedrockUtility | [EaseCation/ViaBedrockUtility](https://github.com/EaseCation/ViaBedrockUtility) `master` @ `ebfbe10` | Fabric client mod. Renders custom entities/skins/animations from ViaBedrock_NetEase payloads |
+| 898 | `1.21.130_NetEase` | 默认，对应 Nukkit-MOT modpc 3.10 |
+| 860 | `1.21.124_NetEase` | 早期线上版本 |
 
-Payload channels must stay in sync across repos:
+网易仿真固定用 RakNet 8；关掉 `netease.enabled` 则回到国际基岩链路（RakNet 11）。
 
-- Custom entities / skins / animations: `viabedrockutility:data` and `viabedrockutility:confirm` (ViaBedrock_NetEase <-> ViaBedrockUtility)
-- ModUI / PY_RPC: `moduiclient:confirm` and `moduiclient:data` (ViaBedrock_NetEase `experimental/modinterface` and `experimental/pyrpc` <-> ModUIClient)
-
-## NetEase emulation
-
-Enable it in `viabedrock.yml` (keep secrets empty in public configs):
+## 配置
 
 ```yaml
+bedrock:
+  protocol-version: 975        # 国际基岩目标版本；0 = 最新档案
+
 netease:
-  enabled: true
-  protocol-version: 860
-  game-version: "1.21.124_NetEase"
-  raknet-protocol-version: 8
+  enabled: true                # 模拟网易客户端
+  protocol-version: 898        # 898 = 1.21.130_NetEase，860 = 1.21.124_NetEase
+  raknet-protocol-version: 8   # 网易客户端固定 RakNet 8
 ```
 
-Local changes on top of EaseCation/ViaBedrock:
+`netease.game-version` 只用于校验：与所选档案不一致时会告警，实际仍用档案里的版本串。公开配置里不要写账号凭据。
 
-- NetEase login JWT claims and `GameVersion`
-- Protocol 860 packet layouts (START_GAME, chat, commands, inventory, block positions, animation trailers, ...)
-- Queue early world packets until the Java client reaches PLAY, then replay them
-- `NETWORK_STACK_LATENCY` echo plus an active heartbeat after spawn
-- Server-authoritative inventory clicks encoded as `ITEM_STACK_REQUEST`
-- ModUI PY_RPC bridging on `moduiclient:*`
-- After `SET_LOCAL_PLAYER_AS_INITIALIZED`, synthesize NukkitMaster engine-call `ClientLoadAddonsFinishedFromGac` (msgId `98247598`) so HUD / player-info is not gated forever. The one-shot is only marked sent after the payload leaves; inactive channels retry instead of dropping the gate.
+## 构建
 
-Build this module with `./gradlew publishToMavenLocal` (Java 21) after publishing the matching ViaVersion fork to mavenLocal. Then build ViaProxy_NetEase.
+需要 JDK 21。
 
-CI: pushes and PRs run `.github/workflows/build-viaproxy.yml`. That job publishes this checkout to mavenLocal, clones `ViaProxy_NetEase` from the same GitHub org, rebuilds ViaProxy with this ViaBedrock packed in, uploads the jars, and on `main` refreshes the `viaproxy-latest` GitHub Release. If `ViaProxy_NetEase` is private, set repository secret `ORG_READ_TOKEN` (`contents:read`).
+1. 先发布配套的 ViaVersion 分支（`GanquanOnline/ViaVersion`）到 mavenLocal
+2. 再发布本模块：
 
-## License
+```bash
+./gradlew publishToMavenLocal
+```
 
-GPL-3.0-or-later, same as upstream ViaBedrock. See [LICENSE](LICENSE).
+ViaProxy_NetEase 用 `includeInJar` 打包本模块，所以改完这里必须重编 ViaProxy 才会生效。
 
----
+## 与上游的差异
 
-# ViaBedrock
-ViaVersion addon to add support for Minecraft: Bedrock Edition servers.
+- 网易登录字段与 `GameVersion`（`netease:` 配置段）
+- 网易包布局：`START_GAME`、聊天、命令、背包、方块位置、动画尾部等
+- Java 客户端进入 PLAY 之前的早期世界包先排队，到位后重放
+- 出生后回 `NETWORK_STACK_LATENCY`，并起主动心跳
+- 服务端权威背包模式下的点击编码为 `ITEM_STACK_REQUEST`
+- ModUI / PyRpc 桥接（`experimental/modinterface`、`experimental/pyrpc`）
+- `SET_LOCAL_PLAYER_AS_INITIALIZED` 之后补发 NukkitMaster 的引擎调用 `ClientLoadAddonsFinishedFromGac`（PyRpc msgId `98247598`），否则 HUD 与玩家信息会一直被卡住
+- 多版本档案（`BedrockProtocolProfile`、`NetEaseProtocolProfile`）与偏差区间（`BedrockDeviation`）
 
-ViaBedrock aims to be as compatible and accurate as possible with the Minecraft: Bedrock Edition protocol.
+## 客户端联动
 
-## Usage
-**ViaBedrock is in very early stages of development and NOT intended for regular use yet.**
+| 通道 | 对端 | 用途 |
+|---|---|---|
+| `viabedrockutility:data` / `viabedrockutility:confirm` | [ViaBedrockUtility](https://github.com/GanquanOnline/ViaBedrockUtility) | 自定义实体、皮肤、动画 |
+| `moduiclient:data` / `moduiclient:confirm` | ModUIClient | 基岩 FormUI / HUD |
+| `netease_bridge:entity_mapping` | 网易 bridge 客户端 | 实体 ID 映射；未注册该通道的客户端收不到 |
 
-**Do not report any bugs yet. There are still a lot of things which are not implemented yet.**
+## CI
 
-If you want to talk about ViaBedrock or learn more about it you can join my [Discord](https://raphimc.net/discord).
+- `.github/workflows/build.yml`：编译本模块
+- `.github/workflows/build-viaproxy.yml`：push 与 PR 时把本仓库发布到 mavenLocal，检出 `ViaProxy_NetEase` 重编整包并上传产物；push 到 `main` 时按版本号新建 GitHub Release（不再复用固定 tag）
 
-### Standalone proxy (Serverside / Clientside)
-To use ViaBedrock independently of any server or client software, you can download the latest [ViaProxy dev build](https://build.lenni0451.net/job/ViaProxy/) (Click on the **ViaProxy-x.x.x.jar** file).
+`ViaProxy_NetEase` 若是私有库，需要仓库密钥 `ORG_READ_TOKEN`（`contents: read`）。
 
-### Fabric mod (Clientside)
-To use ViaBedrock as a Fabric mod, you can download the latest [ViaFabricPlus dev build](https://ci.viaversion.com/view/Platforms/job/ViaFabricPlus/).
+## 许可与署名
 
-## Features
-Here is an overview of the current and planned features in ViaBedrock.
+本项目以 **GPL-3.0-or-later** 分发。
 
-- [x] Pinging
-- [x] Joining
-- [x] Xbox Live Auth
-- [x] Chat / Commands
-- [x] Chunks
-- [x] Chunk caching
-- [x] Block updates
-- [x] Block entities
-- [x] Biomes
-- [x] Player spawning
-- [x] Entity spawning
-- [x] Entity interactions
-- [x] Entity metadata
-- [x] Entity attributes
-- [x] Entity mounting
-- [x] Player abilities
-- [x] Movement
-- [x] Client-Authoritative Inventory
-- [x] Server-Authoritative Inventory
-- [x] Item data
-- [x] Block breaking
-- [x] Block placing
-- [x] Item use
-- [x] Respawning and dimension switching
-- [x] Form GUIs
-- [x] Scoreboard
-- [x] Titles
-- [x] Bossbar
-- [x] Player list
-- [x] Command suggestions
-- [x] Sounds (No mob sounds yet)
-- [x] Particles
-- [x] Basic resource pack conversion (Contributions are welcome)
+- `LICENSE` 是 GPLv3 原文，逐字保留：许可证正文本身禁止修改，也不能被替换成别的许可证。
+- 上游版权：ViaBedrock 由 RK_01/RaphiMC 及贡献者持有（GPL-3.0）；EaseCation/ViaBedrock 由 EaseCation 及贡献者维护。
+- 本仓库新增与修改部分的版权归 GanquanOnline 贡献者所有，同样按 GPL-3.0-or-later 授权。
+- 按 GPL-3.0 §5(a) 声明：本仓库自 2026 年起修改了上游代码，修改内容见上文“与上游的差异”。分发二进制时必须同时提供对应源码。
 
-### Experimental
-Some features are experimental, which means they are almost certainly not fully stable/tested and may cause unexpected issues. To enable those features set `enable-experimental-features` to `true` in the config file.
-
-* Block placing
-* Item use (NetEase 860: food/potion/milk/ominous, bow/crossbow/trident/spear/spyglass, shield-as-sneak, projectiles, empty/filled buckets, boats, lily pads, frog spawn, custom consumable finish)
-* Entity metadata
-* Some item data
-
-## Optional clientside mods
-Below is a list of mods which can be used in combination with ViaBedrock to enhance certain aspects, which would not be possible without client modification:
-- [ViaBedrockUtility](https://github.com/Oryxel/ViaBedrockUtility): Adds support for some custom player skins and improves custom entity rendering
-- [BedrockSkinUtility](https://github.com/Camotoy/BedrockSkinUtility): Adds support for some custom player skins
-
-## Useful resources
-ViaBedrock would not have been possible without the following projects:
-- [ViaVersion](https://github.com/ViaVersion/ViaVersion): Provides the base for translating packets
-- [CloudburstMC Protocol](https://github.com/CloudburstMC/Protocol): Documentation of the Bedrock Edition protocol
-- [PMMP BedrockProtocol](https://github.com/pmmp/BedrockProtocol): Documentation of the Bedrock Edition protocol
-- [Mojang Protocol Docs](https://github.com/Mojang/bedrock-protocol-docs): Documentation of the Bedrock Edition protocol
-- [CloudburstMC Protocol Docs](https://github.com/CloudburstMC/protocol-docs): Documentation of the Bedrock Edition protocol
-- [wiki.vg](https://minecraft.wiki/w/Minecraft_Wiki:Projects/wiki.vg_merge/Bedrock_Protocol): Documentation of the Bedrock Edition protocol
-- [mcrputil](https://github.com/valaphee/mcrputil): Documentation of Bedrock Edition resource pack encryption
-- [wiki.bedrock.dev](https://wiki.bedrock.dev): Documentation of various technical aspects of Bedrock Edition
-
-Additionally ViaBedrock uses assets and data dumps from other projects: See the `Data Asset Sources.md` file for more information.
-
-### Shared bridge and resource definitions
-
-Entity ID mappings use the registered `netease_bridge:entity_mapping` channel independently of ModUI. The PLAY S2C ADD/REMOVE/SYNC format is unchanged; clients that do not register the channel receive no mappings.
-
-Parsed-layer memory admission counts the same source families as the definition parsers, including root `geometry.json` and the selected subpack. Opaque client JSON stays in the archive tier and is not charged as an expanded definition graph. Animation source enumeration requires the `ServerAnimationLayer.sourcePaths` API from BedrockMotion; consumers must pin both revisions in their workspace. This does not require the weapon client or a new network protocol.
+分发本项目的衍生作品请保持 GPL-3.0-or-later，不要改成 MIT、Apache-2.0 等许可证。
