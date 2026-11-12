@@ -185,6 +185,23 @@ public final class EntityPacketLayout {
         }
     }
 
+    /**
+     * 网易 898 起 {@code AnimatePacket.decode()} 在挥手来源之后必读 attackId。
+     * 缺这一个 zigzag varlong 会让服务端把整个 batch 判为畸形并踢人。
+     * 客户端挥手没有攻击者实体，写 0。
+     */
+    public static void writeNetEaseAttackId(final PacketWrapper wrapper) {
+        if (usesNetEaseAttackId()) {
+            wrapper.write(BedrockTypes.VAR_LONG, 0L); // 攻击 ID
+        }
+    }
+
+    public static void writeNetEaseAttackId(final ByteBuf buffer, final boolean emulateNetEase, final int protocol) {
+        if (usesNetEaseAttackId(emulateNetEase, protocol)) {
+            BedrockTypes.VAR_LONG.write(buffer, 0L);
+        }
+    }
+
     public static void skipRowingTime(final PacketWrapper wrapper, final int action) {
         if (usesRowingTime() && isRowAction(action)) {
             wrapper.read(BedrockTypes.FLOAT_LE);

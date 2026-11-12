@@ -323,6 +323,8 @@ public final class BlockBreakingProgressModule implements FeatureModule {
         animate.write(BedrockTypes.UNSIGNED_VAR_LONG, clientPlayer.runtimeId());
         animate.write(BedrockTypes.FLOAT_LE, 0F);
         EntityPacketLayout.writeAnimateTrailer(animate, ActorSwingSource.Attack.name().toLowerCase(Locale.ROOT));
+        EntityPacketLayout.writeAnimateHand(animate, 0);
+        EntityPacketLayout.writeNetEaseAttackId(animate);
         animate.sendToServer(BedrockProtocol.class);
     }
 

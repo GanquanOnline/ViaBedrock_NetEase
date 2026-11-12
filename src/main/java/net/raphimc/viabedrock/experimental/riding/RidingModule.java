@@ -247,6 +247,8 @@ public class RidingModule implements FeatureModule {
         // MOT 860 的 onPaddle() 只会把非零的 rowingTime 复制到 ROW_TIME_LEFT/RIGHT。
         EntityPacketLayout.writeRowingTime(animate, action, 1F);
         EntityPacketLayout.writeAnimateTrailer(animate, null);
+        EntityPacketLayout.writeAnimateHand(animate, 0);
+        EntityPacketLayout.writeNetEaseAttackId(animate);
         animate.sendToServer(BedrockProtocol.class);
     }
 
