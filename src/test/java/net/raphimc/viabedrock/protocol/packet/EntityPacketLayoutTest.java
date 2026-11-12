@@ -107,6 +107,41 @@ class EntityPacketLayoutTest {
     }
 
     @Test
+    void netease898WritesAttackIdAfterSwingSource() {
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            EntityPacketLayout.writeAnimateAction(buffer, 1, true, 898);
+            BedrockTypes.UNSIGNED_VAR_LONG.write(buffer, 7L);
+            BedrockTypes.FLOAT_LE.write(buffer, 0F);
+            EntityPacketLayout.writeAnimateTrailer(buffer, "attack", true, 898);
+            EntityPacketLayout.writeNetEaseAttackId(buffer, true, 898);
+
+            assertEquals(1, EntityPacketLayout.readAnimateAction(buffer, true, 898));
+            assertEquals(7L, BedrockTypes.UNSIGNED_VAR_LONG.readPrimitive(buffer));
+            assertEquals(0F, BedrockTypes.FLOAT_LE.read(buffer));
+            EntityPacketLayout.skipSwingSource(buffer, true, 898);
+            assertEquals(0L, BedrockTypes.VAR_LONG.readPrimitive(buffer));
+            assertFalse(buffer.isReadable());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    void attackIdIsAbsentBelow898AndOnOfficial() {
+        final ByteBuf buffer = Unpooled.buffer();
+        try {
+            EntityPacketLayout.writeNetEaseAttackId(buffer, true, 860);
+            EntityPacketLayout.writeNetEaseAttackId(buffer, true, 897);
+            EntityPacketLayout.writeNetEaseAttackId(buffer, false, 898);
+            EntityPacketLayout.writeNetEaseAttackId(buffer, false, 975);
+            assertEquals(0, buffer.readableBytes());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
     void netease860WritesVarIntAnimateActionWithoutSwingSource() {
         final ByteBuf buffer = Unpooled.buffer();
         try {

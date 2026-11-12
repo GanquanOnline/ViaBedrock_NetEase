@@ -1122,6 +1122,7 @@ public class ClientPlayerPackets {
             wrapper.write(BedrockTypes.FLOAT_LE, 0F); // 数据
             EntityPacketLayout.writeAnimateTrailer(wrapper, swingSource.name().toLowerCase(Locale.ROOT)); // 挥手来源（897+）
             EntityPacketLayout.writeAnimateHand(wrapper, hand.ordinal()); // 代表手（2225+）
+            EntityPacketLayout.writeNetEaseAttackId(wrapper); // 网易攻击 ID（898+）
 
             if (swingSource != ActorSwingSource.Attack) {
                 return;

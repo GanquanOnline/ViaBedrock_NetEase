@@ -249,6 +249,8 @@ public class ClientPlayerEntity extends PlayerEntity {
         animate.write(BedrockTypes.UNSIGNED_VAR_LONG, this.runtimeId); // 实体运行时 ID
         animate.write(BedrockTypes.FLOAT_LE, 0F); // 数据
         EntityPacketLayout.writeAnimateTrailer(animate, source.name().toLowerCase(Locale.ROOT)); // 挥动来源（897+）
+        EntityPacketLayout.writeAnimateHand(animate, 0); // 代表手（2225+）
+        EntityPacketLayout.writeNetEaseAttackId(animate); // 网易攻击 ID（898+）
         animate.sendToServer(BedrockProtocol.class);
     }
 
