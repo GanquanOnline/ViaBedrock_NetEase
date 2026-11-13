@@ -311,6 +311,7 @@ public class ItemRewriter extends StoredObject {
         }
         if (itemDefinition != null) {
             CustomItemDataComponents.applyConsumable(javaItem, itemDefinition.itemUseDefinition(), ViaBedrock.getConfig().shouldEnableExperimentalFeatures());
+            CustomItemDataComponents.applyWearableEquippable(javaItem, identifier, itemDefinition.wearableSlot(), isJavaArmorItem(javaItem));
         }
 
         final CompoundTag bedrockTag = bedrockItem.tag();
@@ -1365,6 +1366,19 @@ public class ItemRewriter extends StoredObject {
             short data,
             int blockRuntimeId
     ) {
+    }
+
+    /**
+     * 原版护甲自带 equippable 组件，不需要也不应该被自定义防具的推断覆盖。
+     */
+    private static boolean isJavaArmorItem(final Item javaItem) {
+        final String name = BedrockProtocol.MAPPINGS.getJavaItems().inverse().get(javaItem.identifier());
+        if (name == null) {
+            return false;
+        }
+        return name.endsWith("_helmet") || name.endsWith("_chestplate") || name.endsWith("_leggings")
+                || name.endsWith("_boots") || name.endsWith("_skull") || name.endsWith("_head")
+                || name.equals("minecraft:turtle_helmet") || name.equals("minecraft:elytra");
     }
 
     public interface NbtRewriter {

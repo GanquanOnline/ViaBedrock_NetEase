@@ -26,9 +26,12 @@ import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.item.data.Consumable1_21_2;
+import com.viaversion.viaversion.api.minecraft.item.data.Equippable;
 import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_21_2;
 import net.raphimc.viabedrock.api.resourcepack.definition.ItemDefinitions.ItemUseDefinition;
 import net.raphimc.viabedrock.protocol.model.BedrockItem;
+
+import java.util.Locale;
 
 final class CustomItemDataComponents {
 
@@ -125,6 +128,70 @@ final class CustomItemDataComponents {
     }
 
     record ConsumableComponents(Consumable1_21_2 consumable, FoodProperties1_21_2 food) {
+    }
+
+    /**
+     * 网易自定义防具没有映射到原版护甲时没有 equippable 组件，客户端会把装备槽当成空的，
+     * 穿在身上什么都不画。这里补一个指向原版护甲贴图的 equippable，让护甲能显示出来。
+     */
+    static void applyWearableEquippable(final Item item, final String bedrockIdentifier, final String wearableSlot, final boolean javaItemIsArmor) {
+        if (javaItemIsArmor || wearableSlot == null) {
+            return;
+        }
+        final int slot = armorSlotId(wearableSlot);
+        if (slot < 0) {
+            return;
+        }
+        final StructuredDataContainer data = item.dataContainer();
+        if (data.get(StructuredDataKey.EQUIPPABLE1_21_6) != null || data.hasEmpty(StructuredDataKey.EQUIPPABLE1_21_6)) {
+            return;
+        }
+        data.set(StructuredDataKey.EQUIPPABLE1_21_6, new Equippable(
+                slot,
+                Holder.of(new SoundEvent("minecraft:item.armor.equip_generic", null)),
+                equipmentAsset(bedrockIdentifier),
+                null,
+                null,
+                true,
+                true,
+                true
+        ));
+    }
+
+    private static int armorSlotId(final String wearableSlot) {
+        return switch (wearableSlot) {
+            case "slot.armor.feet" -> 1;
+            case "slot.armor.legs" -> 2;
+            case "slot.armor.chest" -> 3;
+            case "slot.armor.head" -> 4;
+            default -> -1;
+        };
+    }
+
+    private static String equipmentAsset(final String bedrockIdentifier) {
+        final String identifier = bedrockIdentifier.toLowerCase(Locale.ROOT);
+        if (identifier.contains("netherite")) {
+            return "minecraft:netherite";
+        }
+        if (identifier.contains("diamond")) {
+            return "minecraft:diamond";
+        }
+        if (identifier.contains("gold")) {
+            return "minecraft:gold";
+        }
+        if (identifier.contains("chain")) {
+            return "minecraft:chainmail";
+        }
+        if (identifier.contains("leather")) {
+            return "minecraft:leather";
+        }
+        if (identifier.contains("turtle")) {
+            return "minecraft:turtle_scute";
+        }
+        if (identifier.contains("armadillo")) {
+            return "minecraft:armadillo_scute";
+        }
+        return "minecraft:iron";
     }
 
     private CustomItemDataComponents() {

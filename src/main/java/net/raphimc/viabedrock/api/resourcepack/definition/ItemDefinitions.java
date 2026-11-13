@@ -122,6 +122,12 @@ public class ItemDefinitions {
                 this.warnInvalidStackSize(identifier, e.getMessage());
             }
         }
+        if (components.has("minecraft:wearable") && components.get("minecraft:wearable").isJsonObject()) {
+            final JsonObject wearable = components.getAsJsonObject("minecraft:wearable");
+            if (wearable.has("slot") && wearable.get("slot").isJsonPrimitive()) {
+                itemDefinition.wearableSlot = wearable.get("slot").getAsString();
+            }
+        }
         this.items.put(identifier, itemDefinition);
     }
 
@@ -164,6 +170,9 @@ public class ItemDefinitions {
                         this.warningLogger.accept("Invalid minecraft:armor component for item " + identifier + ": " + e.getMessage());
                     }
                 }
+            }
+            if (components.get("minecraft:wearable") instanceof CompoundTag wearable && wearable.get("slot") instanceof StringTag slot) {
+                itemDefinition.wearableSlot = slot.getValue();
             }
 
             if (components.get("minecraft:max_stack_size") != null) {
@@ -277,6 +286,7 @@ public class ItemDefinitions {
         private String iconComponent;
         private String displayNameComponent;
         private Integer armorProtection;
+        private String wearableSlot;
         private Integer maxStackSize;
         private boolean consumable;
         private int useDurationTicks = DEFAULT_USE_DURATION_TICKS;
@@ -311,6 +321,10 @@ public class ItemDefinitions {
             return this.armorProtection;
         }
 
+        public String wearableSlot() {
+            return this.wearableSlot;
+        }
+
         public Integer maxStackSize() {
             return this.maxStackSize;
         }
@@ -327,6 +341,7 @@ public class ItemDefinitions {
             this.displayNameComponent = definition.displayNameComponent;
             this.useAnimation = definition.useAnimation;
             this.maxStackSize = definition.maxStackSize;
+            this.wearableSlot = definition.wearableSlot;
         }
 
     }
